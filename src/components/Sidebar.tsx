@@ -23,6 +23,7 @@ const NAV = [
   { href: "/calendar", label: "Calendar", Icon: Calendar },
   { href: "/timer", label: "Timer", Icon: Timer },
   { href: "/report", label: "Report", Icon: BarChart2 },
+  { href: "/projects", label: "Projects", Icon: FolderOpen },
 ];
 
 export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void }) {

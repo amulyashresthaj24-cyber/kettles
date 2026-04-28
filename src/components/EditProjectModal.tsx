@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/lib/store";
-import type { ProjectColor, ProjectStatus } from "@/lib/types";
+import type { Project, ProjectColor, ProjectStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { X, Palette, ChevronDown } from "lucide-react";
@@ -84,14 +84,16 @@ function PillSelect<T extends string>({
   );
 }
 
-export function AddProjectModal({
+export function EditProjectModal({
   open,
+  project,
   onClose,
 }: {
   open: boolean;
+  project?: Project;
   onClose: () => void;
 }) {
-  const addProject = useApp((s) => s.addProject);
+  const updateProject = useApp((s) => s.updateProject);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -101,15 +103,15 @@ export function AddProjectModal({
   const [budget, setBudget] = useState("");
 
   useEffect(() => {
-    if (open) {
-      setName("");
-      setDescription("");
-      setColor("teal");
-      setBillable(true);
-      setStatus("active");
-      setBudget("");
+    if (open && project) {
+      setName(project.name);
+      setDescription(project.description || "");
+      setColor(project.color);
+      setBillable(project.billable);
+      setStatus(project.status || "active");
+      setBudget(project.budget?.toString() || "");
     }
-  }, [open]);
+  }, [open, project]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,9 +124,9 @@ export function AddProjectModal({
   }, [open, onClose, name]);
 
   const handleSubmit = () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !project) return;
 
-    addProject({
+    updateProject(project.id, {
       name: name.trim(),
       description: description.trim() || undefined,
       color,
@@ -135,7 +137,7 @@ export function AddProjectModal({
     onClose();
   };
 
-  if (!open) return null;
+  if (!open || !project) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-lg">
@@ -151,7 +153,7 @@ export function AddProjectModal({
         {/* Header */}
         <div className="flex items-center justify-between px-xl py-md border-b border-border-subtle">
           <h2 className="text-[13px] text-text-secondary font-medium">
-            New project
+            Edit project
           </h2>
           <button
             type="button"
@@ -239,7 +241,7 @@ export function AddProjectModal({
               onClick={handleSubmit}
               disabled={!name.trim()}
             >
-              Create project
+              Save changes
             </Button>
           </div>
         </div>
