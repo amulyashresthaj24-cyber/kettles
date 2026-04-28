@@ -89,7 +89,7 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
             {task.status !== "todo" && (
               <Button
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation();
                   setTaskStatus(task.id, "todo");
@@ -102,7 +102,7 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
             {task.status !== "in_progress" && (
               <Button
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation();
                   setTaskStatus(task.id, "in_progress");
@@ -114,7 +114,7 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
             )}
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               onClick={(e) => {
                 e.stopPropagation();
                 setTaskStatus(task.id, "done");
@@ -128,7 +128,7 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
           <>
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               onClick={(e) => {
                 e.stopPropagation();
                 setTaskStatus(task.id, "todo");

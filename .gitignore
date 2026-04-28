@@ -1,16 +1,50 @@
-node_modules
-# keep graph outputs, skip heavy/local-only files
+# Dependencies
+node_modules/
+.venv/
+venv/
 
-# optional: commit for shared extraction speed, skip to keep repo small
+# Build artifacts
+.next/
+dist/
+build/
+*.tsbuildinfo
+
+# IDE & Editor
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dev.log
+
+# Analysis artifacts
+.graphify_python
+.graphify_uncached.txt
+.gstack
+graphify/
 graphify-out/cache/
-
-# mtime-based, invalid after git clone - always gitignore this
 graphify-out/manifest.json
-
-# local token tracking, not useful to share
 graphify-out/cost.json
 
-graphify/
+# Generated files
+next-env.d.ts
 
-.next/
-.claude/
+# Backup files
+*.restored
+*.backup
+*.bak
+
+# OS
+.DS_Store
+Thumbs.db

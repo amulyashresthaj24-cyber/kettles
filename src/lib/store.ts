@@ -25,6 +25,8 @@ interface State {
 
   addClient: (c: Omit<Client, "id">) => Client;
   addProject: (p: Omit<Project, "id">) => Project;
+  updateProject: (id: string, patch: Partial<Omit<Project, "id">>) => void;
+  deleteProject: (id: string) => void;
   addTask: (t: Omit<Task, "id" | "createdAt" | "status"> & { status?: TaskStatus }) => Task;
   updateTask: (id: string, patch: Partial<Task>) => void;
   deleteTask: (id: string) => void;
@@ -68,6 +70,9 @@ export const useApp = create<State>()(
         set({ projects: [...get().projects, created] });
         return created;
       },
+      updateProject: (id, patch) =>
+        set({ projects: get().projects.map((p) => (p.id === id ? { ...p, ...patch } : p)) }),
+      deleteProject: (id) => set({ projects: get().projects.filter((p) => p.id !== id) }),
       addTask: (t) => {
         const created: Task = {
           ...t,
