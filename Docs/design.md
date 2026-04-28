@@ -445,23 +445,183 @@ Status variant: Use status colors
 
 ---
 
-## 8. Animations & Interactions
+## 8. Motion System
 
-### Spring Physics
+> **Principle:** Motion is functional, not decorative. Goal: fast, precise, responsive — not animated.
 
-All transitions use **spring-based animations** (not linear easing) for a natural, responsive feel.
+### Core Philosophy
 
-| Speed | Stiffness | Damping | Mass | Use |
-|-------|-----------|---------|------|-----|
-| **Standard** | 400 | 40 | 1 | Default hover/focus states |
-| **Snappy** | 500 | 30 | 1 | Micro-interactions, alerts |
-| **Soft** | 300 | 45 | 1 | Large modal opens, page transitions |
+Motion must:
+- Communicate state change
+- Guide attention
+- Preserve spatial continuity
+- Improve perceived performance
+
+If motion does not serve a purpose → remove it.
+
+### Motion Tokens
+
+```css
+:root {
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 240ms;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+}
+```
+
+### Global Rules
+
+**1. No Linear Easing** — never use `transition: all 0.3s linear`. Always use `--ease-out`, `--ease-in`, or `--ease-standard`.
+
+**2. Duration Standards**
+
+| Use Case | Duration |
+|----------|----------|
+| Hover feedback | 100–140ms |
+| Small UI changes | 140–180ms |
+| Standard transitions | 180–220ms |
+| Panels / modals | 200–260ms |
+
+Never exceed 300ms.
+
+**3. GPU-Friendly Properties Only**
+
+- Allowed: `transform`, `opacity`
+- Avoid: `width`, `height`, `top`/`left`, `box-shadow`
+
+**4. Subtle Over Expressive** — no bounce, no overshoot, no exaggerated motion. If it's noticeable, it's too much.
+
+### Component Motion Patterns
+
+#### Buttons
+
+```css
+.button {
+  transition: background var(--motion-fast) var(--ease-out),
+              transform var(--motion-fast) var(--ease-out);
+}
+.button:hover { transform: translateY(-1px); }
+.button:active { transform: scale(0.97); }
+```
+
+Instant response (<50ms). No delay. No bounce-back.
+
+#### Hover States (General)
+
+```css
+.hover-item {
+  transition: background var(--motion-fast) var(--ease-out),
+              opacity var(--motion-fast) var(--ease-out);
+}
+```
+
+Prefer color/opacity over movement.
+
+#### Dropdown / Autocomplete
+
+```css
+.dropdown { animation: dropdown-in 160ms var(--ease-out); }
+.dropdown-exit { animation: dropdown-out 120ms var(--ease-in); }
+
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes dropdown-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(2px); }
+}
+```
+
+#### Modal / Panel
+
+```css
+.modal { animation: modal-in 220ms var(--ease-out); }
+.modal-exit { animation: modal-out 160ms var(--ease-in); }
+.modal-overlay { transition: opacity var(--motion-base) var(--ease-out); }
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.98) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes modal-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.98); }
+}
+```
+
+#### Task Row
+
+```css
+.task-row {
+  transition: background var(--motion-fast) var(--ease-out);
+}
+/* Reordering (FLIP) */
+.task-row-moving {
+  transition: transform var(--motion-base) var(--ease-standard);
+}
+```
+
+#### Tabs (Linear Style)
+
+```css
+.tab-indicator {
+  transition: transform var(--motion-base) var(--ease-out),
+              width var(--motion-base) var(--ease-out);
+}
+```
+
+Indicator slides. No fade switching. No bounce.
+
+#### Token Insertion (Task / Project Tag)
+
+```css
+.token { animation: token-in 140ms var(--ease-out); }
+
+@keyframes token-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+```
+
+#### Page Load / Content Reveal
+
+```css
+.fade-in { animation: fade-in 180ms var(--ease-out); }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Optional stagger */
+.item { animation-delay: calc(var(--index) * 20ms); }
+```
+
+#### Timer Start
+
+```css
+.timer-bar { transition: transform var(--motion-base) var(--ease-out); }
+.timer-active { transform: translateY(-2px); }
+```
+
+### Motion Hierarchy
+
+| Priority | Element |
+|----------|---------|
+| High | User-triggered actions (click, input) |
+| Medium | Navigation changes |
+| Low | Background / passive elements |
 
 ### Interaction States
 
 **Buttons:**
-- Hover: Background shift + shadow lift (optional)
-- Active: Slightly darker background
+- Hover: Background shift + `translateY(-1px)`
+- Active: `scale(0.97)`
 - Disabled: `opacity-50`
 - Focus: Accent border ring (2px, offset 2px)
 
@@ -474,6 +634,17 @@ All transitions use **spring-based animations** (not linear easing) for a natura
 - Focus: Border shifts to accent color
 - Error: Border shifts to error color
 - Disabled: opacity-50, cursor-not-allowed
+
+### What NOT to Do
+
+- No bounce animations
+- No animating layout properties (width, height, top, left)
+- No delay before interaction response
+- No decorative motion
+- No overusing scale effects
+- No animating everything at once
+
+> Motion should be felt, not noticed. If the app feels fast and nothing stands out — you did it right.
 
 ---
 
@@ -639,6 +810,15 @@ Add these to `src/app/globals.css`:
   --warning: #f59e0b;
   --error: #ef4444;
   --info: #3b82f6;
+
+  /* Motion */
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 240ms;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
 }
 ```
 

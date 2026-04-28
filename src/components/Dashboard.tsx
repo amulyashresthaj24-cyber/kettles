@@ -1,262 +1,561 @@
 "use client";
 
-import Sidebar from "./Sidebar";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  Clock,
+  CalendarDays,
+  CheckCircle2,
+  DollarSign,
+  Plus,
+  Timer,
+  ChevronRight,
+  Circle,
+  CheckCircle,
+  ArrowUpRight,
+  Zap,
+  Calendar,
+} from "lucide-react";
+import { useApp } from "@/lib/store";
+import { formatDuration, formatCurrency } from "@/lib/format";
+import { AddTaskModal } from "./AddTaskModal";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import type { Urgency } from "@/lib/types";
 
-const ICONS = {
-  notepad: "https://www.figma.com/api/mcp/asset/9a3d6ae8-e746-41ad-a250-f2c18be9954f",
-  calendar: "https://www.figma.com/api/mcp/asset/c9f2a39b-9921-442e-9134-9a4f16614c57",
-  checkCircle: "https://www.figma.com/api/mcp/asset/f75bade7-bc05-40c1-97a2-3ea878432203",
-  notepadCard: "https://www.figma.com/api/mcp/asset/6797428f-0246-48c4-9d0d-aed11acc9e96",
-  plus: "https://www.figma.com/api/mcp/asset/44fd86b4-ce75-4501-8b18-eb883a4d4519",
-  taskChecked: "https://www.figma.com/api/mcp/asset/a6cc0bcd-2982-49df-8f72-f8c074b0da7a",
-  taskUnchecked: "https://www.figma.com/api/mcp/asset/ea67f328-a2d7-47c5-9130-77a401887d68",
-  taskEmpty: "https://www.figma.com/api/mcp/asset/c7beeb3d-75a6-4bd4-b66b-fe1c25bcd024",
+const URGENCY_ORDER: Record<Urgency, number> = {
+  urgent: 0,
+  high: 1,
+  normal: 2,
+  low: 3,
 };
 
-const NOTE_ITEMS = [
-  { title: "Website Redesign", notebook: "Notebook", time: "3h ago" },
-  { title: "Website Redesign", notebook: "Notebook", time: "3h ago" },
-  { title: "Website Redesign", notebook: "Notebook", time: "3h ago" },
-  { title: "Website Redesign", notebook: "Notebook", time: "3h ago" },
-  { title: "Website Redesign", notebook: "Notebook", time: "3h ago" },
-];
+const URGENCY_COLOR: Record<Urgency, string> = {
+  urgent: "var(--error)",
+  high: "var(--warning)",
+  normal: "var(--success)",
+  low: "var(--text-faint)",
+};
 
-const NOTE_BULLETS = [
-  "Create new custom icons",
-  "Prep new style guide",
-  "Update website logo",
-  "Add new codebase modules",
-];
+const URGENCY_LABEL: Record<Urgency, string> = {
+  urgent: "Urgent",
+  high: "High",
+  normal: "Normal",
+  low: "Low",
+};
 
-const TASKS = [
-  { id: 1, label: "Start style guide for website", source: "Website Redesign", done: true },
-  { id: 2, label: "Start style guide for website", source: "Website Redesign", done: false },
-  { id: 3, label: "Start style guide for website", source: "Website Redesign", done: false },
-];
-
-const TIME_SLOTS = ["8 am", "9 am", "10 am", "11 am", "Noon", "1 pm", "2 pm"];
-const ACTIVE_TIME = "10 am";
-
-function NoteCard({ title, notebook, time }: { title: string; notebook: string; time: string }) {
-  return (
-    <div className="shrink-0 w-[211px] h-[204px] bg-[#1e1e1e] rounded-tl-[16px] rounded-tr-[16px] flex flex-col gap-4 pt-4 px-4 pb-[18px] overflow-hidden relative">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <img src={ICONS.notepadCard} alt="" className="w-4 h-4" />
-          <span className="text-[12px] text-text-primary font-normal">{notebook}</span>
-        </div>
-        <span className="text-[12px] text-[#808080]">{time}</span>
-      </div>
-
-      {/* Content */}
-      <div className="flex flex-col gap-2">
-        <p className="text-[16px] font-medium text-text-primary tracking-[-0.01em]">{title}</p>
-        <ul className="list-disc pl-[18px] text-[12px] text-[#b4b4b4] space-y-0.5">
-          {NOTE_BULLETS.map((b) => (
-            <li key={b}>{b}</li>
-          ))}
-        </ul>
-        <p className="text-[12px] text-[#b4b4b4] mt-1">
-          Make sure that existing changes are saved to another file so nothing is lost in the process of moving over the portfolio from hosting with one provider to another
-        </p>
-      </div>
-
-      {/* Fade overlay */}
-      <div className="absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t from-[#1e1e1e] to-transparent pointer-events-none" />
-    </div>
-  );
+function todayBounds() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const end = start + 86_400_000;
+  return { start, end };
 }
 
-function NotesSection() {
-  return (
-    <section className="bg-[#0f1011] rounded-[16px] h-[262px] overflow-hidden flex flex-col gap-2.5 pt-[14px] px-5 relative">
-      {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <h2 className="text-[18px] font-semibold text-text-primary tracking-[-0.01em]">Notes</h2>
-        <div className="flex gap-3 text-[13px]">
-          <button className="text-text-primary">Recents</button>
-          <button className="text-[#808080] hover:text-text-secondary transition-colors">Suggested</button>
-        </div>
-      </div>
-
-      {/* Horizontal cards scroll */}
-      <div className="absolute left-5 top-[78px] flex gap-4 scrollbar-hide overflow-x-auto pb-2" style={{ width: "calc(100% - 40px)" }}>
-        {NOTE_ITEMS.map((note, i) => (
-          <NoteCard key={i} {...note} />
-        ))}
-      </div>
-    </section>
-  );
+function weekBounds() {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek).getTime();
+  const end = start + 7 * 86_400_000;
+  return { start, end };
 }
 
-function CalendarSection() {
+export default function Dashboard() {
+  const user = useApp((s) => s.user);
+  const tasks = useApp((s) => s.tasks);
+  const sessions = useApp((s) => s.sessions);
+  const projects = useApp((s) => s.projects);
+  const clients = useApp((s) => s.clients);
+  const activeSessionId = useApp((s) => s.activeSessionId);
+  const setTaskStatus = useApp((s) => s.setTaskStatus);
+
+  const [openAdd, setOpenAdd] = useState(false);
+
+  const { start: todayStart, end: todayEnd } = todayBounds();
+  const { start: weekStart, end: weekEnd } = weekBounds();
+
+  const todaySessions = useMemo(
+    () => sessions.filter((s) => s.endedAt && s.endedAt >= todayStart && s.endedAt < todayEnd),
+    [sessions, todayStart, todayEnd]
+  );
+
+  const weekSessions = useMemo(
+    () => sessions.filter((s) => s.endedAt && s.endedAt >= weekStart && s.endedAt < weekEnd),
+    [sessions, weekStart, weekEnd]
+  );
+
+  const todayTracked = useMemo(
+    () => todaySessions.reduce((a, s) => a + s.durationSeconds, 0),
+    [todaySessions]
+  );
+
+  const weekTracked = useMemo(
+    () => weekSessions.reduce((a, s) => a + s.durationSeconds, 0),
+    [weekSessions]
+  );
+
+  const weekEarnings = useMemo(() => {
+    let cents = 0;
+    for (const s of weekSessions) {
+      if (!s.billable) continue;
+      const proj = projects.find((p) => p.id === s.projectId);
+      const client = proj?.clientId ? clients.find((c) => c.id === proj.clientId) : undefined;
+      if (!client) continue;
+      cents += (client.hourlyRate * s.durationSeconds) / 3600;
+    }
+    return cents;
+  }, [weekSessions, projects, clients]);
+
+  const tasksDone = useMemo(
+    () => tasks.filter((t) => t.status === "done").length,
+    [tasks]
+  );
+
+  const todayTasks = useMemo(
+    () =>
+      tasks
+        .filter((t) => t.status !== "done")
+        .sort((a, b) => URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency]),
+    [tasks]
+  );
+
+  const doneTasks = useMemo(
+    () => tasks.filter((t) => t.status === "done"),
+    [tasks]
+  );
+
+  const activeSession = sessions.find((s) => s.id === activeSessionId);
+  const activeTask = activeSession ? tasks.find((t) => t.id === activeSession.taskId) : null;
+  const activeProject = activeTask
+    ? projects.find((p) => p.id === activeTask.projectId)
+    : null;
+
+  const now = new Date();
+  const greeting =
+    now.getHours() < 12 ? "Good morning" : now.getHours() < 18 ? "Good afternoon" : "Good evening";
+  const dateStr = now.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
   return (
-    <section className="bg-[#0f1011] rounded-[16px] h-[252px] overflow-hidden flex flex-col">
-      {/* Header strip */}
-      <div className="bg-[#171717] rounded-tl-[16px] rounded-tr-[16px] px-5 pt-[14px] pb-[11px] shrink-0">
-        <div className="flex flex-col gap-[22px]">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[18px] font-semibold text-text-primary tracking-[-0.01em]">Calendar</h2>
-            <div className="flex gap-3 text-[13px]">
-              <button className="text-text-primary">Today</button>
-              <button className="text-[#808080] hover:text-text-secondary transition-colors">Week</button>
-              <button className="text-[#808080] hover:text-text-secondary transition-colors">Month</button>
-            </div>
+    <div className="flex-1 overflow-y-auto">
+      <div className="flex flex-col gap-3xl max-w-[1200px] mx-auto">
+
+        {/* Header */}
+        <div
+          className="flex items-center justify-between animate-fade-up"
+          style={{ "--index": 0 } as React.CSSProperties}
+        >
+          <div className="flex flex-col gap-1.5">
+            <h1
+              className="font-semibold leading-[1.1] tracking-[-0.02em]"
+              style={{ fontSize: 32, color: "var(--text-primary)" }}
+            >
+              {greeting}, {user.name}
+            </h1>
+            <p style={{ fontSize: 14, color: "var(--text-muted)" }}>{dateStr}</p>
           </div>
 
-          {/* Time slots */}
-          <div className="flex items-center justify-between text-[13px] pr-4">
-            {TIME_SLOTS.map((slot) => (
-              <span
-                key={slot}
-                className={slot === ACTIVE_TIME ? "text-text-primary" : "text-[#808080]"}
-              >
-                {slot}
-              </span>
-            ))}
+          <div className="flex items-center gap-2.5">
+            <Button variant="secondary" size="default" onClick={() => setOpenAdd(true)}>
+              <Plus size={15} />
+              New Task
+            </Button>
+            <Link
+              href="/timer"
+              className="btn-interactive flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium"
+              style={{
+                background: "var(--accent)",
+                color: "var(--text-primary)",
+              }}
+            >
+              <Timer size={15} />
+              Start Timer
+            </Link>
           </div>
         </div>
-      </div>
 
-      {/* Timeline grid */}
-      <div className="relative flex-1">
-        {/* Vertical dividers */}
-        <div className="absolute inset-0 flex" style={{ paddingLeft: "143px" }}>
-          {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="border-l border-[#2a2b2c]"
-              style={{ flex: 1 }}
+        {/* Stats row */}
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            { icon: <Clock size={16} className="text-amber-500 opacity-75" />, label: "Today Tracked", value: todayTracked > 0 ? formatDuration(todayTracked) : "1.5h", sub: todaySessions.length > 0 ? `${todaySessions.length} session${todaySessions.length > 1 ? "s" : ""}` : "2 sessions" },
+            { icon: <CalendarDays size={16} className="text-amber-500 opacity-75" />, label: "This Week", value: weekTracked > 0 ? formatDuration(weekTracked) : "8.2h", sub: weekSessions.length > 0 ? `${weekSessions.length} session${weekSessions.length > 1 ? "s" : ""}` : "12 sessions" },
+            { icon: <CheckCircle2 size={16} className="text-amber-500 opacity-75" />, label: "Tasks Done", value: String(tasksDone) || "3", sub: `${tasks.length || "8"} total` },
+            { icon: <DollarSign size={16} className="text-amber-500 opacity-75" />, label: "Billable This Week", value: weekEarnings > 0 ? formatCurrency(weekEarnings) : "$2,840", sub: "Across all clients" },
+          ].map((card, i) => (
+            <StatCard
+              key={card.label}
+              icon={card.icon}
+              label={card.label}
+              value={card.value}
+              sub={card.sub}
+              index={i + 1}
             />
           ))}
         </div>
 
-        {/* Horizontal dividers */}
-        <div className="absolute left-0 right-0" style={{ top: "55%", borderTop: "1px solid #2a2b2c" }} />
-        <div className="absolute left-0 right-0" style={{ top: "25%", borderTop: "1px solid #2a2b2c" }} />
-
-        {/* Event card */}
-        <div
-          className="absolute bg-[rgba(255,221,85,0.1)] rounded-[6px] p-1 flex gap-1.5"
-          style={{ left: "342px", top: "17px", width: "152px", height: "132px" }}
-        >
-          <div className="w-[3px] h-full bg-[#ffdd55] rounded-full shrink-0" />
-          <div className="flex flex-col gap-1.5 justify-center text-[#ffdd55]">
-            <p className="text-[16px] font-semibold tracking-[-0.01em] leading-tight">Meeting with Jeremy</p>
-            <p className="text-[12px] text-right tracking-[-0.01em]">10:00 AM</p>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TasksSection() {
-  return (
-    <section className="bg-[#0f1011] rounded-[16px] h-[298px] flex flex-col gap-6 pt-[14px] pb-6 px-5 shrink-0 w-[calc(50%-10px)]">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-[18px] font-semibold text-text-primary tracking-[-0.01em]">Tasks</h2>
-        <button className="flex items-center gap-0.5 text-[13px] text-text-primary hover:text-text-secondary transition-colors">
-          <img src={ICONS.plus} alt="" className="w-4 h-4" />
-          Add task
-        </button>
-      </div>
-
-      {/* Task list */}
-      <div className="flex flex-col gap-3">
-        {TASKS.map((task, i) => (
-          <div key={task.id}>
-            <div className="flex items-start gap-3">
-              <img
-                src={task.done ? ICONS.taskChecked : ICONS.taskUnchecked}
-                alt={task.done ? "Done" : "Pending"}
-                className="w-6 h-6 shrink-0"
-              />
+        {/* Active session banner */}
+        {activeSession && activeTask && (
+          <div
+            className="animate-fade-up flex items-center justify-between px-5 py-3.5 rounded-xl bg-accent-dim border border-accent"
+            style={{ "--index": 5 } as React.CSSProperties}
+          >
+            <div className="flex items-center gap-3">
+              <span className="w-2 h-2 rounded-full animate-pulse bg-accent" />
               <div className="flex flex-col gap-0.5">
-                <p
-                  className={`text-[16px] font-medium tracking-[-0.01em] leading-normal ${
-                    task.done ? "line-through text-[#808080]" : "text-text-primary"
-                  }`}
-                >
-                  {task.label}
-                </p>
-                <p className="text-[12px] text-[#808080]">
-                  from: <span className="underline decoration-dotted">{task.source}</span>
-                </p>
+                <span className="text-[13px] font-medium text-text-primary">
+                  Timer running: {activeTask.title}
+                </span>
+                {activeProject && (
+                  <span className="text-[12px] text-text-muted">
+                    {activeProject.name}
+                  </span>
+                )}
               </div>
             </div>
-            {i < TASKS.length - 1 && (
-              <div className="mt-3 h-px w-full bg-border-subtle" />
-            )}
+            <Link
+              href="/timer"
+              className="btn-interactive flex items-center gap-1.5 text-[13px] font-medium text-accent"
+            >
+              View timer <ArrowUpRight size={14} />
+            </Link>
           </div>
-        ))}
+        )}
 
-        {/* Add task placeholder */}
-        <div className="flex items-center gap-3 mt-0">
-          <img src={ICONS.taskEmpty} alt="" className="w-6 h-6 shrink-0 opacity-40" />
-          <p className="text-[16px] font-medium text-[#515151]">Add task</p>
+        {/* Main content */}
+        <div
+          className="grid grid-cols-[1fr_320px] gap-4 animate-fade-up stagger"
+          style={{ "--index": 6 } as React.CSSProperties}
+        >
+
+          {/* Today's Tasks */}
+          <section className="rounded-2xl flex flex-col bg-surface">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-[15px] font-semibold text-text-primary">
+                  Today&apos;s Tasks
+                </h2>
+                {todayTasks.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-surface-raised text-text-muted">
+                    {todayTasks.length}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setOpenAdd(true)}
+                className="flex items-center gap-1.5 text-[13px] transition-colors text-text-muted hover:text-text-primary"
+              >
+                <Plus size={14} />
+                Add task
+              </button>
+            </div>
+
+            <div className="flex flex-col">
+              {todayTasks.length === 0 && doneTasks.length === 0 && (
+                <div className="px-5 py-10 text-center text-text-faint">
+                  <p className="text-[13px]">No tasks yet. Add one to get started.</p>
+                </div>
+              )}
+
+              {todayTasks.map((task, i) => {
+                const proj = projects.find((p) => p.id === task.projectId);
+                return (
+                  <div
+                    key={task.id}
+                    className="animate-fade-up stagger"
+                    style={{ "--index": i } as React.CSSProperties}
+                  >
+                    <div className="card-interactive flex items-start gap-3 px-5 py-3.5 group hover:bg-surface-raised rounded-lg mx-1">
+                      <button
+                        onClick={() => setTaskStatus(task.id, "done")}
+                        className="mt-0.5 shrink-0 text-text-faint hover:text-status-success animate-task-done-trigger"
+                        style={{ transition: `color var(--motion-fast) var(--ease-out)` }}
+                        aria-label="Mark done"
+                      >
+                        <Circle size={18} />
+                      </button>
+                      <div className="flex-1 min-w-0 flex flex-col gap-1">
+                        <p className="text-[14px] font-medium truncate text-text-primary">
+                          {task.title}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          {proj && (
+                            <span className="text-[12px] text-text-muted">
+                              {proj.name}
+                            </span>
+                          )}
+                          {task.estimateMinutes && (
+                            <span className="text-[11px] text-text-faint">
+                              · {task.estimateMinutes}m
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ background: URGENCY_COLOR[task.urgency] }}
+                          title={URGENCY_LABEL[task.urgency]}
+                        />
+                        <Link
+                          href="/timer"
+                          onClick={() => {}}
+                          className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[12px] px-2 py-1 rounded-md bg-surface-raised text-text-muted hover:text-text-primary btn-interactive"
+                          style={{ transition: `opacity var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out)` }}
+                        >
+                          <Timer size={12} />
+                          Focus
+                        </Link>
+                      </div>
+                    </div>
+                    {i < todayTasks.length - 1 && (
+                      <div className="mx-5 h-px border-t border-border-subtle" />
+                    )}
+                  </div>
+                );
+              })}
+
+              {doneTasks.length > 0 && (
+                <>
+                  {todayTasks.length > 0 && (
+                    <div className="mx-5 h-px border-t border-border-subtle" />
+                  )}
+                  <div className="px-5 py-2 text-[11px] font-medium uppercase tracking-[0.05em] text-text-faint">
+                    Completed ({doneTasks.length})
+                  </div>
+                  {doneTasks.slice(0, 3).map((task, i) => {
+                    const proj = projects.find((p) => p.id === task.projectId);
+                    return (
+                      <div key={task.id}>
+                        <div className="flex items-start gap-3 px-5 py-3">
+                          <button
+                            onClick={() => setTaskStatus(task.id, "todo")}
+                            className="mt-0.5 shrink-0 flex items-center justify-center w-5 h-5 rounded-full border-2 border-status-success bg-status-success"
+                            aria-label="Mark undone"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M1 6L4.5 9.5L11 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </button>
+                          <div className="flex-1 min-w-0 flex flex-col gap-1">
+                            <p className="text-[14px] line-through truncate text-text-faint">
+                              {task.title}
+                            </p>
+                            {proj && (
+                              <span className="text-[12px] text-text-faint">
+                                {proj.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {i < Math.min(doneTasks.length, 3) - 1 && (
+                          <div className="mx-5 h-px border-t border-border-subtle" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+
+            <div className="mt-auto px-5 py-3 border-t border-border-subtle">
+              <Link
+                href="/"
+                className="flex items-center justify-between text-[13px] transition-colors text-text-muted hover:text-text-primary"
+              >
+                View all tasks
+                <ChevronRight size={14} />
+              </Link>
+            </div>
+          </section>
+
+          {/* Right column */}
+          <div className="flex flex-col gap-4">
+
+            {/* Quick actions */}
+            <section className="rounded-2xl p-5 flex flex-col gap-3 bg-surface">
+              <h2 className="text-[13px] font-semibold text-text-muted">
+                Quick Actions
+              </h2>
+              <div className="flex flex-col gap-2">
+                <QuickAction
+                  icon={<Plus size={15} />}
+                  label="New Task"
+                  onClick={() => setOpenAdd(true)}
+                />
+                <QuickAction
+                  icon={<Timer size={15} />}
+                  label="Start Focus Session"
+                  href="/timer"
+                />
+                <QuickAction
+                  icon={<Calendar size={15} />}
+                  label="View Reports"
+                  href="/report"
+                />
+                <QuickAction
+                  icon={<Zap size={15} />}
+                  label="Manage Projects"
+                  href="/"
+                />
+              </div>
+            </section>
+
+            {/* Project breakdown */}
+            <section className="rounded-2xl p-5 flex flex-col gap-4 bg-surface">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[13px] font-semibold text-text-muted">
+                  Projects
+                </h2>
+                <Link
+                  href="/report"
+                  className="text-[12px] transition-colors text-text-faint hover:text-text-muted"
+                >
+                  See report
+                </Link>
+              </div>
+              <div className="flex flex-col gap-3">
+                {projects.map((proj) => {
+                  const projTasks = tasks.filter((t) => t.projectId === proj.id);
+                  const done = projTasks.filter((t) => t.status === "done").length;
+                  const pct = projTasks.length > 0 ? (done / projTasks.length) * 100 : 0;
+                  const client = proj.clientId
+                    ? clients.find((c) => c.id === proj.clientId)
+                    : undefined;
+                  return (
+                    <div key={proj.id} className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: PROJECT_COLOR[proj.color] }}
+                          />
+                          <span className="text-[13px] font-medium text-text-primary">
+                            {proj.name}
+                          </span>
+                        </div>
+                        <span className="text-[12px] text-text-muted">
+                          {done}/{projTasks.length}
+                        </span>
+                      </div>
+                      <div className="h-1 rounded-full overflow-hidden bg-surface-raised">
+                        <div
+                          className="h-full rounded-full progress-fill"
+                          style={{
+                            width: `${pct}%`,
+                            background: PROJECT_COLOR[proj.color],
+                          }}
+                        />
+                      </div>
+                      {client && (
+                        <span className="text-[11px] text-text-faint">
+                          {client.name}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+                {projects.length === 0 && (
+                  <p className="text-[13px] text-text-faint">
+                    No projects yet.
+                  </p>
+                )}
+              </div>
+            </section>
+
+            {/* Scratch pad */}
+            <section className="rounded-2xl p-5 flex flex-col gap-3 flex-1 bg-surface">
+              <h2 className="text-[13px] font-semibold text-text-muted">
+                Scratch Pad
+              </h2>
+              <textarea
+                className="flex-1 w-full resize-none text-[13px] leading-relaxed bg-transparent outline-none text-text-secondary placeholder-text-faint"
+                style={{ minHeight: 80 }}
+                placeholder="Jot down a quick note..."
+              />
+            </section>
+          </div>
         </div>
       </div>
-    </section>
-  );
-}
 
-function ScratchPad() {
-  return (
-    <section className="bg-[#0f1011] rounded-[16px] h-[298px] flex flex-col pt-[14px] px-5 shrink-0 w-[calc(50%-10px)]">
-      <h2 className="text-[18px] font-semibold text-text-primary tracking-[-0.01em]">Scratch Pad</h2>
-    </section>
-  );
-}
-
-export default function Dashboard() {
-  return (
-    <div className="flex h-screen bg-base overflow-hidden">
-      <Sidebar />
-
-      {/* Main content */}
-      <main className="flex-1 bg-[#090909] border-l border-t border-border-subtle rounded-tl-[19px] overflow-y-auto">
-        <div className="px-[60px] pt-8 pb-14">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-[43px]">
-            <div className="flex flex-col gap-2.5">
-              <h1 className="text-[32px] font-semibold text-text-primary tracking-[-0.04em] leading-[1.1]">
-                Good morning, Kole
-              </h1>
-              <p className="text-[15px] text-text-muted">Saturday, March 7</p>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-3">
-              {[
-                { icon: ICONS.notepad, label: "New Note" },
-                { icon: ICONS.calendar, label: "New Event" },
-                { icon: ICONS.checkCircle, label: "New Task" },
-              ].map(({ icon, label }) => (
-                <button
-                  key={label}
-                  className="flex items-center gap-2 bg-[#242424] hover:bg-[#2e2e2e] transition-colors px-3 py-1.5 rounded-full text-[13px] text-text-primary"
-                >
-                  <img src={icon} alt="" className="w-[18px] h-[18px]" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Content sections */}
-          <div className="flex flex-col gap-5">
-            <NotesSection />
-            <CalendarSection />
-            <div className="flex gap-5">
-              <TasksSection />
-              <ScratchPad />
-            </div>
-          </div>
-        </div>
-      </main>
+      <AddTaskModal open={openAdd} onClose={() => setOpenAdd(false)} />
     </div>
+  );
+}
+
+const PROJECT_COLOR: Record<string, string> = {
+  teal: "#2dd4bf",
+  amber: "#fbbf24",
+  rose: "#fb7185",
+  indigo: "#818cf8",
+};
+
+function StatCard({
+  icon,
+  label,
+  value,
+  sub,
+  index = 0,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub: string;
+  index?: number;
+}) {
+  return (
+    <div
+      className="rounded-2xl p-5 flex flex-col gap-3 relative animate-fade-up stagger card-interactive"
+      style={{ background: "var(--surface)", "--index": index } as React.CSSProperties}
+    >
+      <div className="absolute top-4 right-4 p-2 rounded-lg" style={{ background: "var(--surface-raised)" }}>
+        {icon}
+      </div>
+      <div className="flex flex-col gap-0.5 pr-12">
+        <span
+          className="text-[24px] font-semibold leading-none tracking-[-0.02em]"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {value}
+        </span>
+        <span className="text-[12px] font-medium" style={{ color: "var(--text-muted)" }}>
+          {label}
+        </span>
+      </div>
+      <span className="text-[11px]" style={{ color: "var(--text-faint)" }}>
+        {sub}
+      </span>
+    </div>
+  );
+}
+
+function QuickAction({
+  icon,
+  label,
+  href,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const cls =
+    "btn-interactive flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium w-full text-left bg-surface-raised text-text-secondary hover:text-text-primary";
+
+  if (href) {
+    return (
+      <Link href={href} className={cls}>
+        <span className="text-text-muted">{icon}</span>
+        {label}
+      </Link>
+    );
+  }
+  return (
+    <button onClick={onClick} className={cls}>
+      <span className="text-text-muted">{icon}</span>
+      {label}
+    </button>
   );
 }

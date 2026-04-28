@@ -1,106 +1,189 @@
 "use client";
 
-const ICONS = {
-  caretUpDown: "https://www.figma.com/api/mcp/asset/8f907103-56c0-4ab2-85d2-848daea0d5fd",
-  magnifyingGlass: "https://www.figma.com/api/mcp/asset/bead1b54-7d99-4255-a58f-1969e6b213b1",
-  divider: "https://www.figma.com/api/mcp/asset/17106fde-df9e-417b-8a50-180508448f10",
-  overview: "https://www.figma.com/api/mcp/asset/2f02b7dd-0191-4dd4-8aff-d581d602b201",
-  notes: "https://www.figma.com/api/mcp/asset/ce21b8a3-0124-4ade-b1e1-37fbd24594d3",
-  calendar: "https://www.figma.com/api/mcp/asset/2cfe8109-9dfc-4a19-b54d-fc13f307103f",
-  tasks: "https://www.figma.com/api/mcp/asset/5878b286-fdc5-4a33-bb09-6eb67d2886e1",
-  files: "https://www.figma.com/api/mcp/asset/b693d21b-cd2a-4b27-a420-5483959ffc6a",
-  templates: "https://www.figma.com/api/mcp/asset/d4ae0574-9c55-461f-ad65-c605c587d6fb",
-  notebook: "https://www.figma.com/api/mcp/asset/671b2e68-9b65-442d-a8ef-bd099106a042",
-  tag: "https://www.figma.com/api/mcp/asset/1bbea446-4867-48c1-b9e3-6b382402db06",
-  userCheck: "https://www.figma.com/api/mcp/asset/de8d095a-922f-4176-826c-00ec58676d9b",
-  settings: "https://www.figma.com/api/mcp/asset/d58f8109-00fa-43d5-9955-2fcafb5a9cd8",
-  headset: "https://www.figma.com/api/mcp/asset/03eaeeac-378c-4023-8e55-1f514167c8ac",
-};
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  CheckSquare,
+  Timer,
+  BarChart2,
+  LayoutDashboard,
+  Plus,
+  FolderOpen,
+  Search,
+  ChevronsUpDown,
+  Calendar,
+} from "lucide-react";
+import { useApp } from "@/lib/store";
+import { cn } from "@/lib/utils";
+import { AddProjectModal } from "./AddProjectModal";
+const NAV = [
+  { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
+  { href: "/", label: "Tasks", Icon: CheckSquare },
+  { href: "/calendar", label: "Calendar", Icon: Calendar },
+  { href: "/timer", label: "Timer", Icon: Timer },
+  { href: "/report", label: "Report", Icon: BarChart2 },
+];
 
-type NavItem = {
-  icon: string;
-  label: string;
-  active?: boolean;
-};
+export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void }) {
+  const pathname = usePathname();
+  const projects = useApp((s) => s.projects);
+  const clients = useApp((s) => s.clients);
+  const selectedProjectId = useApp((s) => s.selectedProjectId);
+  const setSelectedProject = useApp((s) => s.setSelectedProject);
+  const [openNewProject, setOpenNewProject] = useState(false);
 
-function NavLink({ icon, label, active }: NavItem) {
   return (
-    <button
-      className={`flex items-center gap-2 w-full text-left px-2 py-1 rounded-[8px] transition-colors ${
-        active
-          ? "bg-[#1f1f1f] text-text-primary"
-          : "text-text-muted hover:text-text-primary hover:bg-[#1a1a1a]"
-      }`}
-    >
-      <img src={icon} alt="" className="w-[18px] h-[18px] shrink-0" />
-      <span className="text-[13px] font-normal">{label}</span>
-    </button>
-  );
-}
-
-export default function Sidebar() {
-  return (
-    <aside className="w-[204px] shrink-0 flex flex-col justify-between h-screen py-6 px-4 border-r border-border-subtle">
-      {/* Top section */}
+    <aside className="flex h-screen w-[240px] shrink-0 flex-col overflow-y-auto bg-surface py-6 px-4">
       <div className="flex flex-col gap-7">
-        {/* User profile */}
-        <div className="flex items-center justify-between">
+        
+        {/* Profile */}
+        <div className="flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity">
           <div className="flex items-center gap-2">
             <div className="relative">
               <div className="w-[30px] h-[30px] bg-[#262626] rounded-[8px] flex items-center justify-center">
-                <span className="text-[16px] font-bold text-text-primary leading-none">K</span>
+                <span className="text-[16px] font-bold text-text-primary leading-none">A</span>
               </div>
-              <span className="absolute bottom-0 right-[-2px] w-[6px] h-[6px] bg-[#22c55e] rounded-full border border-base" />
+              <span className="absolute bottom-[-2px] right-[-2px] w-[8px] h-[8px] bg-[#22c55e] rounded-full border-[1.5px] border-base" />
             </div>
-            <span className="text-[16px] font-semibold text-text-primary">Kole Jain</span>
+            <span className="text-[16px] font-semibold text-text-primary">Amulya Shrestha</span>
           </div>
-          <img src={ICONS.caretUpDown} alt="Switch workspace" className="w-5 h-5 opacity-60" />
+          <ChevronsUpDown size={16} className="text-text-muted" />
         </div>
 
         {/* Search */}
         <div className="relative flex items-center">
-          <img
-            src={ICONS.magnifyingGlass}
-            alt=""
-            className="absolute left-[7px] w-[15px] h-[15px] opacity-60"
-          />
-          <div className="w-full h-[31px] bg-[#1f1f1f] border border-[#2e2e2e] rounded-[9px] flex items-center justify-between px-[7px] pl-[26px]">
+          <Search className="absolute left-[8px] text-text-muted" size={14} />
+          <div onClick={onSearchClick} className="w-full h-[32px] bg-surface-mid border border-[#2e2e2e] rounded-[8px] flex items-center justify-between px-[7px] pl-[28px] cursor-pointer hover:border-[#444] transition-colors">
             <span className="text-[13px] text-text-muted">Quick Search</span>
-            <div className="flex items-center justify-center border border-[#444] rounded-[7px] px-[6px] py-[4px]">
-              <span className="text-[10px] text-text-muted">⌘F</span>
+            <div className="flex items-center justify-center border border-[#444] rounded-[4px] px-[5px] py-[1px] bg-[#262626]">
+              <span className="text-[10px] text-text-muted font-medium">⌘F</span>
             </div>
           </div>
         </div>
 
-        {/* Primary nav */}
-        <div className="flex flex-col gap-3">
-          <NavLink icon={ICONS.overview} label="Overview" active />
+        {/* Primary Nav */}
+        <nav className="flex flex-col gap-1">
+          {NAV.map(({ href, label, Icon }) => {
+            const active = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "nav-interactive flex items-center gap-3 rounded-[8px] px-2 py-1.5 text-[13px] font-normal",
+                  active
+                    ? "bg-surface-mid text-text-primary"
+                    : "text-text-muted hover:bg-surface-raised hover:text-text-primary"
+                )}
+              >
+                <Icon size={16} className={cn("shrink-0", active ? "text-text-primary" : "text-text-muted")} />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
 
-          <div className="h-px w-full bg-border-subtle my-1" />
+        <div className="h-px w-full bg-border-subtle" />
 
-          <div className="flex flex-col gap-[18px] px-2">
-            <NavLink icon={ICONS.notes} label="Notes" />
-            <NavLink icon={ICONS.calendar} label="Calendar" />
-            <NavLink icon={ICONS.tasks} label="Tasks" />
-            <NavLink icon={ICONS.files} label="Files" />
-            <NavLink icon={ICONS.templates} label="Templates" />
-          </div>
-
-          <div className="h-px w-full bg-border-subtle my-1" />
-
-          <div className="flex flex-col gap-[18px] px-2">
-            <NavLink icon={ICONS.notebook} label="Notebook" />
-            <NavLink icon={ICONS.tag} label="Tags" />
-            <NavLink icon={ICONS.userCheck} label="Shared with me" />
-          </div>
-        </div>
+        {/* Projects */}
+        <Section
+          title="Projects"
+          action={{ label: "+", onClick: () => setOpenNewProject(true) }}
+        >
+          <button
+            onClick={() => setSelectedProject(null)}
+            className={cn(
+              "nav-interactive flex items-center gap-3 rounded-[8px] px-2 py-1.5 text-left text-[13px] font-normal w-full",
+              !selectedProjectId
+                ? "bg-surface-mid text-text-primary"
+                : "text-text-muted hover:bg-surface-raised hover:text-text-primary"
+            )}
+          >
+            <FolderOpen size={16} className={cn("shrink-0", !selectedProjectId ? "text-text-primary" : "text-text-muted")} />
+            All projects
+          </button>
+          {projects.map((p) => {
+            const client = p.clientId
+              ? clients.find((c) => c.id === p.clientId)
+              : undefined;
+            const active = selectedProjectId === p.id;
+            return (
+              <button
+                key={p.id}
+                onClick={() => setSelectedProject(p.id)}
+                className={cn(
+                  "nav-interactive flex flex-col items-start rounded-[8px] px-2 py-1.5 text-left text-[13px] w-full",
+                  active
+                    ? "bg-surface-mid text-text-primary"
+                    : "text-text-muted hover:bg-surface-raised hover:text-text-primary"
+                )}
+              >
+                <span className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full shrink-0",
+                      colorDot(p.color)
+                    )}
+                  />
+                  <span className={active ? "font-normal" : "font-normal"}>{p.name}</span>
+                </span>
+                {client && (
+                  <span className="pl-[20px] text-[11px] text-text-faint mt-0.5">
+                    {client.name}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </Section>
       </div>
 
-      {/* Bottom nav */}
-      <div className="flex flex-col gap-5 px-2">
-        <NavLink icon={ICONS.settings} label="Settings" />
-        <NavLink icon={ICONS.headset} label="Help Center" />
-      </div>
+      <AddProjectModal
+        open={openNewProject}
+        onClose={() => setOpenNewProject(false)}
+      />
     </aside>
   );
 }
+
+function Section({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: { label: string; onClick: () => void };
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between px-2">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.04em] text-text-faint">
+          {title}
+        </h2>
+        {action && (
+          <button
+            onClick={action.onClick}
+            aria-label={`Add ${title.toLowerCase()}`}
+            className="text-text-muted hover:text-text-primary transition-colors flex items-center justify-center w-5 h-5 rounded hover:bg-surface-raised"
+          >
+            <Plus size={14} />
+          </button>
+        )}
+      </div>
+      <div className="flex flex-col gap-1">{children}</div>
+    </div>
+  );
+}
+
+function colorDot(c: string) {
+  switch (c) {
+    case "teal":   return "bg-teal-400";
+    case "amber":  return "bg-amber-400";
+    case "rose":   return "bg-rose-400";
+    case "indigo": return "bg-indigo-400";
+    default:       return "bg-text-muted";
+  }
+}
+

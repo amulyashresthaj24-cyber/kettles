@@ -8,6 +8,7 @@
 
   /* Backgrounds */
   --base: #08090a;
+  --canvas: #0c0d0e;
   --surface: #0f1011;
   --surface-raised: #191a1b;
   --surface-mid: #161718;
@@ -24,21 +25,52 @@
   --text-faint: #62666d;
 
   /* Accents */
-  --accent: #0066ff;
-  --accent-hover: #3385ff;
-  --accent-dim: rgba(0, 102, 255, 0.15);
+  --accent: #d97706; /* amber-600 */
+  --accent-hover: #b45309; /* amber-700 */
+  --accent-dim: rgba(217, 119, 6, 0.15);
 
   /* Status */
   --success: #10b981;
   --warning: #f59e0b;
   --error: #ef4444;
   --info: #3b82f6;
+
+  /* Motion */
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 240ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 html,
@@ -57,5 +89,154 @@ body {
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* Tab active underline */
+  .tab-active-underline {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 2px 2px 0 0;
+  }
+}
+
+/* ─── Hide native number spinners ───────────────────────── */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* ─── Keyframes ─────────────────────────────────────────── */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+  50%       { opacity: 0.4; transform: translateX(-50%) scale(0.7); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.98) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes modal-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.98); }
+}
+
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes token-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes task-done {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); }
+  70%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
+@keyframes bar-grow {
+  from { transform: scaleY(0); transform-origin: bottom; }
+  to   { transform: scaleY(1); transform-origin: bottom; }
+}
+
+/* ─── Animation classes ──────────────────────────────────── */
+
+.animate-fade-up {
+  animation: fade-up var(--motion-base) var(--ease-out) both;
+}
+
+.animate-fade-in {
+  animation: fade-in var(--motion-base) var(--ease-out) both;
+}
+
+.animate-modal-in {
+  animation: modal-in 220ms var(--ease-out) both;
+}
+
+.animate-dropdown-in {
+  animation: dropdown-in 160ms var(--ease-out) both;
+}
+
+.animate-token-in {
+  animation: token-in 140ms var(--ease-out) both;
+}
+
+.animate-task-done {
+  animation: task-done 240ms var(--ease-standard) both;
+}
+
+.animate-bar-grow {
+  animation: bar-grow 400ms var(--ease-out) both;
+}
+
+/* Stagger helpers — set --index on the element */
+.stagger {
+  animation-delay: calc(var(--index, 0) * 40ms);
+}
+
+/* ─── Interactive base states ────────────────────────────── */
+
+/* Buttons */
+.btn-interactive {
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out),
+    opacity var(--motion-fast) var(--ease-out);
+}
+.btn-interactive:hover  { transform: translateY(-1px); }
+.btn-interactive:active { transform: scale(0.97); }
+
+/* Nav / list items */
+.nav-interactive {
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+/* Cards */
+.card-interactive {
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+/* Progress bar fill */
+.progress-fill {
+  transition: width 500ms var(--ease-out);
+}
+
+/* Tab indicator */
+.tab-indicator {
+  transition:
+    transform var(--motion-base) var(--ease-out),
+    width var(--motion-base) var(--ease-out);
+}
+
+/* ─── Reduced motion ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
   }
 }

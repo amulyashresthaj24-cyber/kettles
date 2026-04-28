@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "allow": [
+      "Read(//tmp/**)",
+      "Bash(node -e ' *)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {

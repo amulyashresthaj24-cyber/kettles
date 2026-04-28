@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: "Flowmate",
-  description: "Unified productivity OS for solo workers",
+  title: "FlowMast",
+  description: "Task-linked time tracking for solo workers",
 };
 
 export default function RootLayout({
@@ -13,8 +14,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-base text-text-primary font-sans antialiased">
-        {children}
+      <body className="bg-base font-sans text-text-primary antialiased">
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

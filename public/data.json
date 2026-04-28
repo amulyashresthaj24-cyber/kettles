@@ -1,0 +1,457 @@
+{
+  "user": {
+    "id": "user-1",
+    "name": "Amulya",
+    "email": "tech@cyaninnovations.com",
+    "createdAt": 1704067200000,
+    "timezone": "UTC"
+  },
+  "clients": [
+    {
+      "id": "c1",
+      "name": "Cyan Innovations",
+      "email": "contact@cyan.com",
+      "hourlyRate": 5000,
+      "currency": "USD",
+      "address": "123 Tech Street, San Francisco, CA",
+      "phone": "+1-555-0101",
+      "createdAt": 1704067200000,
+      "notes": "Main SaaS client, premium support tier"
+    },
+    {
+      "id": "c2",
+      "name": "ACME Corporation",
+      "email": "billing@acme.com",
+      "hourlyRate": 7500,
+      "currency": "USD",
+      "address": "456 Business Ave, New York, NY",
+      "phone": "+1-555-0102",
+      "createdAt": 1704067200000,
+      "notes": "Enterprise client, 3-year contract"
+    },
+    {
+      "id": "c3",
+      "name": "StartupXYZ",
+      "email": "contact@startupxyz.io",
+      "hourlyRate": 3500,
+      "currency": "USD",
+      "address": "789 Innovation Way, Austin, TX",
+      "phone": "+1-555-0103",
+      "createdAt": 1704067200000,
+      "notes": "Early-stage startup, project-based"
+    }
+  ],
+  "projects": [
+    {
+      "id": "p1",
+      "name": "Flowmate",
+      "description": "Time tracking and task management app",
+      "clientId": "c1",
+      "color": "teal",
+      "billable": true,
+      "status": "active",
+      "startDate": 1704067200000,
+      "endDate": null,
+      "budget": 50000,
+      "createdAt": 1704067200000,
+      "tags": ["app", "saas", "nextjs"]
+    },
+    {
+      "id": "p2",
+      "name": "ACME Redesign",
+      "description": "Website redesign and development",
+      "clientId": "c2",
+      "color": "amber",
+      "billable": true,
+      "status": "active",
+      "startDate": 1704067200000,
+      "endDate": null,
+      "budget": 75000,
+      "createdAt": 1704067200000,
+      "tags": ["web", "design", "ux"]
+    },
+    {
+      "id": "p3",
+      "name": "StartupXYZ MVP",
+      "description": "MVP development and launch",
+      "clientId": "c3",
+      "color": "rose",
+      "billable": true,
+      "status": "active",
+      "startDate": 1704067200000,
+      "endDate": null,
+      "budget": 35000,
+      "createdAt": 1704067200000,
+      "tags": ["app", "mvp", "startup"]
+    },
+    {
+      "id": "p4",
+      "name": "Personal Learning",
+      "description": "Personal projects and learning",
+      "clientId": null,
+      "color": "indigo",
+      "billable": false,
+      "status": "active",
+      "startDate": 1704067200000,
+      "endDate": null,
+      "budget": 0,
+      "createdAt": 1704067200000,
+      "tags": ["personal", "learning", "research"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Design landing page",
+      "description": "Create mockups and finalize design for main landing page with hero section, features, and CTA",
+      "projectId": "p1",
+      "urgency": "urgent",
+      "status": "todo",
+      "estimateMinutes": 90,
+      "actualMinutes": null,
+      "assignees": [],
+      "tags": ["design", "frontend", "ui"],
+      "dateRange": {
+        "startDate": 1704067200000,
+        "dueDate": 1704153600000,
+        "completedAt": null
+      },
+      "createdAt": 1704067200000,
+      "updatedAt": 1704067200000
+    },
+    {
+      "id": "t2",
+      "title": "Write project proposal",
+      "description": "Prepare comprehensive proposal with timeline, deliverables, and pricing",
+      "projectId": "p2",
+      "urgency": "high",
+      "status": "todo",
+      "estimateMinutes": 60,
+      "actualMinutes": null,
+      "assignees": [],
+      "tags": ["business", "proposal", "client"],
+      "dateRange": {
+        "startDate": 1704067200000,
+        "dueDate": 1704153600000,
+        "completedAt": null
+      },
+      "createdAt": 1704067200000,
+      "updatedAt": 1704067200000
+    },
+    {
+      "id": "t3",
+      "title": "Build timer UI",
+      "description": "Implement focus mode timer interface with progress ring and controls",
+      "projectId": "p1",
+      "urgency": "high",
+      "status": "in_progress",
+      "estimateMinutes": 120,
+      "actualMinutes": 75,
+      "assignees": [],
+      "tags": ["development", "frontend", "ui"],
+      "dateRange": {
+        "startDate": 1704067200000,
+        "dueDate": 1704240000000,
+        "completedAt": null
+      },
+      "createdAt": 1704067200000,
+      "updatedAt": 1704153600000
+    },
+    {
+      "id": "t4",
+      "title": "Fix auth token bug",
+      "description": "Resolve token expiry and refresh logic issues in middleware",
+      "projectId": "p1",
+      "urgency": "normal",
+      "status": "done",
+      "estimateMinutes": 30,
+      "actualMinutes": 28,
+      "assignees": [],
+      "tags": ["bug", "backend", "security"],
+      "dateRange": {
+        "startDate": 1704067200000,
+        "dueDate": 1704153600000,
+        "completedAt": 1704067200000
+      },
+      "createdAt": 1704067200000,
+      "updatedAt": 1704153600000
+    },
+    {
+      "id": "t5",
+      "title": "API endpoint testing",
+      "description": "Write unit and integration tests for all API endpoints",
+      "projectId": "p1",
+      "urgency": "normal",
+      "status": "todo",
+      "estimateMinutes": 180,
+      "actualMinutes": null,
+      "assignees": [],
+      "tags": ["testing", "backend", "qa"],
+      "dateRange": {
+        "startDate": 1704067200000,
+        "dueDate": 1704326400000,
+        "completedAt": null
+      },
+      "createdAt": 1704067200000,
+      "updatedAt": 1704067200000
+    },
+    {
+      "id": "t6",
+      "title": "Homepage wireframe",
+      "description": "Create detailed wireframes for homepage layout and navigation",
+      "projectId": "p2",
+      "urgency": "high",
+      "status": "done",
+      "estimateMinutes": 75,
+      "actualMinutes": 72,
+      "assignees": [],
+      "tags": ["design", "wireframe", "planning"],
+      "dateRange": {
+        "startDate": 1704067200000,
+        "dueDate": 1704153600000,
+        "completedAt": 1704153600000
+      },
+      "createdAt": 1704067200000,
+      "updatedAt": 1704153600000
+    },
+    {
+      "id": "t7",
+      "title": "Setup database schema",
+      "description": "Design and implement PostgreSQL schema for MVP",
+      "projectId": "p3",
+      "urgency": "urgent",
+      "status": "in_progress",
+      "estimateMinutes": 150,
+      "actualMinutes": 120,
+      "assignees": [],
+      "tags": ["backend", "database", "infrastructure"],
+      "dateRange": {
+        "startDate": 1704067200000,
+        "dueDate": 1704240000000,
+        "completedAt": null
+      },
+      "createdAt": 1704067200000,
+      "updatedAt": 1704153600000
+    },
+    {
+      "id": "t8",
+      "title": "Code review system setup",
+      "description": "Configure GitHub Actions and review process",
+      "projectId": "p1",
+      "urgency": "normal",
+      "status": "done",
+      "estimateMinutes": 45,
+      "actualMinutes": 42,
+      "assignees": [],
+      "tags": ["devops", "ci/cd", "github"],
+      "dateRange": {
+        "startDate": 1704067200000,
+        "dueDate": 1704153600000,
+        "completedAt": 1704153600000
+      },
+      "createdAt": 1704067200000,
+      "updatedAt": 1704153600000
+    },
+    {
+      "id": "t9",
+      "title": "Learn React hooks",
+      "description": "Study advanced React hooks patterns and best practices",
+      "projectId": "p4",
+      "urgency": "low",
+      "status": "todo",
+      "estimateMinutes": 120,
+      "actualMinutes": null,
+      "assignees": [],
+      "tags": ["learning", "react", "frontend"],
+      "dateRange": {
+        "startDate": 1704067200000,
+        "dueDate": 1704412800000,
+        "completedAt": null
+      },
+      "createdAt": 1704067200000,
+      "updatedAt": 1704067200000
+    },
+    {
+      "id": "t10",
+      "title": "Client feedback session",
+      "description": "Review mockups with client and gather feedback",
+      "projectId": "p2",
+      "urgency": "high",
+      "status": "todo",
+      "estimateMinutes": 60,
+      "actualMinutes": null,
+      "assignees": [],
+      "tags": ["communication", "client", "feedback"],
+      "dateRange": {
+        "startDate": 1704067200000,
+        "dueDate": 1704153600000,
+        "completedAt": null
+      },
+      "createdAt": 1704067200000,
+      "updatedAt": 1704067200000
+    }
+  ],
+  "sessions": [
+    {
+      "id": "s1",
+      "taskId": "t4",
+      "projectId": "p1",
+      "billable": true,
+      "startedAt": 1767690000000,
+      "pausedAt": null,
+      "endedAt": 1767693600000,
+      "durationSeconds": 3600,
+      "paused": false,
+      "notes": "Fixed token refresh endpoint"
+    },
+    {
+      "id": "s2",
+      "taskId": "t3",
+      "projectId": "p1",
+      "billable": true,
+      "startedAt": 1767866400000,
+      "pausedAt": null,
+      "endedAt": 1767869100000,
+      "durationSeconds": 2700,
+      "paused": false,
+      "notes": "Progress ring animation implementation"
+    },
+    {
+      "id": "s3",
+      "taskId": "t6",
+      "projectId": "p2",
+      "billable": true,
+      "startedAt": 1770109200000,
+      "pausedAt": null,
+      "endedAt": 1770112800000,
+      "durationSeconds": 3600,
+      "paused": false,
+      "notes": "Completed wireframes for desktop and mobile"
+    },
+    {
+      "id": "s4",
+      "taskId": "t8",
+      "projectId": "p1",
+      "billable": true,
+      "startedAt": 1770732000000,
+      "pausedAt": null,
+      "endedAt": 1770734520000,
+      "durationSeconds": 2520,
+      "paused": false,
+      "notes": "Setup GitHub Actions workflow"
+    },
+    {
+      "id": "s5",
+      "taskId": "t7",
+      "projectId": "p3",
+      "billable": true,
+      "startedAt": 1772701200000,
+      "pausedAt": null,
+      "endedAt": 1772706000000,
+      "durationSeconds": 4800,
+      "paused": false,
+      "notes": "Database schema design and implementation"
+    },
+    {
+      "id": "s6",
+      "taskId": "t3",
+      "projectId": "p1",
+      "billable": true,
+      "startedAt": 1773309600000,
+      "pausedAt": null,
+      "endedAt": 1773312200000,
+      "durationSeconds": 2600,
+      "paused": false,
+      "notes": "Timer controls and pause/resume logic"
+    },
+    {
+      "id": "s7",
+      "taskId": "t1",
+      "projectId": "p1",
+      "billable": true,
+      "startedAt": 1775552400000,
+      "pausedAt": null,
+      "endedAt": 1775556000000,
+      "durationSeconds": 3600,
+      "paused": false,
+      "notes": "Landing page design session"
+    },
+    {
+      "id": "s8",
+      "taskId": "t7",
+      "projectId": "p3",
+      "billable": true,
+      "startedAt": 1776164400000,
+      "pausedAt": null,
+      "endedAt": 1776168000000,
+      "durationSeconds": 3600,
+      "paused": false,
+      "notes": "User authentication setup"
+    },
+    {
+      "id": "s9",
+      "taskId": "t2",
+      "projectId": "p2",
+      "billable": true,
+      "startedAt": 1776776400000,
+      "pausedAt": null,
+      "endedAt": 1776780000000,
+      "durationSeconds": 3600,
+      "paused": false,
+      "notes": "Proposal drafting and refinement"
+    },
+    {
+      "id": "s10",
+      "taskId": "t5",
+      "projectId": "p1",
+      "billable": true,
+      "startedAt": 1777280400000,
+      "pausedAt": null,
+      "endedAt": 1777283600000,
+      "durationSeconds": 3200,
+      "paused": false,
+      "notes": "Unit tests for authentication endpoints"
+    }
+  ],
+  "statistics": {
+    "todayTracked": {
+      "seconds": 14520,
+      "minutes": 242,
+      "hours": "4.0",
+      "sessions": 4
+    },
+    "weekTracked": {
+      "seconds": 72000,
+      "minutes": 1200,
+      "hours": "20.0",
+      "sessions": 10
+    },
+    "weekBillable": {
+      "cents": 153000,
+      "dollars": 1530,
+      "billableSessions": 10
+    },
+    "taskStats": {
+      "total": 10,
+      "completed": 3,
+      "inProgress": 2,
+      "todo": 5,
+      "completionRate": 30
+    }
+  },
+  "timestamps": {
+    "TODAY_START": 1704067200000,
+    "TODAY_END": 1704153600000,
+    "WEEK_START": 1703808000000,
+    "WEEK_END": 1704412800000,
+    "MONTH_START": 1701475200000,
+    "MONTH_END": 1704153600000,
+    "CURRENT_TIME": 1704153600000
+  },
+  "enums": {
+    "URGENCY": ["urgent", "high", "normal", "low"],
+    "TASK_STATUS": ["todo", "in_progress", "done"],
+    "PROJECT_COLOR": ["teal", "amber", "rose", "indigo"],
+    "PROJECT_STATUS": ["active", "paused", "completed", "archived"]
+  }
+}
