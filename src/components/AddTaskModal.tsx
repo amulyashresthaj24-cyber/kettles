@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useApp } from "@/lib/store-supabase";
 import type { TaskStatus, Urgency } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -128,20 +128,10 @@ export function AddTaskModal({
     }
   }, [open, defaultProjectId, editingTask]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleSubmit();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, title]);
-
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!title.trim()) return;
     setIsSubmitting(true);
     setError(null);
@@ -173,7 +163,17 @@ export function AddTaskModal({
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [title, description, projectId, urgency, estimate, dateRange, editingTask, addTask, updateTask, onClose, projects, defaultStatus]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleSubmit();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose, handleSubmit]);
 
   const projectOptions = projects.map((p) => ({ label: p.name, value: p.id }));
 

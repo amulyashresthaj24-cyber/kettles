@@ -123,13 +123,12 @@ export function CommandPalette({
     [projects, onClose, router]
   );
 
-  const allItems = [...staticItems, ...taskItems, ...projectItems];
-
   const filtered = useMemo(() => {
+    const allItems = [...staticItems, ...taskItems, ...projectItems];
     if (!query.trim()) return allItems;
     const q = query.toLowerCase();
     return allItems.filter((i) => i.label.toLowerCase().includes(q));
-  }, [query, allItems]);
+  }, [query, staticItems, taskItems, projectItems]);
 
   // Group filtered items
   const grouped = useMemo(() => {

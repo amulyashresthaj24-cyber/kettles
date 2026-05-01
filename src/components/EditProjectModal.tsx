@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useApp } from "@/lib/store-supabase";
 import type { Project, ProjectColor, ProjectStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -113,17 +113,7 @@ export function EditProjectModal({
     }
   }, [open, project]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleSubmit();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, name]);
-
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (!name.trim() || !project) return;
 
     updateProject(project.id, {
@@ -135,7 +125,17 @@ export function EditProjectModal({
       budget: budget ? Number(budget) : undefined,
     });
     onClose();
-  };
+  }, [name, project, updateProject, onClose, description, color, billable, status, budget]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleSubmit();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose, handleSubmit]);
 
   if (!open || !project) return null;
 
