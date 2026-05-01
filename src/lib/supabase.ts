@@ -1,19 +1,57 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+let supabase: SupabaseClient | null = null;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const REQUIRED_SUPABASE_ENV_VARS = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+] as const;
 
-// Edge Function base URL
-const EDGE_FUNCTION_URL = `${supabaseUrl}/functions/v1`;
+export function getMissingSupabaseEnvVars() {
+  return REQUIRED_SUPABASE_ENV_VARS.filter((key) => !process.env[key]);
+}
+
+export function isSupabaseConfigured() {
+  return getMissingSupabaseEnvVars().length === 0;
+}
+
+function getSupabaseEnv() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const missingVars = getMissingSupabaseEnvVars();
+
+  if (missingVars.length > 0 || !supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      `Missing Supabase environment variables: ${missingVars.join(", ")}.`
+    );
+  }
+
+  return { supabaseUrl, supabaseAnonKey };
+}
+
+export function getSupabaseClient() {
+  if (supabase) {
+    return supabase;
+  }
+
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseEnv();
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
+  return supabase;
+}
+
+function getEdgeFunctionUrl() {
+  const { supabaseUrl } = getSupabaseEnv();
+  return `${supabaseUrl}/functions/v1`;
+}
 
 // Helper for Edge Function calls
 async function edgeFunction(path: string, options: RequestInit = {}) {
+  const supabase = getSupabaseClient();
   const session = await supabase.auth.getSession();
   const token = session.data.session?.access_token;
+  const edgeFunctionUrl = getEdgeFunctionUrl();
 
-  const response = await fetch(`${EDGE_FUNCTION_URL}/${path}`, {
+  const response = await fetch(`${edgeFunctionUrl}/${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
