@@ -3,7 +3,7 @@ import type { Project, ProjectColor } from "@/lib/types";
 
 const DOT: Record<ProjectColor, string> = {
   teal: "bg-teal-400",
-  amber: "bg-amber-400",
+  amber: "bg-accent",
   rose: "bg-rose-400",
   indigo: "bg-indigo-400",
 };

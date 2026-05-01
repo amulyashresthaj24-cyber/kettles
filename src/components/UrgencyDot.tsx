@@ -3,7 +3,7 @@ import type { Urgency } from "@/lib/types";
 
 const COLORS: Record<Urgency, string> = {
   urgent: "bg-[#DC2626]",
-  high: "bg-[#D97706]",
+  high: "bg-accent",
   normal: "bg-[#16A34A]",
   low: "bg-[#808080]",
 };

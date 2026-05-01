@@ -12,7 +12,7 @@ import {
   LayoutDashboard,
   ArrowRight,
 } from "lucide-react";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
 
 type Item = {

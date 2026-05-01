@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Play, RotateCcw, CheckSquare } from "lucide-react";
 import type { Task, TaskStatus } from "@/lib/types";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import { UrgencyDot } from "./UrgencyDot";
 import { ProjectTag } from "./ProjectTag";
 import { ClientBadge } from "./ClientBadge";

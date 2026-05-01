@@ -22,7 +22,7 @@ import {
   CheckCircle2,
   Circle,
 } from "lucide-react";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import { formatDuration, formatCurrency } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -41,7 +41,7 @@ const TABS: { id: ReportTab; label: string }[] = [
 
 const PROJECT_COLORS = [
   "#a855f7", "#3b82f6", "#ec4899", "#10b981",
-  "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6",
+  "#0066ff", "#ef4444", "#06b6d4", "#8b5cf6",
 ];
 
 const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -95,7 +95,7 @@ export default function ReportPage() {
   const projects  = useApp((s) => s.projects);
   const clients   = useApp((s) => s.clients);
   const tasks     = useApp((s) => s.tasks);
-  const userName  = useApp((s) => s.user.name);
+  const userName  = useApp((s) => s.user?.name ?? "User");
 
   const [activeTab,       setActiveTab]       = useState<ReportTab>("summary");
   const [periodMode,      setPeriodMode]       = useState<PeriodMode>("year");
@@ -346,13 +346,13 @@ export default function ReportPage() {
     const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     doc.setFontSize(20);
-    doc.text("Flowmate Report", 40, 50);
+    doc.text("Kettles Report", 40, 50);
     doc.setFontSize(12);
     doc.text(`Period: ${periodLabel}`, 40, 80);
     doc.text(`Total Hours: ${formatDuration(totalSeconds)}`, 40, 100);
     doc.text(`Billable Hours: ${formatDuration(billableSeconds)}`, 40, 120);
     doc.text(`Earnings: ${formatCurrency(earnings * 100)}`, 40, 140);
-    doc.save(`flowmate-report-${periodLabel.replace(/\s/g, "-")}.pdf`);
+    doc.save(`kettles-report-${periodLabel.replace(/\s/g, "-")}.pdf`);
   };
 
   const handleShare = () => {

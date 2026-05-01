@@ -16,8 +16,12 @@ colors:
   accent: "#0066ff"
   accent_hover: "#3385ff"
   accent_dim: "rgba(0, 102, 255, 0.15)"
+  accent_border: "color-mix(in srgb, #0066ff 28%, #1e1f20)"
+  card_gradient_start: "#05080d"
+  card_gradient_mid: "#061733"
+  card_gradient_end: "#072a63"
   success: "#10b981"
-  warning: "#f59e0b"
+  warning: "#3b82f6"
   error: "#ef4444"
   info: "#3b82f6"
 typography:
@@ -117,14 +121,40 @@ components:
     textColor: "{colors.text_primary}"
     padding: "{spacing.sm} {spacing.lg}"
     rounded: "{rounded.full}"
-    fontSize: "13px"
+    fontSize: "14px"
     fontWeight: "500"
+    height: "36px"
+  button_primary_rounded:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.text_primary}"
+    padding: "{spacing.sm} {spacing.lg}"
+    rounded: "{rounded.xl}"
+    fontSize: "14px"
+    fontWeight: "500"
+    height: "36px"
+  button_secondary_rounded:
+    backgroundColor: "{colors.surface_raised}"
+    textColor: "{colors.text_primary}"
+    padding: "{spacing.sm} {spacing.lg}"
+    rounded: "{rounded.xl}"
+    border: "1px solid {colors.border_subtle}"
+    fontSize: "14px"
+    fontWeight: "500"
+    height: "36px"
   button_ghost:
     backgroundColor: "transparent"
     textColor: "{colors.text_primary}"
     padding: "{spacing.sm} {spacing.md}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.xl}"
     borderOnHover: "1px solid {colors.border}"
+  button_toolbar_icon:
+    backgroundColor: "{colors.surface_raised}"
+    textColor: "{colors.text_primary}"
+    padding: "{spacing.sm}"
+    rounded: "{rounded.xl}"
+    height: "40px"
+    width: "40px"
+    fontSize: "14px"
   card:
     backgroundColor: "{colors.surface}"
     rounded: "{rounded.lg}"
@@ -133,6 +163,11 @@ components:
     backgroundColor: "{colors.surface_raised}"
     rounded: "{rounded.lg}"
     padding: "{spacing.lg}"
+  card_gradient_blue:
+    background: "linear-gradient(180deg, {colors.card_gradient_start} 0%, {colors.card_gradient_mid} 58%, {colors.card_gradient_end} 100%)"
+    border: "1px solid {colors.accent_border}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.3xl}"
   input:
     backgroundColor: "{colors.surface_mid}"
     borderColor: "{colors.border_subtle}"
@@ -199,11 +234,30 @@ The color system uses **four tonal layers** to create visual hierarchy without h
 | Token | Hex | Role | Usage |
 |-------|-----|------|-------|
 | **Success** | `#10b981` | Positive State | Done/completed tasks, success messages |
-| **Warning** | `#f59e0b` | Caution | Time warnings, important events, amber accents |
+| **Warning** | `#3b82f6` | Caution | Time warnings and attention states that should stay within the blue product accent family |
 | **Error** | `#ef4444` | Destructive | Error messages, alerts, invalid states |
 | **Info** | `#3b82f6` | Informational | Info tooltips, secondary status |
 
 **Key Principle:** All colors are defined as **CSS custom properties** in `src/app/globals.css`. Never hardcode hex values in components.
+
+### Blue Gradient Card Treatment
+
+Use the reference-card treatment for authentication, onboarding, and high-emphasis brand panels. It creates depth with a near-black top surface and a saturated blue base, while keeping the Flowmate value proposition and interactive accents in the same blue family.
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| **Card Gradient Start** | `#05080d` | Top of large promotional/onboarding cards |
+| **Card Gradient Mid** | `#061733` | Middle depth transition |
+| **Card Gradient End** | `#072a63` | Bottom blue glow/depth |
+| **Accent Border** | `color-mix(in srgb, #0066ff 28%, #1e1f20)` | Card outline and internal dividers |
+
+**Rules:**
+- Card shell: `rounded-xl`, `overflow-hidden`, `border` using Accent Border.
+- Background: `linear-gradient(180deg, #05080d 0%, #061733 58%, #072a63 100%)`.
+- Internal separators: 1px lines using Accent Border at 18-20% strength.
+- Optional CTA: full-width `rounded-full`, `bg-accent`, hover `bg-accent-hover`.
+- Text hierarchy: white/primary for titles and CTA text, muted/secondary for descriptions and feature copy.
+- Do not use orange or amber as a brand accent. The legacy project color key named `amber` is a data compatibility alias and must render as blue in UI.
 
 ---
 
@@ -392,23 +446,70 @@ Border: None (rely on background shift)
 
 ### Buttons
 
-#### **Primary**
+#### **Primary (Pill)**
 ```
 Background: {accent} (#0066ff)
 Text: {text-primary}
 Padding: sm lg (8px 16px)
-Rounded: full (9999px)
-Font: Label (14px, 500)
+Rounded: full (9999px) - pill shape
+Height: 36px (h-9)
+Font: 14px, 500
 Hover: {accent-hover} (#3385ff)
 ```
 
-#### **Secondary / Ghost**
+#### **Primary Rounded (Square)**
 ```
-Background: Surface Raised
+Background: {accent} (#0066ff)
+Text: {text-primary}
+Padding: sm lg (8px 16px)
+Rounded: xl (12px) - rounded square
+Height: 36px (h-9)
+Font: 14px, 500
+Hover: {accent-hover} (#3385ff)
+```
+
+#### **Secondary (Pill)**
+```
+Background: Surface Raised (#191a1b)
+Text: {text-primary}
+Padding: sm lg (8px 16px)
+Rounded: full (9999px) - pill shape
+Height: 36px (h-9)
+Border: 1px solid {border-subtle}
+Hover: Surface Mid + {border} color
+```
+
+#### **Secondary Rounded (Square)**
+```
+Background: Surface Raised (#191a1b)
+Text: {text-primary}
+Padding: sm lg (8px 16px)
+Rounded: xl (12px) - rounded square
+Height: 36px (h-9)
+Border: 1px solid {border-subtle}
+Hover: Surface Mid + {border} color
+```
+
+#### **Toolbar Icon**
+```
+Background: Surface Raised (#191a1b)
+Text: {text-primary}
+Padding: sm (8px)
+Rounded: xl (12px) - rounded square
+Height: 40px (h-9)
+Width: 40px (w-9)
+Font: 14px
+Border: 1px solid {border-subtle}
+Hover: Surface Mid + {border} color
+```
+
+#### **Ghost**
+```
+Background: transparent
 Text: {text-primary}
 Padding: sm md (8px 12px)
-Rounded: md (12px)
-Hover: Lighter Surface Raised, subtle border
+Rounded: xl (12px)
+Hover: Surface Raised bg + subtle border
 ```
 
 #### **Subtle**
@@ -418,6 +519,17 @@ Text: {text-muted}
 Padding: xs sm (4px 8px)
 Hover: {text-primary} + light bg shift
 ```
+
+#### **Size Variants**
+| Size | Height | Usage |
+|------|--------|-------|
+| `xs` | 28px (h-7) | Compact, dense UIs |
+| `sm` | 32px (h-8) | Small actions, tags |
+| `default` | 36px (h-9) | Standard buttons |
+| `lg` | 40px (h-10) | Primary CTAs, emphasis |
+| `icon-xs` | 28px | Small icon buttons |
+| `icon-sm` | 32px | Compact icon buttons |
+| `icon` | 36px | Standard icon buttons |
 
 ### Inputs & Searchbox
 
@@ -442,6 +554,30 @@ Rounded: full (9999px)
 Font: Label SM (12px)
 Status variant: Use status colors
 ```
+
+### Auth Brand Gradient Card
+
+Use this card style on the sign-in/sign-up left panel. It should contain Flowmate brand messaging, not pricing or plan content.
+
+```
+Background: linear-gradient(180deg, #05080d 0%, #061733 58%, #072a63 100%)
+Border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border-subtle))
+Rounded: xl (20px)
+Padding: 40px desktop, 16px mobile if reused on small screens
+Header: Flowmate logo mark + wordmark
+Dividers: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-subtle))
+Hero: H1 value proposition + short supporting copy
+Feature rows: accent check icon, Label/Body S text, secondary color
+```
+
+**Content pattern:**
+- Brand: `Flowmate`.
+- H1: `Task-linked time tracking for focused work`.
+- Supporting copy: `Track time effortlessly. Stay organized. Ship faster.`
+- Feature list:
+  - `Connect time to specific tasks`
+  - `Visualize productivity patterns`
+  - `Bill accurately with confidence`
 
 ---
 
@@ -805,9 +941,13 @@ Add these to `src/app/globals.css`:
   --accent: #0066ff;
   --accent-hover: #3385ff;
   --accent-dim: rgba(0, 102, 255, 0.15);
+  --accent-border: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  --card-gradient-start: #05080d;
+  --card-gradient-mid: #061733;
+  --card-gradient-end: #072a63;
 
   --success: #10b981;
-  --warning: #f59e0b;
+  --warning: #3b82f6;
   --error: #ef4444;
   --info: #3b82f6;
 

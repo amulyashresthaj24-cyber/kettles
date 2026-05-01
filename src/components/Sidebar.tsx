@@ -11,12 +11,15 @@ import {
   Plus,
   FolderOpen,
   Search,
-  ChevronsUpDown,
   Calendar,
+  LogOut,
+  User,
 } from "lucide-react";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { AddProjectModal } from "./AddProjectModal";
+import { BrandMark } from "./BrandMark";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { href: "/", label: "Tasks", Icon: CheckSquare },
@@ -30,26 +33,59 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
   const pathname = usePathname();
   const projects = useApp((s) => s.projects);
   const clients = useApp((s) => s.clients);
+  const user = useApp((s) => s.user);
   const selectedProjectId = useApp((s) => s.selectedProjectId);
   const setSelectedProject = useApp((s) => s.setSelectedProject);
   const [openNewProject, setOpenNewProject] = useState(false);
+  const { signOut } = useAuth();
 
   return (
     <aside className="flex h-screen w-[240px] shrink-0 flex-col overflow-y-auto bg-surface py-6 px-4">
       <div className="flex flex-col gap-7">
-        
+        <BrandMark size="sm" className="px-0" />
+
         {/* Profile */}
-        <div className="flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity">
+        <div className="flex items-center justify-between group">
           <div className="flex items-center gap-2">
             <div className="relative">
               <div className="w-[30px] h-[30px] bg-[#262626] rounded-[8px] flex items-center justify-center">
-                <span className="text-[16px] font-bold text-text-primary leading-none">A</span>
+                {user ? (
+                  <span className="text-[16px] font-bold text-text-primary leading-none">
+                    {user.name?.[0]?.toUpperCase() || "U"}
+                  </span>
+                ) : (
+                  <User size={16} className="text-text-muted" />
+                )}
               </div>
-              <span className="absolute bottom-[-2px] right-[-2px] w-[8px] h-[8px] bg-[#22c55e] rounded-full border-[1.5px] border-base" />
+              {user && (
+                <span className="absolute bottom-[-2px] right-[-2px] w-[8px] h-[8px] bg-[#22c55e] rounded-full border-[1.5px] border-base" />
+              )}
             </div>
-            <span className="text-[16px] font-semibold text-text-primary">Amulya Shrestha</span>
+            <div className="flex flex-col">
+              <span className="text-[16px] font-semibold text-text-primary leading-tight">
+                {user?.name || "Guest"}
+              </span>
+              {user?.email && (
+                <span className="text-[11px] text-text-muted leading-tight">{user.email}</span>
+              )}
+            </div>
           </div>
-          <ChevronsUpDown size={16} className="text-text-muted" />
+          {user ? (
+            <button
+              onClick={signOut}
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded"
+              title="Sign out"
+            >
+              <LogOut size={16} />
+            </button>
+          ) : (
+            <Link
+              href="/auth"
+              className="text-[12px] text-[#0066ff] hover:text-[#3385ff] transition-colors"
+            >
+              Sign in
+            </Link>
+          )}
         </div>
 
         {/* Search */}
@@ -181,7 +217,7 @@ function Section({
 function colorDot(c: string) {
   switch (c) {
     case "teal":   return "bg-teal-400";
-    case "amber":  return "bg-amber-400";
+    case "amber":  return "bg-accent";
     case "rose":   return "bg-rose-400";
     case "indigo": return "bg-indigo-400";
     default:       return "bg-text-muted";

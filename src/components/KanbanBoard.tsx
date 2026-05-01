@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Plus } from "lucide-react";
 import type { Task, TaskStatus } from "@/lib/types";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import { TaskCard } from "./TaskCard";
 
 const COLUMNS: { id: TaskStatus; label: string }[] = [

@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Play, Pause, Square, Zap, Clock, Search, ChevronDown, ChevronUp, Plus, AtSign } from "lucide-react";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import { formatHMS, formatDuration } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { UrgencyDot } from "@/components/UrgencyDot";
@@ -83,21 +83,21 @@ const focusRingOffset = FOCUS_RING_CIRC * (1 - progress);
     [tasks]
   );
 
-  const handleStart = () => {
+  const handleStart = async () => {
     if (!taskId) return;
-    startSession(taskId, billable);
+    await startSession(taskId, billable);
   };
 
-  const handleStop = () => {
-    const s = stopSession();
+  const handleStop = async () => {
+    const s = await stopSession();
     if (s) setCompleted({ id: s.id, seconds: s.durationSeconds });
   };
 
-  const handleQuickStart = (t: Task) => {
+  const handleQuickStart = async (t: Task) => {
     setTaskId(t.id);
     setProjectId(t.projectId);
     if (t.estimateMinutes) setEstimateMin(String(t.estimateMinutes));
-    startSession(t.id);
+    await startSession(t.id);
   };
 
   const isRunning = session && !session.paused;
@@ -124,7 +124,7 @@ const focusRingOffset = FOCUS_RING_CIRC * (1 - progress);
         >
           {/* Centered sentence */}
           <div className="flex flex-wrap items-center justify-center gap-3 text-[16px] text-text-secondary">
-            <span className="font-semibold text-text-primary">{user.name}</span>
+            <span className="font-semibold text-text-primary">{user?.name ?? "User"}</span>
             <span className="text-text-muted">is working on</span>
             <TaskTokenPicker
               tasks={tasks.filter((t) => t.status !== "done")}
@@ -199,7 +199,7 @@ const focusRingOffset = FOCUS_RING_CIRC * (1 - progress);
           {/* Permanent sentence */}
           <div className="flex flex-col items-center gap-1 text-center">
             <span className="text-[11px] uppercase tracking-[0.14em] text-text-muted font-medium">
-              {user.name} is working on
+              {user?.name ?? "User"} is working on
             </span>
             <h2
               className="font-semibold text-text-primary tracking-[-0.01em] leading-tight"
@@ -222,8 +222,8 @@ const focusRingOffset = FOCUS_RING_CIRC * (1 - progress);
             <svg width={FOCUS_RING_SIZE} height={FOCUS_RING_SIZE} className="absolute inset-0 -rotate-90">
               <defs>
                 <linearGradient id="ringGradFocus" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#f59e0b" />
-                  <stop offset="100%" stopColor="#d97706" />
+                  <stop offset="0%" stopColor="var(--accent-hover)" />
+                  <stop offset="100%" stopColor="var(--accent)" />
                 </linearGradient>
               </defs>
               <circle

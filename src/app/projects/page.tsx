@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Plus, Edit, Trash2, DollarSign } from "lucide-react";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { AddProjectModal } from "@/components/AddProjectModal";
@@ -12,7 +12,7 @@ import type { Project } from "@/lib/types";
 const colorDot = (color: string) => {
   const colors: Record<string, string> = {
     teal: "bg-teal-400",
-    amber: "bg-amber-400",
+    amber: "bg-accent",
     rose: "bg-rose-400",
     indigo: "bg-indigo-400",
   };
@@ -32,7 +32,7 @@ export default function ProjectsPage() {
 
   const filteredProjects = useMemo(() => {
     return projects.filter((p) =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase())
+      p.name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [projects, searchQuery]);
 

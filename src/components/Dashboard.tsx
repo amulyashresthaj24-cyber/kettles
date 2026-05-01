@@ -16,7 +16,7 @@ import {
   Zap,
   Calendar,
 } from "lucide-react";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import { formatDuration, formatCurrency } from "@/lib/format";
 import { AddTaskModal } from "./AddTaskModal";
 import { Button } from "@/components/ui/button";
@@ -100,7 +100,7 @@ export default function Dashboard() {
       const proj = projects.find((p) => p.id === s.projectId);
       const client = proj?.clientId ? clients.find((c) => c.id === proj.clientId) : undefined;
       if (!client) continue;
-      cents += (client.hourlyRate * s.durationSeconds) / 3600;
+      cents += Math.round((client.hourlyRate * s.durationSeconds * 100) / 3600);
     }
     return cents;
   }, [weekSessions, projects, clients]);
@@ -152,7 +152,7 @@ export default function Dashboard() {
               className="font-semibold leading-[1.1] tracking-[-0.02em]"
               style={{ fontSize: 32, color: "var(--text-primary)" }}
             >
-              {greeting}, {user.name}
+              {greeting}, {user?.name ?? "User"}
             </h1>
             <p style={{ fontSize: 14, color: "var(--text-muted)" }}>{dateStr}</p>
           </div>
@@ -179,10 +179,10 @@ export default function Dashboard() {
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-3">
           {[
-            { icon: <Clock size={16} className="text-amber-500 opacity-75" />, label: "Today Tracked", value: todayTracked > 0 ? formatDuration(todayTracked) : "1.5h", sub: todaySessions.length > 0 ? `${todaySessions.length} session${todaySessions.length > 1 ? "s" : ""}` : "2 sessions" },
-            { icon: <CalendarDays size={16} className="text-amber-500 opacity-75" />, label: "This Week", value: weekTracked > 0 ? formatDuration(weekTracked) : "8.2h", sub: weekSessions.length > 0 ? `${weekSessions.length} session${weekSessions.length > 1 ? "s" : ""}` : "12 sessions" },
-            { icon: <CheckCircle2 size={16} className="text-amber-500 opacity-75" />, label: "Tasks Done", value: String(tasksDone) || "3", sub: `${tasks.length || "8"} total` },
-            { icon: <DollarSign size={16} className="text-amber-500 opacity-75" />, label: "Billable This Week", value: weekEarnings > 0 ? formatCurrency(weekEarnings) : "$2,840", sub: "Across all clients" },
+            { icon: <Clock size={16} className="text-accent opacity-75" />, label: "Today Tracked", value: todayTracked > 0 ? formatDuration(todayTracked) : "1.5h", sub: todaySessions.length > 0 ? `${todaySessions.length} session${todaySessions.length > 1 ? "s" : ""}` : "2 sessions" },
+            { icon: <CalendarDays size={16} className="text-accent opacity-75" />, label: "This Week", value: weekTracked > 0 ? formatDuration(weekTracked) : "8.2h", sub: weekSessions.length > 0 ? `${weekSessions.length} session${weekSessions.length > 1 ? "s" : ""}` : "12 sessions" },
+            { icon: <CheckCircle2 size={16} className="text-accent opacity-75" />, label: "Tasks Done", value: String(tasksDone) || "3", sub: `${tasks.length || "8"} total` },
+            { icon: <DollarSign size={16} className="text-accent opacity-75" />, label: "Billable This Week", value: weekEarnings > 0 ? formatCurrency(weekEarnings) : "$2,840", sub: "Across all clients" },
           ].map((card, i) => (
             <StatCard
               key={card.label}
@@ -486,7 +486,7 @@ export default function Dashboard() {
 
 const PROJECT_COLOR: Record<string, string> = {
   teal: "#2dd4bf",
-  amber: "#fbbf24",
+  amber: "#0066ff",
   rose: "#fb7185",
   indigo: "#818cf8",
 };

@@ -3,14 +3,14 @@
 import { useRouter } from "next/navigation";
 import { Play, RotateCcw, ArrowLeft, ArrowRight, CheckCheck, Edit2 } from "lucide-react";
 import type { Task } from "@/lib/types";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import { ProjectTag } from "./ProjectTag";
 import { ClientBadge } from "./ClientBadge";
 import { Button } from "./ui/button";
 
 const URGENCY_CONFIG = {
   urgent: { label: "Urgent", bg: "bg-red-500/20", text: "text-red-500" },
-  high: { label: "High", bg: "bg-orange-500/20", text: "text-orange-500" },
+  high: { label: "High", bg: "bg-accent-dim", text: "text-accent" },
   normal: { label: "Normal", bg: "bg-blue-500/20", text: "text-blue-500" },
   low: { label: "Low", bg: "bg-gray-500/20", text: "text-gray-500" },
 };
@@ -44,7 +44,7 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
     router.push("/timer");
   };
 
-  const urgencyConfig = URGENCY_CONFIG[task.urgency];
+  const urgencyConfig = URGENCY_CONFIG[task.urgency] || URGENCY_CONFIG.normal;
 
   return (
     <div

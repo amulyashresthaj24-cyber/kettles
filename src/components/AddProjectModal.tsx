@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import type { ProjectColor, ProjectStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { X, Palette, ChevronDown } from "lucide-react";
 
 const PROJECT_COLORS: { label: string; value: ProjectColor; bg: string }[] = [
   { label: "Teal",   value: "teal",   bg: "bg-teal-500" },
-  { label: "Amber",  value: "amber",  bg: "bg-amber-500" },
+  { label: "Blue",   value: "amber",  bg: "bg-accent" },
   { label: "Rose",   value: "rose",   bg: "bg-rose-500" },
   { label: "Indigo", value: "indigo", bg: "bg-indigo-500" },
 ];
@@ -121,18 +121,29 @@ export function AddProjectModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose, name]);
 
-  const handleSubmit = () => {
-    if (!name.trim()) return;
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-    addProject({
-      name: name.trim(),
-      description: description.trim() || undefined,
-      color,
-      billable,
-      status,
-      budget: budget ? Number(budget) : undefined,
-    });
-    onClose();
+  const handleSubmit = async () => {
+    if (!name.trim()) return;
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      await addProject({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        color,
+        billable,
+        status,
+        budget: budget ? Number(budget) : undefined,
+      });
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create project");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!open) return null;
@@ -165,6 +176,11 @@ export function AddProjectModal({
 
         {/* Body */}
         <div className="flex flex-col gap-md px-xl pt-xl pb-lg">
+          {error && (
+            <div className="text-red-500 text-sm bg-red-500/10 px-3 py-2 rounded">
+              {error}
+            </div>
+          )}
           <input
             autoFocus
             className="w-full bg-transparent border-none outline-none text-[22px] font-semibold text-text-primary placeholder:text-text-faint leading-snug"
@@ -237,9 +253,9 @@ export function AddProjectModal({
               variant="primary"
               size="sm"
               onClick={handleSubmit}
-              disabled={!name.trim()}
+              disabled={!name.trim() || isSubmitting}
             >
-              Create project
+              {isSubmitting ? "Creating..." : "Create project"}
             </Button>
           </div>
         </div>

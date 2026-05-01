@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import type { Project, ProjectColor, ProjectStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { X, Palette, ChevronDown } from "lucide-react";
 
 const PROJECT_COLORS: { label: string; value: ProjectColor; bg: string }[] = [
   { label: "Teal",   value: "teal",   bg: "bg-teal-500" },
-  { label: "Amber",  value: "amber",  bg: "bg-amber-500" },
+  { label: "Blue",   value: "amber",  bg: "bg-accent" },
   { label: "Rose",   value: "rose",   bg: "bg-rose-500" },
   { label: "Indigo", value: "indigo", bg: "bg-indigo-500" },
 ];

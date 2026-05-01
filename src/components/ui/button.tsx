@@ -13,6 +13,12 @@ const buttonVariants = cva(
           "bg-accent text-white hover:bg-accent-hover rounded-full",
         secondary:
           "bg-surface-raised text-text-primary hover:bg-surface-mid rounded-full border border-border-subtle hover:border-border",
+        toolbar:
+          "bg-surface-raised text-text-primary hover:bg-surface-mid rounded-xl border border-border-subtle hover:border-border",
+        "primary-rounded":
+          "bg-accent text-white hover:bg-accent-hover rounded-xl",
+        "secondary-rounded":
+          "bg-surface-raised text-text-primary hover:bg-surface-mid rounded-xl border border-border-subtle hover:border-border",
         ghost:
           "bg-transparent text-text-muted hover:text-text-primary hover:bg-surface-raised rounded-md",
         subtle:
@@ -23,11 +29,13 @@ const buttonVariants = cva(
           "bg-transparent text-error hover:opacity-80 rounded-md",
       },
       size: {
-        default: "h-8 px-4 text-[13px]",
-        sm: "h-7 px-3 text-[12px]",
-        xs: "h-6 px-2 text-[11px]",
-        icon: "h-8 w-8 text-[13px]",
-        "icon-sm": "h-7 w-7 text-[12px]",
+        default: "h-9 px-4 text-[14px]",
+        sm: "h-8 px-3 text-[13px]",
+        xs: "h-7 px-2 text-[12px]",
+        lg: "h-10 px-5 text-[14px]",
+        icon: "h-9 w-9 text-[14px] rounded-xl",
+        "icon-sm": "h-8 w-8 text-[13px] rounded-lg",
+        "icon-xs": "h-7 w-7 text-[12px] rounded-md",
       },
     },
     defaultVariants: {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import type { TaskStatus, Urgency } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { DatePicker } from "./DatePicker";
 
 const URGENCY_OPTIONS: { label: string; value: Urgency; dot: string }[] = [
   { label: "Urgent",  value: "urgent", dot: "bg-red-500" },
-  { label: "High",    value: "high",   dot: "bg-amber-400" },
+  { label: "High",    value: "high",   dot: "bg-accent" },
   { label: "Normal",  value: "normal", dot: "bg-emerald-500" },
   { label: "Low",     value: "low",    dot: "bg-text-faint" },
 ];
@@ -138,30 +138,41 @@ export function AddTaskModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose, title]);
 
-  const handleSubmit = () => {
-    if (!title.trim()) return;
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-    if (editingTask) {
-      updateTask(editingTask.id, {
-        title: title.trim(),
-        projectId: projectId || projects[0]?.id || "none",
-        urgency,
-        estimateMinutes: estimate ? Number(estimate) : undefined,
-        description: description.trim() || undefined,
-        dateRange: dateRange.trim() || undefined,
-      });
-    } else {
-      addTask({
-        title: title.trim(),
-        projectId: projectId || projects[0]?.id || "none",
-        urgency,
-        status: defaultStatus,
-        estimateMinutes: estimate ? Number(estimate) : undefined,
-        description: description.trim() || undefined,
-        dateRange: dateRange.trim() || undefined,
-      });
+  const handleSubmit = async () => {
+    if (!title.trim()) return;
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      if (editingTask) {
+        await updateTask(editingTask.id, {
+          title: title.trim(),
+          projectId: projectId || projects[0]?.id || "none",
+          urgency,
+          estimateMinutes: estimate ? Number(estimate) : undefined,
+          description: description.trim() || undefined,
+          dateRange: dateRange.trim() || undefined,
+        });
+      } else {
+        await addTask({
+          title: title.trim(),
+          projectId: projectId || projects[0]?.id || "none",
+          urgency,
+          status: defaultStatus,
+          estimateMinutes: estimate ? Number(estimate) : undefined,
+          description: description.trim() || undefined,
+          dateRange: dateRange.trim() || undefined,
+        });
+      }
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save task");
+    } finally {
+      setIsSubmitting(false);
     }
-    onClose();
   };
 
   const projectOptions = projects.map((p) => ({ label: p.name, value: p.id }));
@@ -203,6 +214,11 @@ export function AddTaskModal({
 
         {/* Body */}
         <div className="flex flex-col gap-md px-xl pt-xl pb-lg">
+          {error && (
+            <div className="text-red-500 text-sm bg-red-500/10 px-3 py-2 rounded">
+              {error}
+            </div>
+          )}
           <input
             autoFocus
             className="w-full bg-transparent border-none outline-none text-[22px] font-semibold text-text-primary placeholder:text-text-faint leading-snug"
@@ -268,9 +284,9 @@ export function AddTaskModal({
               variant="primary"
               size="sm"
               onClick={handleSubmit}
-              disabled={!title.trim()}
+              disabled={!title.trim() || isSubmitting}
             >
-              {editingTask ? "Save changes" : "Create task"}
+              {isSubmitting ? "Saving..." : editingTask ? "Save changes" : "Create task"}
             </Button>
           </div>
         </div>

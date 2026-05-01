@@ -49,7 +49,7 @@ export default {
         md: "12px",
         lg: "16px",
         xl: "20px",
-        full: "10px",
+        full: "9999px",
       },
       spacing: {
         xs: "4px",

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pause, Play, Square, ExternalLink } from "lucide-react";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import { formatHMS } from "@/lib/format";
 import { Button } from "./ui/button";
 

@@ -1,21 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import Sidebar from "./Sidebar";
 import { ActiveSessionBanner } from "./ActiveSessionBanner";
 import { CommandPalette } from "./CommandPalette";
 import { AddTaskModal } from "./AddTaskModal";
 import { AddProjectModal } from "./AddProjectModal";
-import { initializeStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
-
-  useEffect(() => {
-    initializeStore();
-  }, []);
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const isAuthPage = pathname === "/auth";
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -27,6 +29,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  // Redirect to auth if not logged in (but not on auth page)
+  useEffect(() => {
+    if (!loading && !user && !isAuthPage) {
+      router.replace("/auth");
+    }
+  }, [user, loading, router, isAuthPage]);
+
+  // Show full-screen loading while checking auth (skip on auth page)
+  if ((loading || !user) && !isAuthPage) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-base">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+        <p className="font-sans text-[14px] text-text-muted">
+          {!user ? "Redirecting to sign in..." : "Loading..."}
+        </p>
+      </div>
+    );
+  }
+
+  if (isAuthPage) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">
@@ -61,7 +86,7 @@ function MobileBanner() {
       <div className="flex max-w-xs flex-col gap-md">
         <h2 className="text-[24px] font-semibold tracking-[-0.01em]">Switch to desktop</h2>
         <p className="text-[14px] text-text-muted">
-          FlowMast works best on a larger screen. Open this on your laptop or desktop.
+          Kettles works best on a larger screen. Open this on your laptop or desktop.
         </p>
       </div>
     </div>

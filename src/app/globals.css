@@ -25,13 +25,17 @@
   --text-faint: #62666d;
 
   /* Accents */
-  --accent: #d97706; /* amber-600 */
-  --accent-hover: #b45309; /* amber-700 */
-  --accent-dim: rgba(217, 119, 6, 0.15);
+  --accent: #0066ff;
+  --accent-hover: #3385ff;
+  --accent-dim: rgba(0, 102, 255, 0.15);
+  --accent-border: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  --card-gradient-start: #05080d;
+  --card-gradient-mid: #061733;
+  --card-gradient-end: #072a63;
 
   /* Status */
   --success: #10b981;
-  --warning: #f59e0b;
+  --warning: #3b82f6;
   --error: #ef4444;
   --info: #3b82f6;
 

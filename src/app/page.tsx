@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Plus, LayoutGrid, List } from "lucide-react";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { TaskList } from "@/components/TaskList";
 import { AddTaskModal } from "@/components/AddTaskModal";

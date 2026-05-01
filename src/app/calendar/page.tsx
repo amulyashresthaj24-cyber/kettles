@@ -10,7 +10,7 @@ import {
   LayoutGrid,
   AlignJustify,
 } from "lucide-react";
-import { useApp } from "@/lib/store";
+import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
 import { AddTaskModal } from "@/components/AddTaskModal";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ interface CalendarEvent {
 
 const PROJECT_COLORS: Record<string, string> = {
   teal: "#14b8a6",
-  amber: "#f59e0b",
+  amber: "#0066ff",
   rose: "#f43f5e",
   indigo: "#6366f1",
 };

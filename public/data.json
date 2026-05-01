@@ -44,7 +44,7 @@
   "projects": [
     {
       "id": "p1",
-      "name": "Flowmate",
+      "name": "Kettles",
       "description": "Time tracking and task management app",
       "clientId": "c1",
       "color": "teal",
