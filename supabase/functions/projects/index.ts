@@ -42,7 +42,6 @@ serve(async (req) => {
           if (error) throw error;
           
           const response = formatEntityResponse(data);
-          response.clientId = data.client_id;
           
           return new Response(JSON.stringify(response), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -57,11 +56,7 @@ serve(async (req) => {
         
         if (error) throw error;
         
-        const projects = (data || []).map(p => {
-          const proj = formatEntityResponse(p);
-          proj.clientId = p.client_id;
-          return proj;
-        });
+        const projects = (data || []).map(p => formatEntityResponse(p));
         
         return new Response(JSON.stringify({ projects }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

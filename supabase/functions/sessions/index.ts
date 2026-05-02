@@ -42,12 +42,6 @@ serve(async (req) => {
           if (error) throw error;
           
           const response = formatEntityResponse(data);
-          response.taskId = data.task_id;
-          response.projectId = data.project_id;
-          response.durationSeconds = data.duration_seconds;
-          response.billable = data.billable;
-          response.startedAt = new Date(data.started_at).getTime();
-          response.endedAt = data.ended_at ? new Date(data.ended_at).getTime() : undefined;
           
           return new Response(JSON.stringify(response), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -79,17 +73,7 @@ serve(async (req) => {
         
         if (error) throw error;
         
-        const sessions = (data || []).map(s => {
-          const session = formatEntityResponse(s);
-          session.taskId = s.task_id;
-          session.projectId = s.project_id;
-          session.durationSeconds = s.duration_seconds;
-          session.billable = s.billable;
-          session.startedAt = new Date(s.started_at).getTime();
-          session.endedAt = s.ended_at ? new Date(s.ended_at).getTime() : undefined;
-          
-          return session;
-        });
+        const sessions = (data || []).map(s => formatEntityResponse(s));
         
         return new Response(JSON.stringify({ sessions }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -42,7 +42,6 @@ serve(async (req) => {
           if (error) throw error;
           
           const response = formatEntityResponse(data);
-          response.projectId = data.project_id;
           
           return new Response(JSON.stringify(response), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -69,11 +68,7 @@ serve(async (req) => {
         
         if (error) throw error;
         
-        const tasks = (data || []).map(t => {
-          const task = formatEntityResponse(t);
-          task.projectId = t.project_id;
-          return task;
-        });
+        const tasks = (data || []).map(t => formatEntityResponse(t));
         
         return new Response(JSON.stringify({ tasks }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -115,7 +110,6 @@ serve(async (req) => {
         if (error) throw error;
         
         const response = formatEntityResponse(data);
-        response.projectId = data.project_id;
         
         return new Response(JSON.stringify(response), {
           status: 201,
@@ -149,7 +143,6 @@ serve(async (req) => {
         if (error) throw error;
         
         const response = formatEntityResponse(data);
-        response.projectId = data.project_id;
         
         return new Response(JSON.stringify(response), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
