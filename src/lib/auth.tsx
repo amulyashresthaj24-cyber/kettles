@@ -1,13 +1,12 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { getAppOrigin, getFriendlySupabaseErrorMessage, getMissingSupabaseEnvVars, getSupabaseClient, isSupabaseConfigured } from "./supabase";
+import { getAppOrigin, getFriendlySupabaseErrorMessage, getSupabaseClient } from "./supabase";
 import { useApp } from "./store-supabase";
 
 interface AuthContextType {
   user: any;
   loading: boolean;
-  configError: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, metadata?: { name?: string }) => Promise<void>;
   signOut: () => Promise<void>;
@@ -18,19 +17,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [configError, setConfigError] = useState<string | null>(null);
   const { setUser: setStoreUser, loadAll, clearAll } = useApp();
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setConfigError(
-        `Missing required environment variables: ${getMissingSupabaseEnvVars().join(", ")}`
-      );
+    let supabase;
+    try {
+      supabase = getSupabaseClient();
+    } catch (error) {
+      console.error("Failed to initialize Supabase", error);
       setLoading(false);
       return;
     }
-
-    const supabase = getSupabaseClient();
 
     // Check initial session - fast check first
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -48,8 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       setLoading(false);
     }).catch((error) => {
-      setConfigError(error instanceof Error ? error.message : "Failed to initialize Supabase");
       setLoading(false);
+      console.error("Failed to restore session", error);
     });
 
     // Listen for auth changes
@@ -71,18 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [setStoreUser, loadAll, clearAll]);
 
   const signIn = async (email: string, password: string) => {
-    if (!isSupabaseConfigured()) {
-      throw new Error(configError ?? "Supabase is not configured");
-    }
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   };
 
   const signUp = async (email: string, password: string, metadata?: { name?: string }) => {
-    if (!isSupabaseConfigured()) {
-      throw new Error(configError ?? "Supabase is not configured");
-    }
     const supabase = getSupabaseClient();
     let result;
     try {
@@ -102,16 +93,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    if (!isSupabaseConfigured()) {
-      throw new Error(configError ?? "Supabase is not configured");
-    }
     const supabase = getSupabaseClient();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, configError, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
