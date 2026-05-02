@@ -164,7 +164,7 @@ export default function Dashboard() {
             </Button>
             <Link
               href="/timer"
-              className="btn-interactive flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium"
+              className="btn-interactive flex items-center gap-2 px-3 py-1.5 rounded-[8px] text-[13px] font-medium"
               style={{
                 background: "var(--accent)",
                 color: "var(--text-primary)",
@@ -266,7 +266,7 @@ export default function Dashboard() {
                     className="animate-fade-up stagger"
                     style={{ "--index": i } as React.CSSProperties}
                   >
-                    <div className="card-interactive flex items-start gap-3 px-5 py-3.5 group hover:bg-surface-raised rounded-lg mx-1">
+                    <div className="card-interactive flex items-start gap-3 px-5 py-3.5 group hover:bg-surface-raised rounded-[8px] mx-1">
                       <button
                         onClick={() => setTaskStatus(task.id, "done")}
                         className="mt-0.5 shrink-0 text-text-faint hover:text-status-success animate-task-done-trigger"
@@ -301,7 +301,7 @@ export default function Dashboard() {
                         <Link
                           href="/timer"
                           onClick={() => {}}
-                          className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[12px] px-2 py-1 rounded-md bg-surface-raised text-text-muted hover:text-text-primary btn-interactive"
+                          className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[12px] px-2 py-1 rounded-[8px] bg-surface-raised text-text-muted hover:text-text-primary btn-interactive"
                           style={{ transition: `opacity var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out)` }}
                         >
                           <Timer size={12} />
@@ -509,7 +509,7 @@ function StatCard({
       className="rounded-2xl p-5 flex flex-col gap-3 relative animate-fade-up stagger card-interactive"
       style={{ background: "var(--surface)", "--index": index } as React.CSSProperties}
     >
-      <div className="absolute top-4 right-4 p-2 rounded-lg" style={{ background: "var(--surface-raised)" }}>
+      <div className="absolute top-4 right-4 p-2 rounded-[8px]" style={{ background: "var(--surface-raised)" }}>
         {icon}
       </div>
       <div className="flex flex-col gap-0.5 pr-12">

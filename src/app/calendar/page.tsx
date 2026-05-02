@@ -144,7 +144,7 @@ export default function CalendarPage() {
             <button
               onClick={() => navigate(-1)}
               aria-label="Previous"
-              className="w-7 h-7 flex items-center justify-center rounded-md transition-colors hover:bg-[var(--surface-raised)]"
+              className="w-7 h-7 flex items-center justify-center rounded-[8px] transition-colors hover:bg-[var(--surface-raised)]"
               style={{ color: "var(--text-muted)" }}
             >
               <ChevronLeft size={16} />
@@ -155,7 +155,7 @@ export default function CalendarPage() {
             <button
               onClick={() => navigate(1)}
               aria-label="Next"
-              className="w-7 h-7 flex items-center justify-center rounded-md transition-colors hover:bg-[var(--surface-raised)]"
+              className="w-7 h-7 flex items-center justify-center rounded-[8px] transition-colors hover:bg-[var(--surface-raised)]"
               style={{ color: "var(--text-muted)" }}
             >
               <ChevronRight size={16} />
@@ -163,7 +163,7 @@ export default function CalendarPage() {
           </div>
           <button
             onClick={() => setCursor(new Date())}
-            className="px-3 h-7 text-[12px] font-medium rounded-full transition-colors"
+            className="px-3 h-7 text-[12px] font-medium rounded-[8px] transition-colors"
             style={{ background: "var(--surface-raised)", color: "var(--text-muted)" }}
           >
             Today
@@ -172,13 +172,13 @@ export default function CalendarPage() {
 
         <div className="flex items-center gap-3">
           {/* View switcher */}
-          <div className="flex items-center rounded-lg p-0.5 gap-0.5" style={{ background: "var(--surface-raised)" }}>
+          <div className="flex items-center rounded-[8px] p-0.5 gap-0.5" style={{ background: "var(--surface-raised)" }}>
             {VIEW_TABS.map(({ id, Icon, label }) => (
               <button
                 key={id}
                 onClick={() => setView(id)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 h-7 text-[12px] font-medium rounded-md transition-all",
+                  "flex items-center gap-1.5 px-3 h-7 text-[12px] font-medium rounded-[8px] transition-all",
                   view === id
                     ? "text-[var(--text-primary)]"
                     : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"

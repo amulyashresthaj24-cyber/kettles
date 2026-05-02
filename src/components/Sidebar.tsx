@@ -41,52 +41,8 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
 
   return (
     <aside className="flex h-screen w-[240px] shrink-0 flex-col overflow-y-auto bg-surface py-6 px-4">
-      <div className="flex flex-col gap-7">
+      <div className="flex flex-col gap-7 flex-1">
         <BrandMark size="sm" className="px-0" />
-
-        {/* Profile */}
-        <div className="flex items-center justify-between group">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <div className="w-[30px] h-[30px] bg-[#262626] rounded-[8px] flex items-center justify-center">
-                {user ? (
-                  <span className="text-[16px] font-bold text-text-primary leading-none">
-                    {user.name?.[0]?.toUpperCase() || "U"}
-                  </span>
-                ) : (
-                  <User size={16} className="text-text-muted" />
-                )}
-              </div>
-              {user && (
-                <span className="absolute bottom-[-2px] right-[-2px] w-[8px] h-[8px] bg-[#22c55e] rounded-full border-[1.5px] border-base" />
-              )}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[16px] font-semibold text-text-primary leading-tight">
-                {user?.name || "Guest"}
-              </span>
-              {user?.email && (
-                <span className="text-[11px] text-text-muted leading-tight">{user.email}</span>
-              )}
-            </div>
-          </div>
-          {user ? (
-            <button
-              onClick={signOut}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded"
-              title="Sign out"
-            >
-              <LogOut size={16} />
-            </button>
-          ) : (
-            <Link
-              href="/auth"
-              className="text-[12px] text-[#0066ff] hover:text-[#3385ff] transition-colors"
-            >
-              Sign in
-            </Link>
-          )}
-        </div>
 
         {/* Search */}
         <div className="relative flex items-center">
@@ -94,7 +50,7 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
           <div onClick={onSearchClick} className="w-full h-[32px] bg-surface-mid border border-[#2e2e2e] rounded-[8px] flex items-center justify-between px-[7px] pl-[28px] cursor-pointer hover:border-[#444] transition-colors">
             <span className="text-[13px] text-text-muted">Quick Search</span>
             <div className="flex items-center justify-center border border-[#444] rounded-[4px] px-[5px] py-[1px] bg-[#262626]">
-              <span className="text-[10px] text-text-muted font-medium">⌘F</span>
+              <span className="text-[10px] text-text-muted font-medium">⌘K</span>
             </div>
           </div>
         </div>
@@ -174,6 +130,50 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
             );
           })}
         </Section>
+      </div>
+
+      {/* Profile at bottom */}
+      <div className="flex items-center justify-between group">
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <div className="w-[30px] h-[30px] bg-[#262626] rounded-[8px] flex items-center justify-center">
+              {user ? (
+                <span className="text-[16px] font-bold text-text-primary leading-none">
+                  {user.name?.[0]?.toUpperCase() || "U"}
+                </span>
+              ) : (
+                <User size={16} className="text-text-muted" />
+              )}
+            </div>
+            {user && (
+              <span className="absolute bottom-[-2px] right-[-2px] w-[8px] h-[8px] bg-[#22c55e] rounded-full border-[1.5px] border-base" />
+            )}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[16px] font-semibold text-text-primary leading-tight">
+              {user?.name || "Guest"}
+            </span>
+            {user?.email && (
+              <span className="text-[11px] text-text-muted leading-tight">{user.email}</span>
+            )}
+          </div>
+        </div>
+        {user ? (
+          <button
+            onClick={signOut}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded"
+            title="Sign out"
+          >
+            <LogOut size={16} />
+          </button>
+        ) : (
+          <Link
+            href="/auth"
+            className="text-[12px] text-[#0066ff] hover:text-[#3385ff] transition-colors"
+          >
+            Sign in
+          </Link>
+        )}
       </div>
 
       <AddProjectModal

@@ -71,7 +71,7 @@ export default function TasksPage() {
       </header>
 
       {/* Filter bar */}
-      <div className="flex items-center gap-2 rounded-md bg-surface-mid px-3 py-2">
+      <div className="flex items-center gap-2 rounded-[8px] bg-surface-mid px-3 py-2">
         <Select
           value={selectedProjectId ?? ""}
           onChange={(e) => setSelectedProject(e.target.value || null)}
@@ -101,10 +101,10 @@ export default function TasksPage() {
           <option value="low">⚪ Low</option>
         </Select>
 
-        <div className="ml-auto flex items-center bg-surface-raised rounded-md p-0.5">
+        <div className="ml-auto flex items-center bg-surface-raised rounded-[8px] p-0.5">
           <button
             onClick={() => setView("kanban")}
-            className={`p-1.5 rounded-[4px] transition-colors ${
+            className={`p-1.5 rounded-[8px] transition-colors ${
               view === "kanban"
                 ? "bg-surface-mid text-text-primary shadow-sm"
                 : "text-text-muted hover:text-text-primary"
@@ -115,7 +115,7 @@ export default function TasksPage() {
           </button>
           <button
             onClick={() => setView("list")}
-            className={`p-1.5 rounded-[4px] transition-colors ${
+            className={`p-1.5 rounded-[8px] transition-colors ${
               view === "list"
                 ? "bg-surface-mid text-text-primary shadow-sm"
                 : "text-text-muted hover:text-text-primary"

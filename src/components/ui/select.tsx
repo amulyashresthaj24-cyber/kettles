@@ -45,8 +45,8 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           className={cn(
             "flex w-full items-center justify-between border bg-[#161718] font-normal text-text-primary outline-none transition-all",
             size === "sm"
-              ? "h-[32px] rounded-[10px] pl-3 pr-2 py-1 text-[13px]"
-              : "h-[44px] rounded-[16px] pl-4 pr-2 py-2 text-[15px]",
+              ? "h-[32px] rounded-[8px] pl-3 pr-2 py-1 text-[13px]"
+              : "h-[44px] rounded-[8px] pl-4 pr-2 py-2 text-[15px]",
             open ? "border-accent shadow-[0_0_0_1px_var(--accent)]" : "border-border hover:border-border-subtle",
             props.disabled && "cursor-not-allowed opacity-50"
           )}
@@ -57,7 +57,7 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         </button>
         
         {open && !props.disabled && (
-          <div className="absolute z-[100] mt-1.5 w-full min-w-[10rem] overflow-hidden rounded-[10px] border border-[#2a2a2a] bg-[#141414] shadow-2xl animate-in fade-in-0 zoom-in-95 py-1">
+          <div className="absolute z-[100] mt-1.5 w-full min-w-[10rem] overflow-hidden rounded-[8px] border border-[#2a2a2a] bg-[#141414] shadow-2xl animate-in fade-in-0 zoom-in-95 py-1">
             {options.map((opt) => {
               const isSelected = opt.value === value;
               return (
