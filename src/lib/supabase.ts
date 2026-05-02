@@ -8,15 +8,11 @@ const REQUIRED_SUPABASE_ENV_VARS = [
 ] as const;
 
 export function getMissingSupabaseEnvVars() {
-  console.log(process.env.NEXT_PUBLIC_SUPABASE_URL)
-    console.log(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-
-  // return REQUIRED_SUPABASE_ENV_VARS.filter((key) => !process.env[key]);
-  return []
+  return REQUIRED_SUPABASE_ENV_VARS.filter((key) => !process.env[key]);
 }
 
 export function isSupabaseConfigured() {
-  return true;
+  return getMissingSupabaseEnvVars().length === 0;
 }
 
 function getSupabaseEnv() {
@@ -43,9 +39,62 @@ export function getSupabaseClient() {
   return supabase;
 }
 
+export function getAppOrigin() {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/$/, "");
+  }
+
+  if (typeof window !== "undefined" && window.location.origin) {
+    return window.location.origin;
+  }
+
+  return "http://localhost:3000";
+}
+
 function getEdgeFunctionUrl() {
   const { supabaseUrl } = getSupabaseEnv();
   return `${supabaseUrl}/functions/v1`;
+}
+
+function isHtmlResponse(text: string) {
+  const normalized = text.trim().toLowerCase();
+  return normalized.startsWith("<!doctype html") || normalized.startsWith("<html");
+}
+
+function getSupabaseMisconfigurationMessage() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  return [
+    "Supabase returned HTML instead of JSON.",
+    "Check your Vercel environment variables.",
+    `NEXT_PUBLIC_SUPABASE_URL should be your Supabase project URL, for example https://your-project-ref.supabase.co${url ? ` (current host: ${safeHost(url)})` : ""}.`,
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY must be the matching anon public key for the same project.",
+  ].join(" ");
+}
+
+function safeHost(value: string) {
+  try {
+    return new URL(value).host;
+  } catch {
+    return value;
+  }
+}
+
+export function getFriendlySupabaseErrorMessage(error: unknown) {
+  if (!(error instanceof Error)) {
+    return "Authentication failed";
+  }
+
+  const message = error.message || "Authentication failed";
+  if (
+    message.includes("Unexpected token '<'") ||
+    message.includes("<!DOCTYPE") ||
+    message.includes("is not valid JSON")
+  ) {
+    return getSupabaseMisconfigurationMessage();
+  }
+
+  return message;
 }
 
 // Helper for Edge Function calls
@@ -71,7 +120,7 @@ async function edgeFunction(path: string, options: RequestInit = {}) {
       const error = JSON.parse(text);
       message = error.error || error.message || text || message;
     } catch {
-      message = text || message;
+      message = isHtmlResponse(text) ? getSupabaseMisconfigurationMessage() : text || message;
     }
     // Special handling for auth errors
     if (response.status === 401 || text.includes("Missing authorization") || text.includes("Unauthorized")) {

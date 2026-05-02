@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { getFriendlySupabaseErrorMessage } from "@/lib/supabase";
 import {
   CheckCircle2,
   Loader2,
@@ -46,7 +47,7 @@ export default function AuthPage() {
         router.push("/");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed");
+      setError(getFriendlySupabaseErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }

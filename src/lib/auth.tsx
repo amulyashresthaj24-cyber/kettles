@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { getMissingSupabaseEnvVars, getSupabaseClient, isSupabaseConfigured } from "./supabase";
+import { getAppOrigin, getFriendlySupabaseErrorMessage, getMissingSupabaseEnvVars, getSupabaseClient, isSupabaseConfigured } from "./supabase";
 import { useApp } from "./store-supabase";
 
 interface AuthContextType {
@@ -84,13 +84,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(configError ?? "Supabase is not configured");
     }
     const supabase = getSupabaseClient();
-    const { error } = await supabase.auth.signUp({ 
-      email, 
-      password,
-      options: {
-        data: metadata
-      }
-    });
+    let result;
+    try {
+      result = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata,
+          emailRedirectTo: `${getAppOrigin()}/auth`,
+        }
+      });
+    } catch (error) {
+      throw new Error(getFriendlySupabaseErrorMessage(error));
+    }
+    const { error } = result;
     if (error) throw error;
   };
 

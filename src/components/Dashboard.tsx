@@ -179,10 +179,10 @@ export default function Dashboard() {
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-3">
           {[
-            { icon: <Clock size={16} className="text-accent opacity-75" />, label: "Today Tracked", value: todayTracked > 0 ? formatDuration(todayTracked) : "1.5h", sub: todaySessions.length > 0 ? `${todaySessions.length} session${todaySessions.length > 1 ? "s" : ""}` : "2 sessions" },
-            { icon: <CalendarDays size={16} className="text-accent opacity-75" />, label: "This Week", value: weekTracked > 0 ? formatDuration(weekTracked) : "8.2h", sub: weekSessions.length > 0 ? `${weekSessions.length} session${weekSessions.length > 1 ? "s" : ""}` : "12 sessions" },
-            { icon: <CheckCircle2 size={16} className="text-accent opacity-75" />, label: "Tasks Done", value: String(tasksDone) || "3", sub: `${tasks.length || "8"} total` },
-            { icon: <DollarSign size={16} className="text-accent opacity-75" />, label: "Billable This Week", value: weekEarnings > 0 ? formatCurrency(weekEarnings) : "$2,840", sub: "Across all clients" },
+            { icon: <Clock size={16} className="text-accent opacity-75" />, label: "Today Tracked", value: formatDuration(todayTracked), sub: `${todaySessions.length} session${todaySessions.length === 1 ? "" : "s"}` },
+            { icon: <CalendarDays size={16} className="text-accent opacity-75" />, label: "This Week", value: formatDuration(weekTracked), sub: `${weekSessions.length} session${weekSessions.length === 1 ? "" : "s"}` },
+            { icon: <CheckCircle2 size={16} className="text-accent opacity-75" />, label: "Tasks Done", value: String(tasksDone), sub: `${tasks.length} total` },
+            { icon: <DollarSign size={16} className="text-accent opacity-75" />, label: "Billable This Week", value: formatCurrency(weekEarnings), sub: "Across all clients" },
           ].map((card, i) => (
             <StatCard
               key={card.label}
