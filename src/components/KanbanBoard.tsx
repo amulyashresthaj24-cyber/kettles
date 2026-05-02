@@ -11,6 +11,7 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  useDroppable,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -131,7 +132,7 @@ export function KanbanBoard({
 
       <DragOverlay>
         {activeTask ? (
-          <div className="rotate-1 opacity-90 shadow-2xl">
+          <div className="rotate-1 opacity-95 shadow-2xl scale-105">
             <TaskCard task={activeTask} />
           </div>
         ) : null}
@@ -153,10 +154,17 @@ function KanbanColumn({
   onAddTask: (status: TaskStatus) => void;
   onEditTask?: (task: Task) => void;
 }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id,
+  });
+
   return (
     <div
+      ref={setNodeRef}
       id={id}
-      className="flex flex-col gap-md rounded-lg bg-surface p-md"
+      className={`flex flex-col gap-md rounded-lg bg-surface p-md transition-all duration-200 ${
+        isOver ? "bg-surface-raised ring-2 ring-accent ring-opacity-30 shadow-lg" : ""
+      }`}
     >
       <div className="flex items-center justify-between px-xs">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-secondary">
@@ -169,11 +177,15 @@ function KanbanColumn({
         items={tasks.map((t) => t.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="flex flex-col gap-sm min-h-[80px]">
+        <div className="flex flex-col gap-sm min-h-[80px] transition-all duration-200">
           {tasks.length === 0 ? (
             <button
               onClick={() => onAddTask(id)}
-              className="rounded-md border border-dashed border-border-subtle px-md py-lg text-[12px] text-text-faint hover:border-border hover:text-text-muted transition-colors"
+              className={`rounded-md border border-dashed px-md py-lg text-[12px] transition-all duration-200 ${
+                isOver
+                  ? "border-accent border-solid bg-accent/5 text-accent"
+                  : "border-border-subtle text-text-faint hover:border-border hover:text-text-muted"
+              }`}
             >
               Drop here or + Add
             </button>
@@ -205,16 +217,25 @@ function SortableTaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) 
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id });
+    isOver,
+  } = useSortable({ 
+    id: task.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
+    transition: transition ?? "all 250ms cubic-bezier(0.4, 0, 0.2, 1)",
+    opacity: isDragging ? 0.5 : 1,
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes} 
+      {...listeners}
+      className={`transition-all ${isOver ? "scale-105" : "scale-100"}`}
+    >
       <TaskCard task={task} onEdit={onEdit} />
     </div>
   );

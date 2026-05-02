@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { UrgencyDot } from "@/components/UrgencyDot";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
+import { SessionCompleteModal } from "@/components/SessionCompleteModal";
 import type { Task } from "@/lib/types";
 
 const URGENCY_ORDER = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
@@ -366,9 +367,24 @@ const focusRingOffset = FOCUS_RING_CIRC * (1 - progress);
         </section>
       )}
 
-      {/* Session complete modal */}
-      {completed && (
+      {/* Session complete modal with task completion tracking */}
+      {completed && activeTask && (
         <SessionCompleteModal
+          open={!!completed}
+          sessionId={completed.id}
+          seconds={completed.seconds}
+          task={activeTask}
+          onClose={() => {
+            setCompleted(null);
+            router.push("/");
+          }}
+          onAdjust={(s) => adjust(completed.id, s)}
+        />
+      )}
+      
+      {/* Fallback for when task isn't found */}
+      {completed && !activeTask && (
+        <SessionCompleteModalLocal
           sessionId={completed.id}
           seconds={completed.seconds}
           onClose={() => {
@@ -749,7 +765,7 @@ function BillingToggle({
   );
 }
 
-function SessionCompleteModal({
+function SessionCompleteModalLocal({
   seconds, onClose, onAdjust,
 }: {
   sessionId: string;

@@ -68,7 +68,7 @@ export function ActiveSessionBanner() {
         variant="ghost"
         aria-label="Stop"
         onClick={() => {
-          stop();
+          const stoppedSession = stop();
           router.push("/timer");
         }}
       >

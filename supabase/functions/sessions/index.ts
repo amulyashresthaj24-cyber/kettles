@@ -34,7 +34,7 @@ serve(async (req) => {
           
           const { data, error } = await supabase
             .from('sessions')
-            .select('*, tasks(data), projects(data)')
+            .select('*')
             .eq('id', id)
             .eq('user_id', user.id)
             .single();
@@ -49,13 +49,6 @@ serve(async (req) => {
           response.startedAt = new Date(data.started_at).getTime();
           response.endedAt = data.ended_at ? new Date(data.ended_at).getTime() : undefined;
           
-          if (data.tasks) {
-            response.task = formatEntityResponse(data.tasks);
-          }
-          if (data.projects) {
-            response.project = formatEntityResponse(data.projects);
-          }
-          
           return new Response(JSON.stringify(response), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
@@ -64,7 +57,7 @@ serve(async (req) => {
         // List sessions with optional filters
         let query = supabase
           .from('sessions')
-          .select('*, tasks(data), projects(data)')
+          .select('*')
           .eq('user_id', user.id);
         
         const taskId = url.searchParams.get('taskId');
@@ -94,9 +87,6 @@ serve(async (req) => {
           session.billable = s.billable;
           session.startedAt = new Date(s.started_at).getTime();
           session.endedAt = s.ended_at ? new Date(s.ended_at).getTime() : undefined;
-          
-          if (s.tasks) session.task = formatEntityResponse(s.tasks);
-          if (s.projects) session.project = formatEntityResponse(s.projects);
           
           return session;
         });

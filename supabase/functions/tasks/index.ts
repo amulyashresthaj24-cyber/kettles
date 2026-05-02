@@ -34,7 +34,7 @@ serve(async (req) => {
           
           const { data, error } = await supabase
             .from('tasks')
-            .select('*, projects(data)')
+            .select('*')
             .eq('id', id)
             .eq('user_id', user.id)
             .single();
@@ -42,10 +42,7 @@ serve(async (req) => {
           if (error) throw error;
           
           const response = formatEntityResponse(data);
-          if (data.projects) {
-            response.project = formatEntityResponse(data.projects);
-            response.projectId = data.project_id;
-          }
+          response.projectId = data.project_id;
           
           return new Response(JSON.stringify(response), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -55,7 +52,7 @@ serve(async (req) => {
         // List all tasks with optional filtering
         let query = supabase
           .from('tasks')
-          .select('*, projects(data)')
+          .select('*')
           .eq('user_id', user.id);
         
         const projectId = url.searchParams.get('projectId');
@@ -74,9 +71,6 @@ serve(async (req) => {
         
         const tasks = (data || []).map(t => {
           const task = formatEntityResponse(t);
-          if (t.projects) {
-            task.project = formatEntityResponse(t.projects);
-          }
           task.projectId = t.project_id;
           return task;
         });

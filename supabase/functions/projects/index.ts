@@ -34,7 +34,7 @@ serve(async (req) => {
           
           const { data, error } = await supabase
             .from('projects')
-            .select('*, clients(data)')
+            .select('*')
             .eq('id', id)
             .eq('user_id', user.id)
             .single();
@@ -42,9 +42,7 @@ serve(async (req) => {
           if (error) throw error;
           
           const response = formatEntityResponse(data);
-          if (data.clients) {
-            response.client = formatEntityResponse(data.clients);
-          }
+          response.clientId = data.client_id;
           
           return new Response(JSON.stringify(response), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -53,7 +51,7 @@ serve(async (req) => {
         
         const { data, error } = await supabase
           .from('projects')
-          .select('*, clients(data)')
+          .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
         
@@ -61,10 +59,7 @@ serve(async (req) => {
         
         const projects = (data || []).map(p => {
           const proj = formatEntityResponse(p);
-          if (p.clients) {
-            proj.client = formatEntityResponse(p.clients);
-            proj.clientId = p.client_id;
-          }
+          proj.clientId = p.client_id;
           return proj;
         });
         
