@@ -24,15 +24,26 @@ export function getSupabaseClient() {
 }
 
 export function getAppOrigin() {
+  // Priority order for app URL configuration
+  
+  // 1. NEXT_PUBLIC_SITE_URL (preferred for production)
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (siteUrl) {
+    return siteUrl.replace(/\/$/, "");
+  }
+
+  // 2. NEXT_PUBLIC_APP_URL (fallback)
   const configuredUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (configuredUrl) {
     return configuredUrl.replace(/\/$/, "");
   }
 
+  // 3. Browser window location (client-side only)
   if (typeof window !== "undefined" && window.location.origin) {
     return window.location.origin;
   }
 
+  // 4. Development fallback
   return "http://localhost:3000";
 }
 

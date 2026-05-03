@@ -18,6 +18,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const isAuthPage = pathname === "/auth";
+  const isOnboardingPage = pathname === "/onboarding";
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -32,13 +33,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Redirect to auth if not logged in (but not on auth page)
   useEffect(() => {
-    if (!loading && !user && !isAuthPage) {
+    if (!loading && !user && !isAuthPage && !isOnboardingPage) {
       router.replace("/auth");
     }
-  }, [user, loading, router, isAuthPage]);
+  }, [user, loading, router, isAuthPage, isOnboardingPage]);
 
   // Show full-screen loading while checking auth (skip on auth page)
-  if ((loading || !user) && !isAuthPage) {
+  if ((loading || !user) && !isAuthPage && !isOnboardingPage) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-base">
         <Loader2 className="h-8 w-8 animate-spin text-accent" />
@@ -49,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (isAuthPage) {
+  if (isAuthPage || isOnboardingPage) {
     return <>{children}</>;
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { getFriendlySupabaseErrorMessage, getSupabaseClient } from "./supabase";
+import { getFriendlySupabaseErrorMessage, getSupabaseClient, getAppOrigin } from "./supabase";
 import { useApp } from "./store-supabase";
 
 interface AuthContextType {
@@ -86,6 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           data: metadata,
+          // Redirect to auth/callback after email confirmation (if enabled in Supabase)
+          emailRedirectTo: `${getAppOrigin()}/auth/callback`,
         }
       });
     } catch (error) {
