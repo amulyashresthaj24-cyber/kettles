@@ -5,11 +5,12 @@ import { ChevronDown } from "lucide-react";
 export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'size'> {
   value?: string;
   onChange?: (e: { target: { value: string } }) => void;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
+  variant?: "default" | "pill";
 }
 
 export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
-  ({ className, children, value, onChange, size = "md", ...props }, ref) => {
+  ({ className, children, value, onChange, size = "md", variant = "default", ...props }, ref) => {
     const [open, setOpen] = React.useState(false);
     const containerRef = React.useRef<HTMLDivElement>(null);
     
@@ -37,27 +38,43 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    const isPill = variant === "pill";
+
     return (
       <div className={cn("relative", className)} ref={containerRef}>
         <button
           type="button"
           onClick={() => setOpen(!open)}
           className={cn(
-            "flex w-full items-center justify-between border bg-[#161718] font-normal text-text-primary outline-none transition-all",
-            size === "sm"
-              ? "h-[32px] rounded-[8px] pl-3 pr-2 py-1 text-[13px]"
-              : "h-[44px] rounded-[8px] pl-4 pr-2 py-2 text-[15px]",
-            open ? "border-accent shadow-[0_0_0_1px_var(--accent)]" : "border-border hover:border-border-subtle",
+            "flex items-center justify-between font-normal transition-all outline-none",
+            !isPill && "w-full border border-border-subtle bg-surface-raised text-text-primary",
+            isPill && "gap-1.5 px-3 py-1.5 rounded-full bg-surface-raised hover:bg-surface-mid text-[12px] font-medium text-text-secondary",
+            !isPill && size === "sm" && "h-9 px-3 py-1 text-sm rounded-lg",
+            !isPill && size === "md" && "h-10 px-3 py-2 text-sm rounded-lg",
+            !isPill && size === "lg" && "h-11 px-4 py-2.5 text-base rounded-lg",
+            !isPill && "hover:border-border transition-colors",
+            !isPill && open && "border-accent",
             props.disabled && "cursor-not-allowed opacity-50"
           )}
           disabled={props.disabled}
         >
-          <span className="truncate">{selectedOption?.label}</span>
-          <ChevronDown size={size === "sm" ? 14 : 18} className={cn("ml-2 shrink-0 transition-transform text-text-primary font-bold", open && "rotate-180")} strokeWidth={2.5} />
+          <span className={cn("truncate", isPill && "max-w-[120px]")}>{selectedOption?.label}</span>
+          <ChevronDown 
+            size={isPill ? 11 : (size === "sm" ? 14 : 16)} 
+            className={cn(
+              "shrink-0 transition-transform",
+              isPill ? "text-text-faint" : "text-text-muted",
+              open && "rotate-180"
+            )} 
+            strokeWidth={2.5} 
+          />
         </button>
         
         {open && !props.disabled && (
-          <div className="absolute z-[100] mt-1.5 w-full min-w-[10rem] overflow-hidden rounded-[8px] border border-[#2a2a2a] bg-[#141414] shadow-2xl animate-in fade-in-0 zoom-in-95 py-1">
+          <div className={cn(
+            "absolute z-[100] w-full overflow-hidden border border-border-subtle bg-surface-raised shadow-lg animate-in fade-in-0 zoom-in-95",
+            isPill ? "bottom-full mb-2 rounded-lg py-1 min-w-[160px]" : "top-full mt-1 rounded-lg py-1"
+          )}>
             {options.map((opt) => {
               const isSelected = opt.value === value;
               return (
@@ -65,10 +82,10 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
                   key={opt.value}
                   type="button"
                   className={cn(
-                    "w-full flex items-center px-3 py-2.5 text-left text-[13px] font-medium transition-colors outline-none",
+                    "w-full flex items-center px-3 py-2 text-left text-sm transition-colors outline-none",
                     isSelected
-                      ? "bg-accent text-white"
-                      : "text-text-primary hover:bg-[#1e1e1e]"
+                      ? "bg-accent text-white font-medium"
+                      : "text-text-primary hover:bg-surface-mid"
                   )}
                   onClick={() => {
                     onChange?.({ target: { value: opt.value } });

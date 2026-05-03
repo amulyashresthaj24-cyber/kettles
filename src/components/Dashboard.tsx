@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useApp } from "@/lib/store-supabase";
 import { formatDuration, formatCurrency } from "@/lib/format";
+import { isTaskOnDay } from "@/lib/task-dates";
 import { AddTaskModal } from "./AddTaskModal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -113,14 +114,14 @@ export default function Dashboard() {
   const todayTasks = useMemo(
     () =>
       tasks
-        .filter((t) => t.status !== "done")
+        .filter((t) => !t.archived && !t.deletedAt && t.status !== "done" && isTaskOnDay(t, todayStart, todayEnd))
         .sort((a, b) => URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency]),
-    [tasks]
+    [tasks, todayStart, todayEnd]
   );
 
   const doneTasks = useMemo(
-    () => tasks.filter((t) => t.status === "done"),
-    [tasks]
+    () => tasks.filter((t) => !t.archived && !t.deletedAt && t.status === "done" && isTaskOnDay(t, todayStart, todayEnd)),
+    [tasks, todayStart, todayEnd]
   );
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
@@ -397,7 +398,7 @@ export default function Dashboard() {
                 <QuickAction
                   icon={<Zap size={15} />}
                   label="Manage Projects"
-                  href="/"
+                  href="/projects"
                 />
               </div>
             </section>
@@ -416,7 +417,7 @@ export default function Dashboard() {
                 </Link>
               </div>
               <div className="flex flex-col gap-3">
-                {projects.map((proj) => {
+                {projects.filter((proj) => !(proj.archived || proj.status === "archived")).map((proj) => {
                   const projTasks = tasks.filter((t) => t.projectId === proj.id);
                   const done = projTasks.filter((t) => t.status === "done").length;
                   const pct = projTasks.length > 0 ? (done / projTasks.length) * 100 : 0;

@@ -5,7 +5,9 @@ import { useApp } from "@/lib/store-supabase";
 import type { Project, ProjectColor, ProjectStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { X, Palette, ChevronDown } from "lucide-react";
+import { X, Palette, ChevronDown, Plus } from "lucide-react";
+import { Checkbox } from "./ui/checkbox";
+import { Select } from "./ui/select";
 
 const PROJECT_COLORS: { label: string; value: ProjectColor; bg: string }[] = [
   { label: "Teal",   value: "teal",   bg: "bg-teal-500" },
@@ -94,6 +96,8 @@ export function EditProjectModal({
   onClose: () => void;
 }) {
   const updateProject = useApp((s) => s.updateProject);
+  const addClient = useApp((s) => s.addClient);
+  const clients = useApp((s) => s.clients);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -101,6 +105,13 @@ export function EditProjectModal({
   const [billable, setBillable] = useState(true);
   const [status, setStatus] = useState<ProjectStatus>("active");
   const [budget, setBudget] = useState("");
+  const [clientId, setClientId] = useState<string>("");
+
+  // Inline client creation state
+  const [isAddingClient, setIsAddingClient] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientRate, setNewClientRate] = useState("");
+  const [clientError, setClientError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && project) {
@@ -110,8 +121,33 @@ export function EditProjectModal({
       setBillable(project.billable);
       setStatus(project.status || "active");
       setBudget(project.budget?.toString() || "");
+      setClientId(project.clientId || "");
+      setIsAddingClient(false);
+      setNewClientName("");
+      setNewClientRate("");
+      setClientError(null);
     }
   }, [open, project]);
+
+  const handleCreateClient = useCallback(async () => {
+    if (!newClientName.trim()) {
+      setClientError("Client name is required");
+      return;
+    }
+    setClientError(null);
+    try {
+      const newClient = await addClient({
+        name: newClientName.trim(),
+        hourlyRate: newClientRate ? Number(newClientRate) : 0,
+      });
+      setClientId(newClient.id);
+      setIsAddingClient(false);
+      setNewClientName("");
+      setNewClientRate("");
+    } catch (err) {
+      setClientError(err instanceof Error ? err.message : "Failed to create client");
+    }
+  }, [newClientName, newClientRate, addClient]);
 
   const handleSubmit = useCallback(() => {
     if (!name.trim() || !project) return;
@@ -123,9 +159,10 @@ export function EditProjectModal({
       billable,
       status,
       budget: budget ? Number(budget) : undefined,
+      clientId: clientId || undefined,
     });
     onClose();
-  }, [name, project, updateProject, onClose, description, color, billable, status, budget]);
+  }, [name, project, updateProject, onClose, description, color, billable, status, budget, clientId]);
 
   useEffect(() => {
     if (!open) return;
@@ -220,14 +257,93 @@ export function EditProjectModal({
 
             {/* Billable toggle */}
             <label className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-raised hover:bg-surface-mid text-[12px] font-medium text-text-secondary transition-colors cursor-pointer">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={billable}
-                onChange={(e) => setBillable(e.target.checked)}
-                className="w-3 h-3"
+                onChange={(checked) => setBillable(checked)}
+                size="sm"
               />
               <span>Billable</span>
             </label>
+
+            {/* Client selector */}
+            {isAddingClient ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-raised border border-accent/30">
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Client name"
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleCreateClient();
+                    }
+                    if (e.key === "Escape") {
+                      setIsAddingClient(false);
+                      setClientError(null);
+                    }
+                  }}
+                  className="bg-transparent border-none outline-none w-[100px] text-[12px] text-text-primary placeholder:text-text-muted"
+                />
+                <input
+                  type="number"
+                  placeholder="Rate"
+                  value={newClientRate}
+                  onChange={(e) => setNewClientRate(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleCreateClient();
+                    }
+                  }}
+                  className="bg-transparent border-none outline-none w-[60px] text-[12px] text-text-secondary placeholder:text-text-muted"
+                />
+                <button
+                  onClick={handleCreateClient}
+                  className="text-accent hover:text-accent-hover"
+                  title="Create client"
+                >
+                  <Plus size={14} />
+                </button>
+                <button
+                  onClick={() => {
+                    setIsAddingClient(false);
+                    setClientError(null);
+                  }}
+                  className="text-text-muted hover:text-text-primary"
+                  title="Cancel"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <Select
+                value={clientId}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === "__new__") {
+                    setIsAddingClient(true);
+                    setClientId("");
+                  } else {
+                    setClientId(value);
+                  }
+                }}
+                variant="pill"
+                size="sm"
+              >
+                <option value="">No client</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+                <option value="__new__">+ Add new client...</option>
+              </Select>
+            )}
+            {clientError && (
+              <span className="text-[11px] text-error ml-1">{clientError}</span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">

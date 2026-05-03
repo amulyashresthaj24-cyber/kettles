@@ -504,7 +504,7 @@ export default function ReportPage() {
             <FolderOpen size={13} />
             {filterProjectId ? (projects.find((p) => p.id === filterProjectId)?.name ?? "Project") : "Project"}
           </button>
-          {projects.length > 0 && openProjectMenu && (
+          {projects.filter(p => !p.archived).length > 0 && openProjectMenu && (
             <div className="absolute top-full left-0 mt-1 w-44 bg-surface-raised border border-border rounded-lg shadow-xl z-50">
               <button
                 className="w-full text-left px-3 py-2 text-[12px] text-text-secondary hover:bg-surface-mid transition-colors"
@@ -512,18 +512,20 @@ export default function ReportPage() {
               >
                 All projects
               </button>
-              {projects.map((p) => (
-                <button
-                  key={p.id}
-                  className={cn(
-                    "w-full text-left px-3 py-2 text-[12px] hover:bg-surface-mid transition-colors",
-                    filterProjectId === p.id ? "text-accent" : "text-text-secondary"
-                  )}
-                  onClick={() => { setFilterProjectId(p.id); setOpenProjectMenu(false); }}
-                >
-                  {p.name}
-                </button>
-              ))}
+              {projects
+                .filter(p => !p.archived)
+                .map((p) => (
+                  <button
+                    key={p.id}
+                    className={cn(
+                      "w-full text-left px-3 py-2 text-[12px] hover:bg-surface-mid transition-colors",
+                      filterProjectId === p.id ? "text-accent" : "text-text-secondary"
+                    )}
+                    onClick={() => { setFilterProjectId(p.id); setOpenProjectMenu(false); }}
+                  >
+                    {p.name}
+                  </button>
+                ))}
             </div>
           )}
         </div>

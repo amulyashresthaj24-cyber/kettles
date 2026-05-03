@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
+import { taskDateTimestamp } from "@/lib/task-dates";
 import { AddTaskModal } from "@/components/AddTaskModal";
 import { Button } from "@/components/ui/button";
 import type { Task } from "@/lib/types";
@@ -24,6 +25,7 @@ interface CalendarEvent {
   task: Task;
   date: Date;
   color: string;
+  projectName: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -87,13 +89,14 @@ export default function CalendarPage() {
 
   const events: CalendarEvent[] = useMemo(() => {
     return tasks
-      .filter((t) => t.createdAt)
+      .filter((t) => !t.archived && !t.deletedAt)
       .map((t) => {
         const project = projects.find((p) => p.id === t.projectId);
         return {
           task: t,
-          date: new Date(t.createdAt),
+          date: new Date(taskDateTimestamp(t)),
           color: getProjectColor(project?.color ?? ""),
+          projectName: project?.name?.trim() || "Unassigned",
         };
       });
   }, [tasks, projects]);
@@ -203,7 +206,7 @@ export default function CalendarPage() {
         {view === "week" && <WeekView cursor={cursor} eventsForDay={eventsForDay} />}
         {view === "month" && <MonthView cursor={cursor} eventsForDay={eventsForDay} />}
         {view === "day" && <DayView cursor={cursor} eventsForDay={eventsForDay} />}
-        {view === "list" && <ListView cursor={cursor} events={events} />}
+        {view === "list" && <ListView cursor={cursor} events={events} onAddTask={() => setOpenAddTask(true)} />}
       </div>
 
       <AddTaskModal open={openAddTask} onClose={() => setOpenAddTask(false)} />
@@ -566,7 +569,7 @@ function DayView({ cursor, eventsForDay }: { cursor: Date; eventsForDay: (d: Dat
 
 // ─── List View (Upcoming style) ───────────────────────────────────────────────
 
-function ListView({ cursor, events }: { cursor: Date; events: CalendarEvent[] }) {
+function ListView({ cursor, events, onAddTask }: { cursor: Date; events: CalendarEvent[]; onAddTask: () => void }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -667,6 +670,7 @@ function ListView({ cursor, events }: { cursor: Date; events: CalendarEvent[] })
               events={dayEvents}
               showTime
               showAddTask
+              onAddTask={onAddTask}
             />
           );
         })}
@@ -682,6 +686,7 @@ function UpcomingSection({
   events: sectionEvents,
   showTime,
   showAddTask,
+  onAddTask,
 }: {
   label: string;
   labelColor: string;
@@ -689,6 +694,7 @@ function UpcomingSection({
   events: CalendarEvent[];
   showTime?: boolean;
   showAddTask?: boolean;
+  onAddTask?: () => void;
 }) {
   return (
     <div className="mb-2">
@@ -715,6 +721,7 @@ function UpcomingSection({
       {/* Add task */}
       {showAddTask && (
         <button
+          onClick={onAddTask}
           className="flex items-center gap-2 py-2.5 w-full text-left transition-opacity hover:opacity-80"
           style={{ color: "var(--text-faint)" }}
         >
@@ -777,7 +784,7 @@ function UpcomingTaskRow({ ev, showTime }: { ev: CalendarEvent; showTime?: boole
       {/* Right: project tag */}
       <div className="flex items-center gap-1.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
         <div className="w-1.5 h-1.5 rounded-full" style={{ background: ev.color }} />
-        <span className="text-[12px]" style={{ color: "var(--text-faint)" }}>Inbox</span>
+        <span className="text-[12px]" style={{ color: "var(--text-faint)" }}>{ev.projectName}</span>
       </div>
     </div>
   );
@@ -788,7 +795,7 @@ function UpcomingTaskRow({ ev, showTime }: { ev: CalendarEvent; showTime?: boole
 function EventPill({ ev, compact }: { ev: CalendarEvent; compact?: boolean }) {
   const statusStyle: Record<string, string> = {
     todo: "opacity-70",
-    in_progress: "opacity-100",
+    doing: "opacity-100",
     done: "opacity-40 line-through",
   };
 

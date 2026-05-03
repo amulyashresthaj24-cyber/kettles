@@ -106,7 +106,7 @@ export const useApp = create<State>()(
         set({
           sessions: [...get().sessions, s],
           activeSessionId: s.id,
-          tasks: get().tasks.map((t) => (t.id === taskId && t.status === "todo" ? { ...t, status: "in_progress" } : t)),
+          tasks: get().tasks.map((t) => (t.id === taskId && t.status === "todo" ? { ...t, status: "doing" } : t)),
         });
         return s;
       },

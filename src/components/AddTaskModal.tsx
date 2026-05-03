@@ -116,7 +116,21 @@ export function AddTaskModal({
         setProjectId(editingTask.projectId || "");
         setUrgency(editingTask.urgency || "normal");
         setEstimate(editingTask.estimateMinutes?.toString() || "");
-        setDateRange(editingTask.dateRange || "");
+        // Safely normalize dateRange: object legacy data -> string, string stays string
+        const rawDate = editingTask.dateRange;
+        if (rawDate && typeof rawDate === "object") {
+          if (rawDate.dueDate) {
+            const d = new Date(rawDate.dueDate);
+            setDateRange(isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0]);
+          } else if (rawDate.startDate) {
+            const d = new Date(rawDate.startDate);
+            setDateRange(isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0]);
+          } else {
+            setDateRange("");
+          }
+        } else {
+          setDateRange(typeof rawDate === "string" ? rawDate : "");
+        }
       } else {
         setTitle("");
         setDescription("");
@@ -144,7 +158,7 @@ export function AddTaskModal({
           urgency,
           estimateMinutes: estimate ? Number(estimate) : undefined,
           description: description.trim() || undefined,
-          dateRange: dateRange.trim() || undefined,
+          dateRange: typeof dateRange === "string" ? dateRange.trim() || undefined : undefined,
         });
       } else {
         await addTask({
@@ -154,7 +168,7 @@ export function AddTaskModal({
           status: defaultStatus,
           estimateMinutes: estimate ? Number(estimate) : undefined,
           description: description.trim() || undefined,
-          dateRange: dateRange.trim() || undefined,
+          dateRange: typeof dateRange === "string" ? dateRange.trim() || undefined : undefined,
         });
       }
       onClose();

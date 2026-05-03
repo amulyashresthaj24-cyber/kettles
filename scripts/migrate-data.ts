@@ -177,6 +177,22 @@ async function migrate() {
 
   console.log('\nMigrating tasks...');
   for (const task of data.tasks) {
+    // Normalize legacy status values
+    const normalizedStatus = task.status === 'in_progress' ? 'doing' : task.status;
+
+    // Normalize legacy dateRange object to string and extract nested completedAt
+    let dateRange: string | undefined = undefined;
+    let completedAt: number | null | undefined = task.dateRange?.completedAt ?? null;
+    if (task.dateRange && typeof task.dateRange === 'object') {
+      if (task.dateRange.dueDate) {
+        const d = new Date(task.dateRange.dueDate);
+        if (!isNaN(d.getTime())) dateRange = d.toISOString().split('T')[0];
+      } else if (task.dateRange.startDate) {
+        const d = new Date(task.dateRange.startDate);
+        if (!isNaN(d.getTime())) dateRange = d.toISOString().split('T')[0];
+      }
+    }
+
     const { error } = await supabase.from('tasks').insert({
       id: task.id,
       user_id: userId,
@@ -185,12 +201,13 @@ async function migrate() {
         title: task.title,
         description: task.description,
         urgency: task.urgency,
-        status: task.status,
+        status: normalizedStatus,
         estimateMinutes: task.estimateMinutes,
         actualMinutes: task.actualMinutes,
         assignees: task.assignees,
         tags: task.tags,
-        dateRange: task.dateRange,
+        dateRange,
+        completedAt: completedAt || undefined,
       },
     });
     if (error) console.error(`Failed to insert task ${task.id}:`, error.message);

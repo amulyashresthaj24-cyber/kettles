@@ -104,7 +104,24 @@ serve(async (req) => {
         }
 
         const body = await req.json();
-        const updateData: any = { data: sanitizeData(body) };
+        
+        // Fetch current project to merge data
+        const { data: currentData, error: fetchError } = await supabase
+          .from('projects')
+          .select('data')
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .single();
+        
+        if (fetchError) throw fetchError;
+        
+        // Merge new data with existing data instead of replacing
+        const mergedData = {
+          ...currentData?.data,
+          ...sanitizeData(body),
+        };
+        
+        const updateData: any = { data: mergedData };
         
         if (body.clientId !== undefined) {
           updateData.client_id = body.clientId && validateUUID(body.clientId) ? body.clientId : null;

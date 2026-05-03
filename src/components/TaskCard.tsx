@@ -1,12 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Play, RotateCcw, ArrowLeft, ArrowRight, CheckCheck, Edit2 } from "lucide-react";
+import { Play, RotateCcw, CheckCheck, Edit2, Archive, Trash2 } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
 import { ProjectTag } from "./ProjectTag";
 import { ClientBadge } from "./ClientBadge";
 import { Button } from "./ui/button";
+import { ConfirmDialog } from "./ui/confirm-dialog";
+import { useState } from "react";
 
 const URGENCY_CONFIG = {
   urgent: { label: "Urgent", bg: "bg-red-500/20", text: "text-red-500" },
@@ -17,6 +19,8 @@ const URGENCY_CONFIG = {
 
 export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) => void }) {
   const router = useRouter();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const project = useApp((s) =>
     s.projects.find((p) => p.id === task.projectId)
   );
@@ -26,6 +30,8 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
       : undefined
   );
   const setTaskStatus = useApp((s) => s.setTaskStatus);
+  const archiveTask = useApp((s) => s.archiveTask);
+  const deleteTask = useApp((s) => s.deleteTask);
   const startSession = useApp((s) => s.startSession);
   const activeSessionId = useApp((s) => s.activeSessionId);
 
@@ -47,10 +53,11 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
   const urgencyConfig = URGENCY_CONFIG[task.urgency] || URGENCY_CONFIG.normal;
 
   return (
-    <div
-      onClick={handleCardClick}
-      className="group flex flex-col gap-md rounded-md bg-surface-raised p-md transition-all hover:bg-surface-mid hover:shadow-md cursor-pointer hover:scale-[1.02]"
-    >
+    <>
+      <div
+        onClick={handleCardClick}
+        className="group flex flex-col gap-md rounded-md bg-surface-raised p-md transition-all hover:bg-surface-mid hover:shadow-md cursor-pointer hover:scale-[1.02]"
+      >
       {/* Title row with urgency tag */}
       <div className="flex items-start gap-sm justify-between">
         <p
@@ -83,7 +90,7 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
       </div>
 
       {/* Action buttons */}
-      <div className="flex items-center gap-xs border-t border-border-subtle pt-sm">
+      <div className="flex items-center gap-xs border-t border-border-subtle pt-sm flex-wrap">
         {task.status !== "done" ? (
           <>
             {task.status !== "todo" && (
@@ -96,20 +103,20 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
                 }}
                 className="flex items-center gap-1 text-[11px]"
               >
-                <ArrowLeft size={12} /> To Do
+                <RotateCcw size={12} /> To Do
               </Button>
             )}
-            {task.status !== "in_progress" && (
+            {task.status !== "doing" && (
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setTaskStatus(task.id, "in_progress");
+                  setTaskStatus(task.id, "doing");
                 }}
                 className="text-[11px]"
               >
-                In Progress
+                Doing
               </Button>
             )}
             <Button
@@ -140,6 +147,7 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
             <div className="ml-auto" />
           </>
         )}
+
         {onEdit && (
           <Button
             size="sm"
@@ -153,7 +161,50 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
             <Edit2 size={12} />
           </Button>
         )}
+
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            archiveTask(task.id);
+          }}
+          className="flex items-center gap-1 text-[11px] text-text-muted hover:text-accent"
+          title="Archive task"
+        >
+          <Archive size={12} />
+        </Button>
+
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            setConfirmDelete(true);
+          }}
+          className="flex items-center gap-1 text-[11px] text-text-muted hover:text-error"
+          title="Delete task"
+        >
+          <Trash2 size={12} />
+        </Button>
       </div>
     </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete task?"
+        description={`This will permanently delete "${task.title}". This action cannot be undone.`}
+        pending={isDeleting}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={async () => {
+          setIsDeleting(true);
+          try {
+            await deleteTask(task.id);
+            setConfirmDelete(false);
+          } finally {
+            setIsDeleting(false);
+          }
+        }}
+      />
+    </>
   );
 }

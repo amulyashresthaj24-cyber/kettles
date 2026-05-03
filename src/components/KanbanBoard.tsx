@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, memo } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -25,121 +25,12 @@ import { useApp } from "@/lib/store-supabase";
 import { TaskCard } from "./TaskCard";
 
 const COLUMNS: { id: TaskStatus; label: string }[] = [
-  { id: "todo", label: "To Do" },
-  { id: "in_progress", label: "In Progress" },
+  { id: "todo", label: "Todo" },
+  { id: "doing", label: "Doing" },
   { id: "done", label: "Done" },
 ];
 
 const URGENCY_ORDER = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
-
-export function KanbanBoard({
-  tasks,
-  onAddTask,
-  onEditTask,
-}: {
-  tasks: Task[];
-  onAddTask: (status: TaskStatus) => void;
-  onEditTask?: (task: Task) => void;
-}) {
-  const setTaskStatus = useApp((s) => s.setTaskStatus);
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  );
-
-  const activeTask = activeTaskId
-    ? tasks.find((t) => t.id === activeTaskId)
-    : null;
-
-  const grouped = COLUMNS.map((col) => ({
-    ...col,
-    tasks: tasks
-      .filter((t) => t.status === col.id)
-      .sort(
-        (a, b) => URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency]
-      ),
-  }));
-
-  const handleDragStart = (e: DragStartEvent) => {
-    setActiveTaskId(e.active.id as string);
-  };
-
-  const handleDragOver = (e: DragOverEvent) => {
-    const { active, over } = e;
-    if (!over) return;
-
-    const taskId = active.id as string;
-    const overId = over.id as string;
-
-    // over a column id directly
-    const col = COLUMNS.find((c) => c.id === overId);
-    if (col) {
-      setTaskStatus(taskId, col.id);
-      return;
-    }
-
-    // over another task — move to that task's column
-    const overTask = tasks.find((t) => t.id === overId);
-    if (overTask) {
-      const task = tasks.find((t) => t.id === taskId);
-      if (task && task.status !== overTask.status) {
-        setTaskStatus(taskId, overTask.status);
-      }
-    }
-  };
-
-  const handleDragEnd = (_e: DragEndEvent) => {
-    setActiveTaskId(null);
-  };
-
-  if (tasks.length === 0) {
-    return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-md rounded-lg bg-surface p-2xl text-center">
-        <p className="text-[16px] text-text-secondary">
-          No tasks match this filter.
-        </p>
-        <button
-          onClick={() => onAddTask("todo")}
-          className="text-[14px] font-medium text-accent hover:text-accent-hover"
-        >
-          + Add a task
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="grid grid-cols-1 gap-lg lg:grid-cols-3">
-        {grouped.map((col) => (
-          <KanbanColumn
-            key={col.id}
-            id={col.id}
-            label={col.label}
-            tasks={col.tasks}
-            onAddTask={onAddTask}
-            onEditTask={onEditTask}
-          />
-        ))}
-      </div>
-
-      <DragOverlay>
-        {activeTask ? (
-          <div className="rotate-1 opacity-95 shadow-2xl scale-105">
-            <TaskCard task={activeTask} />
-          </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
-  );
-}
 
 function KanbanColumn({
   id,
@@ -209,6 +100,8 @@ function KanbanColumn({
   );
 }
 
+const MemoizedKanbanColumn = memo(KanbanColumn);
+
 function SortableTaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) => void }) {
   const {
     attributes,
@@ -238,5 +131,118 @@ function SortableTaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) 
     >
       <TaskCard task={task} onEdit={onEdit} />
     </div>
+  );
+}
+
+const MemoizedSortableTaskCard = memo(SortableTaskCard);
+
+export function KanbanBoard({
+  tasks,
+  onAddTask,
+  onEditTask,
+}: {
+  tasks: Task[];
+  onAddTask: (status: TaskStatus) => void;
+  onEditTask?: (task: Task) => void;
+}) {
+  const setTaskStatus = useApp((s) => s.setTaskStatus);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const activeTask = useMemo(
+    () => activeTaskId ? tasks.find((t) => t.id === activeTaskId) : null,
+    [activeTaskId, tasks]
+  );
+
+  const grouped = useMemo(() => 
+    COLUMNS.map((col) => ({
+      ...col,
+      tasks: tasks
+        .filter((t) => t.status === col.id && !t.archived)
+        .sort(
+          (a, b) => URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency]
+        ),
+    })),
+    [tasks]
+  );
+
+  const handleDragStart = (e: DragStartEvent) => {
+    setActiveTaskId(e.active.id as string);
+  };
+
+  const handleDragOver = (e: DragOverEvent) => {
+    const { active, over } = e;
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const overId = over.id as string;
+
+    const col = COLUMNS.find((c) => c.id === overId);
+    if (col) {
+      setTaskStatus(taskId, col.id);
+      return;
+    }
+
+    const overTask = tasks.find((t) => t.id === overId);
+    if (overTask) {
+      const task = tasks.find((t) => t.id === taskId);
+      if (task && task.status !== overTask.status) {
+        setTaskStatus(taskId, overTask.status);
+      }
+    }
+  };
+
+  const handleDragEnd = (_e: DragEndEvent) => {
+    setActiveTaskId(null);
+  };
+
+  if (tasks.length === 0) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-md rounded-lg bg-surface p-2xl text-center">
+        <p className="text-[16px] text-text-secondary">
+          No tasks match this filter.
+        </p>
+        <button
+          onClick={() => onAddTask("todo")}
+          className="text-[14px] font-medium text-accent hover:text-accent-hover"
+        >
+          + Add a task
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="grid grid-cols-1 gap-lg lg:grid-cols-3">
+        {grouped.map((col) => (
+          <MemoizedKanbanColumn
+            key={col.id}
+            id={col.id}
+            label={col.label}
+            tasks={col.tasks}
+            onAddTask={onAddTask}
+            onEditTask={onEditTask}
+          />
+        ))}
+      </div>
+
+      <DragOverlay>
+        {activeTask ? (
+          <div className="rotate-1 opacity-95 shadow-2xl scale-105">
+            <TaskCard task={activeTask} />
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }

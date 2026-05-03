@@ -1,5 +1,5 @@
 export type Urgency = "urgent" | "high" | "normal" | "low";
-export type TaskStatus = "todo" | "in_progress" | "done";
+export type TaskStatus = "todo" | "doing" | "done";
 export type ProjectColor = "teal" | "amber" | "rose" | "indigo";
 export type ProjectStatus = "active" | "paused" | "completed" | "archived";
 
@@ -7,6 +7,12 @@ export interface Client {
   id: string;
   name: string;
   hourlyRate: number;
+  email?: string;
+  phone?: string;
+  company?: string;
+  notes?: string;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 export interface Project {
@@ -21,6 +27,10 @@ export interface Project {
   endDate?: number;
   budget?: number;
   createdAt?: number;
+  updatedAt?: number;
+  completedAt?: number;
+  archived?: boolean;
+  archivedAt?: number;
   tags?: string[];
 }
 
@@ -36,6 +46,11 @@ export interface Task {
   assignees?: string[];
   dateRange?: string;
   createdAt: number;
+  updatedAt?: number;
+  completedAt?: number;
+  archived?: boolean;
+  archivedAt?: number;
+  deletedAt?: number;
 }
 
 export interface Session {

@@ -35,13 +35,18 @@ export default function AuthPage() {
 
     try {
       if (mode === "signup") {
-        await signUp(email, password, { name });
-        setSuccess(true);
-        setTimeout(() => {
-          setMode("signin");
-          setSuccess(false);
-          setPassword("");
-        }, 2000);
+        const { requiresEmailConfirmation } = await signUp(email, password, { name });
+
+        if (requiresEmailConfirmation) {
+          setSuccess(true);
+          setTimeout(() => {
+            setMode("signin");
+            setSuccess(false);
+            setPassword("");
+          }, 2000);
+        } else {
+          router.push("/");
+        }
       } else {
         await signIn(email, password);
         router.push("/");

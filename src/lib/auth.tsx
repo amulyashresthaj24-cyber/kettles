@@ -1,14 +1,18 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { getAppOrigin, getFriendlySupabaseErrorMessage, getSupabaseClient } from "./supabase";
+import { getFriendlySupabaseErrorMessage, getSupabaseClient } from "./supabase";
 import { useApp } from "./store-supabase";
 
 interface AuthContextType {
   user: any;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, metadata?: { name?: string }) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    metadata?: { name?: string }
+  ) => Promise<{ requiresEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
 }
 
@@ -82,14 +86,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           data: metadata,
-          emailRedirectTo: `${getAppOrigin()}/auth`,
         }
       });
     } catch (error) {
       throw new Error(getFriendlySupabaseErrorMessage(error));
     }
-    const { error } = result;
+    const { data, error } = result;
     if (error) throw error;
+    return { requiresEmailConfirmation: !data.session };
   };
 
   const signOut = async () => {

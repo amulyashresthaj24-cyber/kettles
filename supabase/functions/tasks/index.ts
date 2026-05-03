@@ -60,7 +60,7 @@ serve(async (req) => {
         }
         
         const status = url.searchParams.get('status');
-        if (status) {
+        if (status && ['todo', 'doing', 'done'].includes(status)) {
           query = query.filter('data->>status', 'eq', status);
         }
         
@@ -94,7 +94,7 @@ serve(async (req) => {
 
         const taskData = {
           ...sanitizeData(body),
-          status: body.status || 'todo',
+          status: body.status === 'in_progress' ? 'doing' : (body.status || 'todo'),
         };
 
         const { data, error } = await supabase
@@ -126,7 +126,28 @@ serve(async (req) => {
         }
 
         const body = await req.json();
-        const updateData: any = { data: sanitizeData(body) };
+        
+        // Fetch current task to merge data
+        const { data: currentData, error: fetchError } = await supabase
+          .from('tasks')
+          .select('data')
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .single();
+        
+        if (fetchError) throw fetchError;
+        
+        // Merge new data with existing data instead of replacing
+        const sanitized = sanitizeData(body);
+        if (sanitized.status === 'in_progress') {
+          sanitized.status = 'doing';
+        }
+        const mergedData = {
+          ...currentData?.data,
+          ...sanitized,
+        };
+        
+        const updateData: any = { data: mergedData };
         
         if (body.projectId !== undefined) {
           updateData.project_id = body.projectId && validateUUID(body.projectId) ? body.projectId : null;

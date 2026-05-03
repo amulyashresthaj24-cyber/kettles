@@ -94,9 +94,26 @@ serve(async (req) => {
         }
 
         const body = await req.json();
+        
+        // Fetch current client to merge data
+        const { data: currentData, error: fetchError } = await supabase
+          .from('clients')
+          .select('data')
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .single();
+        
+        if (fetchError) throw fetchError;
+        
+        // Merge new data with existing data instead of replacing
+        const mergedData = {
+          ...currentData?.data,
+          ...sanitizeData(body),
+        };
+        
         const { data, error } = await supabase
           .from('clients')
-          .update({ data: sanitizeData(body) })
+          .update({ data: mergedData })
           .eq('id', id)
           .eq('user_id', user.id)
           .select()

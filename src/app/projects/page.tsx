@@ -1,12 +1,25 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Edit, Trash2, DollarSign } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  DollarSign,
+  Archive,
+  RotateCcw,
+  Search,
+  FolderOpen,
+} from "lucide-react";
 import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { AddProjectModal } from "@/components/AddProjectModal";
 import { EditProjectModal } from "@/components/EditProjectModal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Project } from "@/lib/types";
 
 const colorDot = (color: string) => {
@@ -20,29 +33,53 @@ const colorDot = (color: string) => {
 };
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const projects = useApp((s) => s.projects);
   const clients = useApp((s) => s.clients);
   const deleteProject = useApp((s) => s.deleteProject);
+  const archiveProject = useApp((s) => s.archiveProject);
+  const restoreProject = useApp((s) => s.restoreProject);
 
   const [openAdd, setOpenAdd] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | undefined>();
   const [searchQuery, setSearchQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const filteredProjects = useMemo(() => {
-    return projects.filter((p) =>
-      p.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [projects, searchQuery]);
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    return projects.filter((project) => {
+      const matchesSearch = project.name?.toLowerCase().includes(normalizedQuery);
+      const isArchived = project.archived || project.status === "archived";
+
+      if (showArchived) {
+        return matchesSearch && isArchived;
+      }
+
+      return matchesSearch && !isArchived;
+    });
+  }, [projects, searchQuery, showArchived]);
+
+  const activeProjectCount = useMemo(
+    () => projects.filter((project) => !(project.archived || project.status === "archived")).length,
+    [projects]
+  );
+
+  const archivedProjectCount = useMemo(
+    () => projects.filter((project) => project.archived || project.status === "archived").length,
+    [projects]
+  );
 
   const handleEdit = (project: Project) => {
     setEditingProject(project);
     setOpenEdit(true);
   };
 
-  const handleDelete = (id: string) => {
-    deleteProject(id);
+  const handleDelete = (project: Project) => {
+    setDeleteTarget(project);
   };
 
   const handleEditClose = () => {
@@ -51,143 +88,294 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
-      <header className="flex items-end justify-between gap-lg">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-[40px] font-semibold leading-[1.2] tracking-[-0.015em] text-text-primary">
-            My Projects
+    <div className="flex flex-col gap-2xl">
+      <header className="flex items-center justify-between gap-lg">
+        <div className="flex flex-col gap-xs">
+          <h1 className="text-[32px] font-semibold leading-[1.25] tracking-[-0.01em] text-text-primary">
+            Projects
           </h1>
-          <p className="text-[14px] text-text-muted">Free</p>
-        </div>
-      </header>
-
-      {/* Search + Filter bar */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <input
-            type="text"
-            placeholder="Search projects"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 px-4 py-2.5 bg-[var(--surface-mid)] border border-[var(--border-subtle)] rounded-lg text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
-          />
+          <p className="text-[14px] text-text-muted">
+            {showArchived
+              ? `${archivedProjectCount} archived ${archivedProjectCount === 1 ? "project" : "projects"}`
+              : `${activeProjectCount} active ${activeProjectCount === 1 ? "project" : "projects"}`}
+          </p>
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
-                className="w-4 h-4 rounded"
-              />
-              <span className="text-[13px] text-[var(--text-muted)]">
-                Archived projects only
-              </span>
-            </label>
-          </div>
-
+        {!showArchived && (
           <Button
             variant="primary"
             size="sm"
             onClick={() => setOpenAdd(true)}
-            className="gap-1.5 shrink-0 rounded-full"
+            className="gap-1.5 shrink-0"
           >
             <Plus size={14} />
-            Add
+            New Project
+          </Button>
+        )}
+      </header>
+
+      <section className="flex flex-col gap-md rounded-lg bg-surface p-lg">
+        <div className="flex flex-col gap-md lg:flex-row lg:items-center">
+          <div className="relative flex-1">
+            <Search
+              size={15}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-faint"
+            />
+            <Input
+              type="search"
+              aria-label="Search projects"
+              placeholder="Search projects"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="h-9 border-border-subtle bg-surface-mid pl-9 text-[14px]"
+            />
+          </div>
+
+          <Button
+            type="button"
+            variant={showArchived ? "primary" : "secondary"}
+            size="sm"
+            onClick={() => setShowArchived((value) => !value)}
+            className="gap-1.5 self-start lg:self-auto"
+            title={`${archivedProjectCount} archived project(s)`}
+          >
+            <Archive size={14} />
+            Archived
+            {archivedProjectCount > 0 && (
+              <span className="ml-0.5 rounded-full bg-surface px-1.5 py-0.5 text-[11px] leading-none text-text-secondary">
+                {archivedProjectCount}
+              </span>
+            )}
           </Button>
         </div>
-      </div>
 
-      {/* Projects count */}
-      <div className="text-[13px] text-[var(--text-muted)] font-medium">
-        {filteredProjects.length} {filteredProjects.length === 1 ? "project" : "projects"}
-      </div>
+        <div className="flex flex-wrap items-center justify-between gap-sm border-t border-border-subtle pt-md">
+          <p className="text-[13px] font-medium text-text-muted">
+            Showing {filteredProjects.length}{" "}
+            {filteredProjects.length === 1 ? "project" : "projects"}
+          </p>
 
-      {/* Divider */}
-      <div className="h-px w-full bg-[var(--border-subtle)]" />
+          {searchQuery && (
+            <Button
+              type="button"
+              variant="subtle"
+              size="xs"
+              onClick={() => setSearchQuery("")}
+            >
+              Clear search
+            </Button>
+          )}
+        </div>
+      </section>
 
-      {/* Projects list */}
-      <div className="flex flex-col gap-2">
+      <section className="flex flex-col overflow-hidden rounded-lg bg-surface">
         {filteredProjects.length === 0 ? (
-          <div className="py-8 text-center text-[var(--text-muted)]">
-            No projects found. Create one to get started!
+          <div className="flex min-h-[240px] flex-col items-center justify-center gap-md px-6 py-10 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-surface-raised text-text-muted">
+              <FolderOpen size={18} />
+            </div>
+            <div className="flex flex-col gap-xs">
+              <h2 className="text-[16px] font-semibold text-text-primary">
+                {searchQuery
+                  ? "No projects match your search"
+                  : showArchived
+                    ? "No archived projects"
+                    : "No projects yet"}
+              </h2>
+              <p className="max-w-[360px] text-[14px] leading-5 text-text-muted">
+                {searchQuery
+                  ? "Try a different project name or clear the search."
+                  : showArchived
+                    ? "Archived projects will appear here when you move active work out of the main list."
+                    : "Create a project to organize tasks, sessions, and billable work."}
+              </p>
+            </div>
+            {!showArchived && !searchQuery && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setOpenAdd(true)}
+                className="gap-1.5"
+              >
+                <Plus size={14} />
+                New Project
+              </Button>
+            )}
           </div>
         ) : (
-          filteredProjects.map((project) => {
-            const client = project.clientId
-              ? clients.find((c) => c.id === project.clientId)
-              : undefined;
+          <div className="divide-y divide-border-subtle">
+            {filteredProjects.map((project) => {
+              const client = project.clientId
+                ? clients.find((candidate) => candidate.id === project.clientId)
+                : undefined;
+              const isArchived = project.archived || project.status === "archived";
 
-            return (
-              <div
-                key={project.id}
-                className="flex items-center justify-between gap-4 px-4 py-3 rounded-lg bg-[var(--surface)] border border-[var(--border-subtle)] hover:bg-[var(--surface-raised)] transition-colors"
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {/* Color dot */}
-                  <span
-                    className={cn(
-                      "h-2.5 w-2.5 rounded-full shrink-0",
-                      colorDot(project.color)
-                    )}
-                  />
+              return (
+                <article
+                  key={project.id}
+                  onClick={() => router.push(`/projects/${project.id}`)}
+                  className={cn(
+                    "group grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-lg px-lg py-md transition-colors duration-150 ease-out hover:bg-surface-mid focus-within:bg-surface-mid",
+                    isArchived && "opacity-75"
+                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-md transition-all duration-200 ease-out group-hover:gap-[18px]">
+                    <span
+                      className={cn(
+                        "h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-surface-raised/70 transition-all duration-200 ease-out group-hover:ring-4",
+                        colorDot(project.color),
+                        isArchived && "opacity-50"
+                      )}
+                    />
 
-                  {/* Project info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[14px] font-medium text-[var(--text-primary)] truncate">
-                      {project.name}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      {client && (
-                        <span className="text-[12px] text-[var(--text-muted)] bg-[var(--surface-mid)] px-2 py-1 rounded">
-                          {client.name}
-                        </span>
-                      )}
-                      {project.billable && (
-                        <span className="inline-flex items-center gap-1 text-[12px] text-[var(--text-secondary)] bg-[var(--accent-dim)] px-2 py-1 rounded">
-                          <DollarSign size={11} />
-                          Billable
-                        </span>
-                      )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-sm transition-all duration-200 ease-out group-hover:gap-md">
+                        <h3
+                          className={cn(
+                            "truncate text-[15px] font-semibold leading-5 tracking-[0.005em]",
+                            isArchived
+                              ? "text-text-muted line-through"
+                              : "text-text-primary"
+                          )}
+                        >
+                          {project.name}
+                        </h3>
+                        {isArchived && (
+                          <Badge variant="raised" className="rounded-sm text-[11px]">
+                            Archived
+                          </Badge>
+                        )}
+
+                        {/* Client and Billable - Appear on Hover */}
+                        {client && (
+                          <Badge 
+                            variant="raised" 
+                            className="rounded-sm text-[11px] max-w-full transition-all duration-200 ease-out origin-left transform group-hover:opacity-100 group-hover:scale-100 opacity-0 scale-95 pointer-events-none"
+                          >
+                            <span className="truncate">{client.name}</span>
+                          </Badge>
+                        )}
+                        {project.billable && (
+                          <Badge 
+                            variant="accent" 
+                            className="rounded-sm text-[11px] transition-all duration-200 ease-out origin-left transform group-hover:opacity-100 group-hover:scale-100 opacity-0 scale-95 pointer-events-none"
+                          >
+                            <DollarSign size={11} />
+                            Billable
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => handleEdit(project)}
-                    className="p-2 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-mid)] transition-colors"
-                    aria-label="Edit project"
-                  >
-                    <Edit size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(project.id)}
-                    className="p-2 rounded-md text-[var(--text-muted)] hover:text-[var(--error)] hover:bg-[var(--surface-mid)] transition-colors"
-                    aria-label="Delete project"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            );
-          })
+                  <div className="flex items-center gap-xs opacity-80 transition-opacity group-hover:opacity-100">
+                    {!showArchived ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleEdit(project);
+                          }}
+                          aria-label="Edit project"
+                          title="Edit"
+                        >
+                          <Edit size={15} />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            archiveProject(project.id);
+                          }}
+                          aria-label="Archive project"
+                          title="Archive"
+                        >
+                          <Archive size={15} />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDelete(project);
+                          }}
+                          className="hover:text-status-error"
+                          aria-label="Delete project"
+                          title="Delete"
+                        >
+                          <Trash2 size={15} />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            restoreProject(project.id);
+                          }}
+                          className="hover:text-status-success"
+                          aria-label="Restore project"
+                          title="Restore"
+                        >
+                          <RotateCcw size={15} />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDelete(project);
+                          }}
+                          className="hover:text-status-error"
+                          aria-label="Delete project permanently"
+                          title="Delete permanently"
+                        >
+                          <Trash2 size={15} />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         )}
-      </div>
+      </section>
 
-      <AddProjectModal
-        open={openAdd}
-        onClose={() => setOpenAdd(false)}
-      />
+      <AddProjectModal open={openAdd} onClose={() => setOpenAdd(false)} />
 
       <EditProjectModal
         open={openEdit}
         project={editingProject}
         onClose={handleEditClose}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete project?"
+        description={`This will permanently delete "${deleteTarget?.name ?? "this project"}". Existing tasks and sessions linked to it may also be affected by the backend relationship.`}
+        pending={isDeleting}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          setIsDeleting(true);
+          try {
+            await deleteProject(deleteTarget.id);
+            setDeleteTarget(null);
+          } finally {
+            setIsDeleting(false);
+          }
+        }}
       />
     </div>
   );

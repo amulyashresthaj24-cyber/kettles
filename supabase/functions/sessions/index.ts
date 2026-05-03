@@ -132,8 +132,25 @@ serve(async (req) => {
         }
 
         const body = await req.json();
+        
+        // Fetch current session to merge data
+        const { data: currentData, error: fetchError } = await supabase
+          .from('sessions')
+          .select('data')
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .single();
+        
+        if (fetchError) throw fetchError;
+        
+        // Merge new data with existing data instead of replacing
+        const mergedData = {
+          ...currentData?.data,
+          ...sanitizeData(body),
+        };
+        
         const updateData: any = {
-          data: sanitizeData(body),
+          data: mergedData,
         };
         
         if (body.durationSeconds !== undefined) {

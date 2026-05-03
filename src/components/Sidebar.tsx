@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   CheckSquare,
   Timer,
@@ -22,7 +22,7 @@ import { AddProjectModal } from "./AddProjectModal";
 import { BrandMark } from "./BrandMark";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
-  { href: "/", label: "Tasks", Icon: CheckSquare },
+  { href: "/tasks", label: "Tasks", Icon: CheckSquare },
   { href: "/calendar", label: "Calendar", Icon: Calendar },
   { href: "/timer", label: "Timer", Icon: Timer },
   { href: "/report", label: "Report", Icon: BarChart2 },
@@ -31,6 +31,7 @@ const NAV = [
 
 export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void }) {
   const pathname = usePathname();
+  const router = useRouter();
   const projects = useApp((s) => s.projects);
   const clients = useApp((s) => s.clients);
   const user = useApp((s) => s.user);
@@ -40,8 +41,8 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
   const { signOut } = useAuth();
 
   return (
-    <aside className="flex h-screen w-[240px] shrink-0 flex-col overflow-y-auto bg-surface py-6 px-4">
-      <div className="flex flex-col gap-7 flex-1">
+    <aside className="flex h-screen w-[240px] shrink-0 flex-col bg-surface py-6 px-4">
+      <div className="flex flex-col gap-7 flex-1 overflow-y-auto">
         <BrandMark size="sm" className="px-0" />
 
         {/* Search */}
@@ -80,100 +81,60 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
         <div className="h-px w-full bg-border-subtle" />
 
         {/* Projects */}
-        <Section
-          title="Projects"
-          action={{ label: "+", onClick: () => setOpenNewProject(true) }}
-        >
-          <button
-            onClick={() => setSelectedProject(null)}
-            className={cn(
-              "nav-interactive flex items-center gap-3 rounded-[8px] px-2 py-1.5 text-left text-[13px] font-normal w-full",
-              !selectedProjectId
-                ? "bg-surface-mid text-text-primary"
-                : "text-text-muted hover:bg-surface-raised hover:text-text-primary"
-            )}
-          >
-            <FolderOpen size={16} className={cn("shrink-0", !selectedProjectId ? "text-text-primary" : "text-text-muted")} />
-            All projects
-          </button>
-          {projects.map((p) => {
-            const client = p.clientId
-              ? clients.find((c) => c.id === p.clientId)
-              : undefined;
-            const active = selectedProjectId === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => setSelectedProject(p.id)}
-                className={cn(
-                  "nav-interactive flex flex-col items-start rounded-[8px] px-2 py-1.5 text-left text-[13px] w-full",
-                  active
-                    ? "bg-surface-mid text-text-primary"
-                    : "text-text-muted hover:bg-surface-raised hover:text-text-primary"
-                )}
-              >
-                <span className="flex items-center gap-3">
-                  <span
-                    className={cn(
-                      "h-2 w-2 rounded-full shrink-0",
-                      colorDot(p.color)
-                    )}
-                  />
-                  <span className={active ? "font-normal" : "font-normal"}>{p.name}</span>
-                </span>
-                {client && (
-                  <span className="pl-[20px] text-[11px] text-text-faint mt-0.5">
-                    {client.name}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </Section>
+        <ProjectsSection
+          projects={projects.filter((p) => !p.archived)}
+          clients={clients}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={setSelectedProject}
+          onNavigateProject={(projectId) => router.push(`/projects/${projectId}`)}
+          onAddProject={() => setOpenNewProject(true)}
+        />
       </div>
 
-      {/* Profile at bottom */}
-      <div className="flex items-center justify-between group">
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <div className="w-[30px] h-[30px] bg-[#262626] rounded-[8px] flex items-center justify-center">
-              {user ? (
-                <span className="text-[16px] font-bold text-text-primary leading-none">
-                  {user.name?.[0]?.toUpperCase() || "U"}
-                </span>
-              ) : (
-                <User size={16} className="text-text-muted" />
+      {/* Profile at bottom - Sticky */}
+      <div className="border-t border-border-subtle pt-4 mt-4">
+        <div className="flex items-center justify-between group">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="relative">
+              <div className="w-[30px] h-[30px] bg-[#262626] rounded-[8px] flex items-center justify-center shrink-0">
+                {user ? (
+                  <span className="text-[16px] font-bold text-text-primary leading-none">
+                    {user.name?.[0]?.toUpperCase() || "U"}
+                  </span>
+                ) : (
+                  <User size={16} className="text-text-muted" />
+                )}
+              </div>
+              {user && (
+                <span className="absolute bottom-[-2px] right-[-2px] w-[8px] h-[8px] bg-[#22c55e] rounded-full border-[1.5px] border-base" />
               )}
             </div>
-            {user && (
-              <span className="absolute bottom-[-2px] right-[-2px] w-[8px] h-[8px] bg-[#22c55e] rounded-full border-[1.5px] border-base" />
-            )}
+            <div className="flex flex-col min-w-0">
+              <span className="text-[13px] font-semibold text-text-primary leading-tight truncate">
+                {user?.name || "Guest"}
+              </span>
+              {user?.email && (
+                <span className="text-[10px] text-text-muted leading-tight truncate">{user.email}</span>
+              )}
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="text-[16px] font-semibold text-text-primary leading-tight">
-              {user?.name || "Guest"}
-            </span>
-            {user?.email && (
-              <span className="text-[11px] text-text-muted leading-tight">{user.email}</span>
-            )}
-          </div>
+          {user ? (
+            <button
+              onClick={signOut}
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded shrink-0"
+              title="Sign out"
+            >
+              <LogOut size={16} />
+            </button>
+          ) : (
+            <Link
+              href="/auth"
+              className="text-[12px] text-[#0066ff] hover:text-[#3385ff] transition-colors shrink-0"
+            >
+              Sign in
+            </Link>
+          )}
         </div>
-        {user ? (
-          <button
-            onClick={signOut}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded"
-            title="Sign out"
-          >
-            <LogOut size={16} />
-          </button>
-        ) : (
-          <Link
-            href="/auth"
-            className="text-[12px] text-[#0066ff] hover:text-[#3385ff] transition-colors"
-          >
-            Sign in
-          </Link>
-        )}
       </div>
 
       <AddProjectModal
@@ -210,6 +171,93 @@ function Section({
         )}
       </div>
       <div className="flex flex-col gap-1">{children}</div>
+    </div>
+  );
+}
+
+interface ProjectsSectionProps {
+  projects: any[];
+  clients: any[];
+  selectedProjectId: string | null;
+  onSelectProject: (id: string | null) => void;
+  onNavigateProject: (id: string) => void;
+  onAddProject: () => void;
+}
+
+function ProjectsSection({
+  projects,
+  clients,
+  selectedProjectId,
+  onSelectProject,
+  onNavigateProject,
+  onAddProject,
+}: ProjectsSectionProps) {
+  const MAX_VISIBLE = 4;
+  const hasMore = projects.length > MAX_VISIBLE;
+  const visibleProjects = projects.slice(0, MAX_VISIBLE);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between px-2">
+        <h2 className="text-[12px] font-semibold text-text-primary">
+          My Projects
+        </h2>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onAddProject}
+            aria-label="Add project"
+            className="text-text-muted hover:text-text-primary transition-colors flex items-center justify-center w-5 h-5 rounded hover:bg-surface-raised"
+          >
+            <Plus size={14} />
+          </button>
+          {hasMore && (
+            <button
+              title={`${projects.length - MAX_VISIBLE} more project${projects.length - MAX_VISIBLE !== 1 ? 's' : ''}`}
+              className="text-text-muted hover:text-text-primary transition-colors flex items-center justify-center w-5 h-5 rounded hover:bg-surface-raised"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="flex flex-col gap-1 max-h-[180px] overflow-y-auto">
+        {visibleProjects.map((p) => {
+          const active = selectedProjectId === p.id;
+          return (
+            <button
+              key={p.id}
+              onClick={() => onNavigateProject(p.id)}
+              className={cn(
+                "nav-interactive flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[13px] w-full transition-colors",
+                active
+                  ? "bg-surface-mid text-text-primary"
+                  : "text-text-muted hover:bg-surface-raised hover:text-text-primary"
+              )}
+            >
+              <span className="text-[12px] font-semibold">
+                #
+              </span>
+              <span className="truncate">{p.name}</span>
+            </button>
+          );
+        })}
+      </div>
+      {hasMore && (
+        <button
+          onClick={() => onSelectProject(null)}
+          className={cn(
+            "nav-interactive flex items-center justify-center rounded-[6px] px-2 py-1.5 text-[12px] font-normal w-full transition-colors",
+            !selectedProjectId
+              ? "bg-surface-mid text-text-primary"
+              : "text-text-muted hover:bg-surface-raised hover:text-text-primary"
+          )}
+          title="View all projects"
+        >
+          View all {projects.length} projects
+        </button>
+      )}
     </div>
   );
 }

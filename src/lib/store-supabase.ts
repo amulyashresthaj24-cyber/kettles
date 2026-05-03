@@ -5,6 +5,47 @@ import { api } from "./supabase";
 import type { Client, Project, Task, Session, Urgency, TaskStatus } from "./types";
 import { uid } from "./format";
 
+function withTaskDisplayFallbacks(tasks: Task[]) {
+  return tasks.map((task) => ({
+    ...task,
+    title: task.title?.trim() || `New test task ${task.id.slice(0, 8)}`,
+    projectId: task.projectId || "unassigned",
+    urgency: task.urgency || "normal",
+    status: task.status || "todo",
+  }));
+}
+
+function withProjectDisplayFallbacks(projects: Project[]) {
+  return projects.map((project) => ({
+    ...project,
+    name: project.name?.trim() || `New test project ${project.id.slice(0, 8)}`,
+    color: project.color || "indigo",
+    billable: project.billable ?? false,
+    status: project.status || "active",
+  }));
+}
+
+function reconcileSessionTasks(tasks: Task[], sessions: Session[]) {
+  const taskIds = new Set(tasks.map((task) => task.id));
+  const missingTasks = sessions
+    .filter((session) => session.taskId && !taskIds.has(session.taskId))
+    .map((session) => {
+      const sessionData = session as Session & { taskTitle?: string; title?: string };
+      return {
+        id: session.taskId,
+        title: sessionData.taskTitle?.trim() || sessionData.title?.trim() || `New test task ${session.taskId.slice(0, 8)}`,
+        projectId: session.projectId,
+        urgency: "normal" as Urgency,
+        status: "todo" as TaskStatus,
+        dateRange: new Date(session.startedAt).toISOString().split("T")[0],
+        createdAt: session.startedAt,
+        updatedAt: session.endedAt ?? session.startedAt,
+      };
+    });
+
+  return missingTasks.length > 0 ? [...tasks, ...missingTasks] : tasks;
+}
+
 interface State {
   user: { name: string; email?: string } | null;
   clients: Client[];
@@ -16,6 +57,7 @@ interface State {
   selectedUrgency: Urgency | "all";
   isLoading: boolean;
   error: string | null;
+  lastDailyArchiveDate?: string;
 
   // Actions
   setUser: (user: { name: string; email?: string } | null) => void;
@@ -24,10 +66,14 @@ interface State {
   addProject: (p: Omit<Project, "id">) => Promise<Project>;
   updateProject: (id: string, patch: Partial<Omit<Project, "id">>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
+  archiveProject: (id: string) => Promise<void>;
+  restoreProject: (id: string) => Promise<void>;
   
   addTask: (t: Omit<Task, "id" | "createdAt" | "status"> & { status?: TaskStatus }) => Promise<Task>;
   updateTask: (id: string, patch: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
+  archiveTask: (id: string) => Promise<void>;
+  restoreTask: (id: string) => Promise<void>;
   setTaskStatus: (id: string, status: TaskStatus) => Promise<void>;
 
   startSession: (taskId: string, billable?: boolean) => Promise<Session | null>;
@@ -46,6 +92,7 @@ interface State {
   loadSessions: () => Promise<void>;
   loadAll: () => Promise<void>;
   clearAll: () => void;
+  performDailyArchive: () => Promise<void>;
 }
 
 export const useApp = create<State>()((set, get) => ({
@@ -59,6 +106,7 @@ export const useApp = create<State>()((set, get) => ({
   selectedUrgency: "all",
   isLoading: false,
   error: null,
+  lastDailyArchiveDate: undefined,
 
   setUser: (user) => set({ user }),
 
@@ -118,6 +166,37 @@ export const useApp = create<State>()((set, get) => ({
     }
   },
 
+  archiveProject: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const now = Date.now();
+      await api.projects.update(id, { archived: true, archivedAt: now, status: "archived" });
+      set({
+        projects: get().projects.map((p) => (p.id === id ? { ...p, archived: true, archivedAt: now, status: "archived" } : p)),
+      });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to archive project' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  restoreProject: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.projects.update(id, { archived: false, archivedAt: undefined, status: "active" });
+      set({
+        projects: get().projects.map((p) => (p.id === id ? { ...p, archived: false, archivedAt: undefined, status: "active" } : p)),
+      });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to restore project' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
   addTask: async (t) => {
     set({ isLoading: true, error: null });
     try {
@@ -163,12 +242,47 @@ export const useApp = create<State>()((set, get) => ({
     }
   },
 
+  archiveTask: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const now = Date.now();
+      await api.tasks.update(id, { archived: true, archivedAt: now });
+      set({
+        tasks: get().tasks.map((t) => (t.id === id ? { ...t, archived: true, archivedAt: now } : t)),
+      });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to archive task' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  restoreTask: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.tasks.update(id, { archived: false, archivedAt: undefined });
+      set({
+        tasks: get().tasks.map((t) => (t.id === id ? { ...t, archived: false, archivedAt: undefined } : t)),
+      });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to restore task' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
   setTaskStatus: async (id, status) => {
     set({ isLoading: true, error: null });
     try {
-      await api.tasks.update(id, { status });
+      const patch: any = { status };
+      if (status === "done") {
+        patch.completedAt = Date.now();
+      }
+      await api.tasks.update(id, patch);
       set({
-        tasks: get().tasks.map((t) => (t.id === id ? { ...t, status } : t)),
+        tasks: get().tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
       });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to update task status' });
@@ -201,9 +315,9 @@ export const useApp = create<State>()((set, get) => ({
         activeSessionId: session.id,
       });
       
-      // Auto-update task status to in_progress if it was todo
+      // Auto-update task status to doing if it was todo
       if (task.status === "todo") {
-        await get().setTaskStatus(taskId, "in_progress");
+        await get().setTaskStatus(taskId, "doing");
       }
       
       return session;
@@ -319,7 +433,7 @@ export const useApp = create<State>()((set, get) => ({
   loadProjects: async () => {
     try {
       const { projects } = await api.projects.list();
-      set({ projects: projects || [] });
+      set({ projects: withProjectDisplayFallbacks(projects || []) });
     } catch (error) {
       console.error('Failed to load projects:', error);
     }
@@ -328,7 +442,7 @@ export const useApp = create<State>()((set, get) => ({
   loadTasks: async () => {
     try {
       const { tasks } = await api.tasks.list();
-      set({ tasks: tasks || [] });
+      set({ tasks: withTaskDisplayFallbacks(tasks || []) });
     } catch (error) {
       console.error('Failed to load tasks:', error);
     }
@@ -352,17 +466,79 @@ export const useApp = create<State>()((set, get) => ({
   loadAll: async () => {
     set({ isLoading: true, error: null });
     try {
-      await Promise.all([
-        get().loadClients(),
-        get().loadProjects(),
-        get().loadTasks(),
-        get().loadSessions(),
+      const [clientsResult, projectsResult, tasksResult, sessionsResult] = await Promise.all([
+        api.clients.list(),
+        api.projects.list(),
+        api.tasks.list(),
+        api.sessions.list(),
       ]);
+
+      const sessions = sessionsResult.sessions || [];
+      const tasks = reconcileSessionTasks(withTaskDisplayFallbacks(tasksResult.tasks || []), sessions);
+      const activeSession = sessions.find((s: Session) => !s.endedAt);
+
+      set({
+        clients: clientsResult.clients || [],
+        projects: withProjectDisplayFallbacks(projectsResult.projects || []),
+        tasks,
+        sessions,
+        activeSessionId: activeSession?.id ?? null,
+      });
+
+      await get().performDailyArchive();
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
       set({ isLoading: false });
     }
+  },
+
+  performDailyArchive: async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const lastArchiveDate = get().lastDailyArchiveDate;
+    
+    if (lastArchiveDate === today) {
+      return;
+    }
+
+    const todayStart = new Date(today).getTime();
+    const tasksToArchive = get().tasks.filter(
+      (t) => t.status === "done" && t.completedAt && t.completedAt < todayStart && !t.archived
+    );
+
+    const projectsToArchive = get().projects.filter(
+      (p) => p.status === "completed" && p.completedAt && p.completedAt < todayStart && !p.archived && !p.archivedAt
+    );
+
+    for (const task of tasksToArchive) {
+      try {
+        const now = Date.now();
+        await api.tasks.update(task.id, { archived: true, archivedAt: now });
+      } catch (error) {
+        console.error(`Failed to archive task ${task.id}:`, error);
+      }
+    }
+
+    for (const project of projectsToArchive) {
+      try {
+        const now = Date.now();
+        await api.projects.update(project.id, { archived: true, archivedAt: now, status: "archived" });
+      } catch (error) {
+        console.error(`Failed to archive project ${project.id}:`, error);
+      }
+    }
+
+    set({
+      tasks: get().tasks.map((t) => {
+        const shouldArchive = tasksToArchive.some((ta) => ta.id === t.id);
+        return shouldArchive ? { ...t, archived: true, archivedAt: Date.now() } : t;
+      }),
+      projects: get().projects.map((p) => {
+        const shouldArchive = projectsToArchive.some((pa) => pa.id === p.id);
+        return shouldArchive ? { ...p, archived: true, archivedAt: Date.now(), status: "archived" } : p;
+      }),
+      lastDailyArchiveDate: today,
+    });
   },
 
   clearAll: () => set({
@@ -373,5 +549,6 @@ export const useApp = create<State>()((set, get) => ({
     activeSessionId: null,
     user: null,
     error: null,
+    lastDailyArchiveDate: undefined,
   }),
 }));

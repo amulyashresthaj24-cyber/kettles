@@ -1,22 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Play, RotateCcw, CheckSquare } from "lucide-react";
+import { Play, RotateCcw, CheckSquare, Archive, Trash2, Edit2 } from "lucide-react";
+import { useState } from "react";
 import type { Task, TaskStatus } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
 import { UrgencyDot } from "./UrgencyDot";
 import { ProjectTag } from "./ProjectTag";
 import { ClientBadge } from "./ClientBadge";
 import { Button } from "./ui/button";
+import { ConfirmDialog } from "./ui/confirm-dialog";
 
 const URGENCY_ORDER = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
 
 export function TaskList({
   tasks,
   onAddTask,
+  onEditTask,
 }: {
   tasks: Task[];
   onAddTask: (status: TaskStatus) => void;
+  onEditTask?: (task: Task) => void;
 }) {
   const router = useRouter();
   const projects = useApp((s) => s.projects);
@@ -24,6 +28,10 @@ export function TaskList({
   const startSession = useApp((s) => s.startSession);
   const activeSessionId = useApp((s) => s.activeSessionId);
   const setTaskStatus = useApp((s) => s.setTaskStatus);
+  const archiveTask = useApp((s) => s.archiveTask);
+  const deleteTask = useApp((s) => s.deleteTask);
+  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (tasks.length === 0) {
     return (
@@ -44,7 +52,7 @@ export function TaskList({
   // Group tasks by status
   const groups: { status: TaskStatus; label: string; tasks: Task[] }[] = [
     { status: "todo", label: "To Do", tasks: [] },
-    { status: "in_progress", label: "In Progress", tasks: [] },
+    { status: "doing", label: "Doing", tasks: [] },
     { status: "done", label: "Done", tasks: [] },
   ];
 
@@ -68,7 +76,8 @@ export function TaskList({
   };
 
   return (
-    <div className="flex flex-col gap-3xl">
+    <>
+      <div className="flex flex-col gap-3xl">
       {groups.map((group) => {
         if (group.tasks.length === 0) return null;
 
@@ -93,33 +102,34 @@ export function TaskList({
                   <div
                     key={task.id}
                     onClick={() => handleStart(task.id)}
-                    className={`group flex items-center gap-md px-md py-sm transition-colors hover:bg-surface-raised cursor-pointer ${
+                    className={`group flex items-center gap-3 px-4 py-3 transition-all hover:bg-surface-raised cursor-pointer ${
                       !isLast ? "border-b border-border-subtle" : ""
                     }`}
                   >
-                    <div className="flex items-center gap-md flex-1 min-w-0">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {/* Custom themed checkbox */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setTaskStatus(task.id, task.status === "done" ? "todo" : "done");
                         }}
-                        className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full border-2 transition-colors ${
+                        className={`shrink-0 flex items-center justify-center w-[18px] h-[18px] rounded-[5px] border-2 transition-all duration-150 ${
                           task.status === "done"
-                            ? "bg-status-success border-status-success"
-                            : "border-text-muted hover:border-text-primary"
+                            ? "bg-accent border-accent shadow-sm"
+                            : "border-border hover:border-text-secondary bg-surface"
                         }`}
                       >
                         {task.status === "done" && (
                           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M1 6L4.5 9.5L11 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         )}
                       </button>
 
-                      <UrgencyDot urgency={task.urgency} size={7} />
+                      <UrgencyDot urgency={task.urgency} size={8} />
 
                       <span
-                        className={`text-[14px] font-medium truncate ${
+                        className={`text-[14px] font-medium truncate transition-colors ${
                           task.status === "done"
                             ? "text-text-muted line-through"
                             : "text-text-primary"
@@ -139,7 +149,23 @@ export function TaskList({
                         {task.estimateMinutes ? `${task.estimateMinutes}m` : "--"}
                       </span>
 
-                      <div className="w-[80px] flex justify-end">
+                      <div className="flex justify-end gap-1">
+                        {/* Edit button */}
+                        {onEditTask && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditTask(task);
+                            }}
+                            className="gap-1 text-text-muted hover:text-text-primary"
+                            title="Edit task"
+                          >
+                            <Edit2 size={14} />
+                          </Button>
+                        )}
+
                         {task.status !== "done" ? (
                           <Button
                             size="xs"
@@ -150,7 +176,7 @@ export function TaskList({
                             }}
                             className="gap-1"
                           >
-                            <Play size={11} />
+                            <Play size={14} />
                             Start
                           </Button>
                         ) : (
@@ -163,10 +189,36 @@ export function TaskList({
                             }}
                             className="gap-1"
                           >
-                            <RotateCcw size={11} />
+                            <RotateCcw size={14} />
                             Reopen
                           </Button>
                         )}
+
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            archiveTask(task.id);
+                          }}
+                          className="gap-1 text-text-muted hover:text-accent"
+                          title="Archive"
+                        >
+                          <Archive size={14} />
+                        </Button>
+
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(task);
+                          }}
+                          className="gap-1 text-text-muted hover:text-error"
+                          title="Delete"
+                        >
+                          <Trash2 size={14} />
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -176,6 +228,24 @@ export function TaskList({
           </div>
         );
       })}
-    </div>
+      </div>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete task?"
+        description={`This will permanently delete "${deleteTarget?.title ?? "this task"}". This action cannot be undone.`}
+        pending={isDeleting}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          setIsDeleting(true);
+          try {
+            await deleteTask(deleteTarget.id);
+            setDeleteTarget(null);
+          } finally {
+            setIsDeleting(false);
+          }
+        }}
+      />
+    </>
   );
 }
