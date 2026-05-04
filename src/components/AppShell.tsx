@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Spinner } from "@/components/ui/icon";
 import Sidebar from "./Sidebar";
+import { KettleLoader } from "./KettleLoader";
 import { ActiveSessionBanner } from "./ActiveSessionBanner";
 import { CommandPalette } from "./CommandPalette";
 import { AddTaskModal } from "./AddTaskModal";
@@ -41,11 +41,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Show full-screen loading while checking auth (skip on auth page)
   if ((loading || !user) && !isAuthPage && !isOnboardingPage) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-base">
-        <Spinner size={20} weight="regular" className="animate-spin text-accent" aria-hidden />
-        <p className="font-sans text-[13px] text-text-faint">
-          {loading ? "Loading your workspace..." : "Redirecting to sign in..."}
-        </p>
+      <div className="flex h-screen flex-col items-center justify-center bg-base">
+        <KettleLoader message={loading ? "Loading your workspace..." : "Redirecting to sign in..."} />
       </div>
     );
   }

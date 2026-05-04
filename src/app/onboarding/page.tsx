@@ -12,6 +12,7 @@ import {
   Warning,
 } from "@/components/ui/icon";
 import { BrandMark } from "@/components/BrandMark";
+import { KettleLoader } from "@/components/KettleLoader";
 
 type Step = "profile" | "project" | "task" | "preference" | "complete";
 
@@ -189,7 +190,7 @@ export default function OnboardingPage() {
   if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center bg-base">
-        <Spinner size={24} weight="regular" className="animate-spin text-accent" aria-hidden />
+        <KettleLoader />
       </div>
     );
   }

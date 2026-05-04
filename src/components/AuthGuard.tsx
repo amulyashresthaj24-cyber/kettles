@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Spinner } from "@/components/ui/icon";
+import { KettleLoader } from "./KettleLoader";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -24,21 +24,16 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (loading || isRedirecting) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <Spinner size={32} weight="regular" className="text-text-muted animate-spin" aria-hidden />
-        <p className="text-[14px] text-[#8a8f98] font-sans">
-          {isRedirecting ? "Redirecting to sign in..." : "Loading..."}
-        </p>
+      <div className="flex flex-col items-center justify-center h-full">
+        <KettleLoader message={isRedirecting ? "Redirecting to sign in..." : undefined} />
       </div>
     );
   }
 
-  // Only render children if authenticated
   if (!user) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <Spinner size={32} weight="regular" className="text-text-muted animate-spin" aria-hidden />
-        <p className="text-[14px] text-[#8a8f98] font-sans">Redirecting to sign in...</p>
+      <div className="flex flex-col items-center justify-center h-full">
+        <KettleLoader message="Redirecting to sign in..." />
       </div>
     );
   }

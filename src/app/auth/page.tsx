@@ -11,6 +11,7 @@ import {
   EyeSlash,
 } from "@/components/ui/icon";
 import { BrandMark } from "@/components/BrandMark";
+import { KettleLoader } from "@/components/KettleLoader";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -109,7 +110,7 @@ export default function AuthPage() {
   if (loading || user) {
     return (
       <div className="flex h-screen items-center justify-center bg-base">
-        <Spinner size={24} weight="regular" className="animate-spin text-text-muted" aria-hidden />
+        <KettleLoader />
       </div>
     );
   }

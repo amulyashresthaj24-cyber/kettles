@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase";
-import { Spinner } from "@/components/ui/icon";
+import { KettleLoader } from "@/components/KettleLoader";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -51,10 +51,7 @@ export default function AuthCallbackPage() {
 
   return (
     <div className="flex h-screen items-center justify-center bg-base">
-      <div className="flex flex-col items-center gap-4">
-        <Spinner size={24} weight="regular" className="animate-spin text-text-muted" aria-hidden />
-        <p className="text-[14px] text-text-muted">Confirming your email...</p>
-      </div>
+      <KettleLoader message="Confirming your email..." />
     </div>
   );
 }
