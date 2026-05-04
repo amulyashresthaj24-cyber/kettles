@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { AddProjectModal } from "@/components/AddProjectModal";
 import { EditProjectModal } from "@/components/EditProjectModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { PageLayout, PageHeader, PageToolbar, PageContent } from "@/components/layout";
 import type { Project } from "@/lib/types";
 
 const colorDot = (color: string) => {
@@ -88,33 +89,31 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-2xl">
-      <header className="flex items-center justify-between gap-lg">
-        <div className="flex flex-col gap-xs">
-          <h1 className="text-[32px] font-semibold leading-[1.25] tracking-[-0.01em] text-text-primary">
-            Projects
-          </h1>
-          <p className="text-[14px] text-text-muted">
-            {showArchived
-              ? `${archivedProjectCount} archived ${archivedProjectCount === 1 ? "project" : "projects"}`
-              : `${activeProjectCount} active ${activeProjectCount === 1 ? "project" : "projects"}`}
-          </p>
-        </div>
+    <PageLayout>
+      <PageHeader
+        title="Projects"
+        subtitle={
+          showArchived
+            ? `${archivedProjectCount} archived ${archivedProjectCount === 1 ? "project" : "projects"}`
+            : `${activeProjectCount} active ${activeProjectCount === 1 ? "project" : "projects"}`
+        }
+        action={
+          !showArchived && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setOpenAdd(true)}
+              className="gap-1.5"
+            >
+              <Plus size={14} />
+              New Project
+            </Button>
+          )
+        }
+      />
 
-        {!showArchived && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setOpenAdd(true)}
-            className="gap-1.5 shrink-0"
-          >
-            <Plus size={14} />
-            New Project
-          </Button>
-        )}
-      </header>
-
-      <section className="flex flex-col gap-md rounded-lg p-lg" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+      <PageContent>
+        <section className="flex flex-col gap-md rounded-lg p-lg" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
         <div className="flex flex-col gap-md lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <MagnifyingGlass
@@ -377,6 +376,7 @@ export default function ProjectsPage() {
           }
         }}
       />
-    </div>
+      </PageContent>
+    </PageLayout>
   );
 }

@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { taskDateTimestamp } from "@/lib/task-dates";
 import { AddTaskModal } from "@/components/AddTaskModal";
 import { Button } from "@/components/ui/button";
+import { PageToolbar } from "@/components/layout";
 import type { Task } from "@/lib/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -138,9 +139,27 @@ export default function CalendarPage() {
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--base)", color: "var(--text-primary)" }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+      <div
+        className="flex items-center justify-between shrink-0"
+        style={{
+          paddingLeft: "var(--content-padding-x)",
+          paddingRight: "var(--content-padding-x)",
+          paddingTop: "var(--content-padding-y)",
+          paddingBottom: "16px",
+          borderBottom: "1px solid var(--border-subtle)",
+          gap: "var(--toolbar-gap)",
+        }}
+      >
         <div className="flex items-center gap-4">
-          <h1 className="text-[22px] font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
+          <h1
+            className="font-semibold tracking-tight text-text-primary"
+            style={{
+              fontSize: "var(--heading-xl-size)",
+              fontWeight: "var(--heading-xl-weight)",
+              lineHeight: "var(--heading-xl-line-height)",
+              letterSpacing: "var(--heading-xl-letter-spacing)",
+            }}
+          >
             Calendar
           </h1>
           <div className="flex items-center gap-1">
@@ -600,7 +619,15 @@ function ListView({ cursor, events, onAddTask }: { cursor: Date; events: Calenda
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Upcoming header */}
-      <div className="px-8 pt-7 pb-0 shrink-0">
+      <div
+        className="shrink-0"
+        style={{
+          paddingLeft: "var(--content-padding-x)",
+          paddingRight: "var(--content-padding-x)",
+          paddingTop: "var(--content-padding-y)",
+          paddingBottom: 0,
+        }}
+      >
         <h2 className="text-[28px] font-bold tracking-tight mb-1" style={{ color: "var(--text-primary)" }}>
           Upcoming
         </h2>
@@ -637,7 +664,15 @@ function ListView({ cursor, events, onAddTask }: { cursor: Date; events: Calenda
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto px-8 py-4 flex flex-col gap-0">
+      <div
+        className="flex-1 overflow-y-auto flex flex-col gap-0"
+        style={{
+          paddingLeft: "var(--content-padding-x)",
+          paddingRight: "var(--content-padding-x)",
+          paddingTop: "var(--section-gap)",
+          paddingBottom: "var(--content-padding-y)",
+        }}
+      >
 
         {/* Overdue section */}
         {overdueEvents.length > 0 && (

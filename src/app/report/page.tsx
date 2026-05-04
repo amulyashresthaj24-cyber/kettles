@@ -370,7 +370,17 @@ export default function ReportPage() {
       {/* Page Header */}
       <div className="flex flex-col pb-0 border-b border-border-subtle">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-[22px] font-semibold text-text-primary tracking-[-0.01em]">Reports</h1>
+          <h1
+            className="font-semibold text-text-primary"
+            style={{
+              fontSize: "var(--heading-xl-size)",
+              fontWeight: "var(--heading-xl-weight)",
+              lineHeight: "var(--heading-xl-line-height)",
+              letterSpacing: "var(--heading-xl-letter-spacing)",
+            }}
+          >
+            Reports
+          </h1>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="ghost" aria-label="Export PDF" onClick={handleExportPDF} title="Export PDF">
               <Download size={15} />

@@ -21,6 +21,7 @@ import { isTaskOnDay } from "@/lib/task-dates";
 import { AddTaskModal } from "./AddTaskModal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PageLayout, PageHeader, PageContent } from "@/components/layout";
 import type { Urgency } from "@/lib/types";
 
 const URGENCY_ORDER: Record<Urgency, number> = {
@@ -139,45 +140,37 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="flex flex-col gap-3xl max-w-[1200px] mx-auto">
-
+    <PageLayout>
+      <div style={{ maxWidth: "var(--content-max-width)", marginLeft: "auto", marginRight: "auto", width: "100%" }}>
         {/* Header */}
-        <div
-          className="flex items-center justify-between animate-fade-up"
-          style={{ "--index": 0 } as React.CSSProperties}
-        >
-          <div className="flex flex-col gap-1.5">
-            <h1
-              className="font-semibold leading-[1.1] tracking-[-0.02em]"
-              style={{ fontSize: 32, color: "var(--text-primary)" }}
-            >
-              {greeting}, {user?.name ?? "User"}
-            </h1>
-            <p style={{ fontSize: 14, color: "var(--text-muted)" }}>{dateStr}</p>
-          </div>
+        <PageHeader
+          title={`${greeting}, ${user?.name ?? "User"}`}
+          subtitle={dateStr}
+          action={
+            <div className="flex items-center gap-2.5">
+              <Button variant="secondary" size="default" onClick={() => setOpenAdd(true)}>
+                <Plus size={15} />
+                New Task
+              </Button>
+              <Link
+                href="/timer"
+                className="btn-interactive flex items-center gap-2 px-3 py-1.5 rounded-[8px] text-[13px] font-medium"
+                style={{
+                  background: "var(--accent)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                <Timer size={15} />
+                Start Timer
+              </Link>
+            </div>
+          }
+        />
 
-          <div className="flex items-center gap-2.5">
-            <Button variant="secondary" size="default" onClick={() => setOpenAdd(true)}>
-              <Plus size={15} />
-              New Task
-            </Button>
-            <Link
-              href="/timer"
-              className="btn-interactive flex items-center gap-2 px-3 py-1.5 rounded-[8px] text-[13px] font-medium"
-              style={{
-                background: "var(--accent)",
-                color: "var(--text-primary)",
-              }}
-            >
-              <Timer size={15} />
-              Start Timer
-            </Link>
-          </div>
-        </div>
-
-        {/* Stats row */}
-        <div className="grid grid-cols-4 gap-3">
+        <div style={{ marginTop: "var(--content-gap)" }}>
+          <PageContent>
+            {/* Stats row */}
+          <div className="grid grid-cols-4 gap-3">
           {[
             { icon: <Clock size={16} className="text-accent opacity-75" aria-hidden />, label: "Today Tracked", value: formatDuration(todayTracked), sub: `${todaySessions.length} session${todaySessions.length === 1 ? "" : "s"}` },
             { icon: <CalendarBlank size={16} className="text-accent opacity-75" aria-hidden />, label: "This Week", value: formatDuration(weekTracked), sub: `${weekSessions.length} session${weekSessions.length === 1 ? "" : "s"}` },
@@ -475,24 +468,14 @@ export default function Dashboard() {
                 )}
               </div>
             </section>
-
-            {/* Scratch pad */}
-            <section className="rounded-lg p-5 flex flex-col gap-3 flex-1" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-faint">
-                Scratch Pad
-              </h2>
-              <textarea
-                className="flex-1 w-full resize-none text-[13px] leading-relaxed bg-transparent outline-none text-text-secondary placeholder-text-faint"
-                style={{ minHeight: 80 }}
-                placeholder="Jot down a quick note..."
-              />
-            </section>
           </div>
+        </div>
+        </PageContent>
         </div>
       </div>
 
       <AddTaskModal open={openAdd} onClose={() => setOpenAdd(false)} />
-    </div>
+    </PageLayout>
   );
 }
 

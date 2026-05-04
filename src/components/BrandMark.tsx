@@ -22,7 +22,7 @@ export function BrandMark({
         height={Math.round(imageSize * 0.95)}
         className={cn(
           "block object-contain",
-          size === "sm" && "h-14 w-auto",
+          size === "sm" && "h-10 w-auto",
           size === "md" && "h-20 w-auto",
           size === "lg" && "h-[6.5rem] w-auto"
         )}
