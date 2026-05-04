@@ -4,29 +4,30 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  SquaresFour,
   CheckSquare,
   Timer,
-  BarChart2,
-  LayoutDashboard,
-  Plus,
+  ChartBar,
   FolderOpen,
-  Search,
-  Calendar,
-  LogOut,
+  CalendarBlank,
+  Plus,
+  MagnifyingGlass,
+  SignOut,
   User,
-} from "lucide-react";
+} from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { AddProjectModal } from "./AddProjectModal";
 import { BrandMark } from "./BrandMark";
+
 const NAV = [
-  { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
-  { href: "/tasks", label: "Tasks", Icon: CheckSquare },
-  { href: "/calendar", label: "Calendar", Icon: Calendar },
-  { href: "/timer", label: "Timer", Icon: Timer },
-  { href: "/report", label: "Report", Icon: BarChart2 },
-  { href: "/projects", label: "Projects", Icon: FolderOpen },
+  { href: "/dashboard", label: "Dashboard", Icon: SquaresFour },
+  { href: "/tasks",     label: "Tasks",     Icon: CheckSquare },
+  { href: "/calendar",  label: "Calendar",  Icon: CalendarBlank },
+  { href: "/timer",     label: "Timer",     Icon: Timer },
+  { href: "/report",    label: "Report",    Icon: ChartBar },
+  { href: "/projects",  label: "Projects",  Icon: FolderOpen },
 ];
 
 export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void }) {
@@ -41,44 +42,67 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
   const { signOut } = useAuth();
 
   return (
-    <aside className="flex h-screen w-[240px] shrink-0 flex-col bg-surface py-6 px-4">
-      <div className="flex flex-col gap-7 flex-1 overflow-y-auto">
-        <BrandMark size="sm" className="px-0" />
+    <aside className="flex h-screen w-[240px] shrink-0 flex-col bg-surface py-5 px-3">
+      <div className="flex flex-col gap-6 flex-1 overflow-y-auto scrollbar-hide">
+        <div className="px-1">
+          <BrandMark size="sm" className="px-0" />
+        </div>
 
         {/* Search */}
-        <div className="relative flex items-center">
-          <Search className="absolute left-[8px] text-text-muted" size={14} />
-          <div onClick={onSearchClick} className="w-full h-[32px] bg-surface-mid border border-[#2e2e2e] rounded-[8px] flex items-center justify-between px-[7px] pl-[28px] cursor-pointer hover:border-[#444] transition-colors">
-            <span className="text-[13px] text-text-muted">Quick Search</span>
-            <div className="flex items-center justify-center border border-[#444] rounded-[4px] px-[5px] py-[1px] bg-[#262626]">
-              <span className="text-[10px] text-text-muted font-medium">⌘K</span>
+        <div className="relative flex items-center px-1">
+          <MagnifyingGlass
+            size={13}
+            weight="regular"
+            className="absolute left-[15px] text-text-faint pointer-events-none"
+            aria-hidden
+          />
+          <div
+            onClick={onSearchClick}
+            role="button"
+            aria-label="Quick search"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === "Enter" && onSearchClick?.()}
+            className="w-full h-[34px] bg-canvas rounded-[8px] flex items-center justify-between px-2 pl-[30px] cursor-pointer hover:bg-base transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+          >
+            <span className="text-[12px] text-text-faint">Search...</span>
+            <div className="flex items-center justify-center border border-border rounded-[4px] px-1.5 py-px bg-surface-raised">
+              <span className="text-[10px] text-text-faint font-medium tracking-wide">⌘K</span>
             </div>
           </div>
         </div>
 
         {/* Primary Nav */}
-        <nav className="flex flex-col gap-1">
+        <nav className="flex flex-col gap-0.5 px-1" aria-label="Main navigation">
           {NAV.map(({ href, label, Icon }) => {
             const active = pathname === href;
             return (
               <Link
                 key={href}
                 href={href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "nav-interactive flex items-center gap-3 rounded-[8px] px-2 py-1.5 text-[13px] font-normal",
+                  "nav-interactive relative flex items-center gap-2.5 rounded-[8px] px-2.5 py-[7px] text-[13px] font-medium",
                   active
-                    ? "bg-surface-mid text-text-primary"
-                    : "text-text-muted hover:bg-surface-raised hover:text-text-primary"
+                    ? "bg-accent/10 text-accent"
+                    : "text-text-muted hover:bg-surface-raised hover:text-text-secondary"
                 )}
               >
-                <Icon size={16} className={cn("shrink-0", active ? "text-text-primary" : "text-text-muted")} />
+                <Icon
+                  size={18}
+                  weight={active ? "bold" : "regular"}
+                  className={cn("shrink-0", active ? "text-accent" : "text-text-faint")}
+                  aria-hidden
+                />
                 {label}
+                {active && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-r-full bg-accent" />
+                )}
               </Link>
             );
           })}
         </nav>
 
-        <div className="h-px w-full bg-border-subtle" />
+        <div className="mx-2 h-px bg-surface-raised" />
 
         {/* Projects */}
         <ProjectsSection
@@ -91,87 +115,51 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
         />
       </div>
 
-      {/* Profile at bottom - Sticky */}
-      <div className="border-t border-border-subtle pt-4 mt-4">
-        <div className="flex items-center justify-between group">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="relative">
-              <div className="w-[30px] h-[30px] bg-[#262626] rounded-[8px] flex items-center justify-center shrink-0">
+      {/* Profile at bottom */}
+      <div className="pt-3 mt-3 px-1">
+        <div className="flex items-center justify-between rounded-[8px] px-2 py-2 hover:bg-surface-raised transition-colors group">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="relative shrink-0">
+              <div className="w-7 h-7 bg-surface-mid rounded-[6px] flex items-center justify-center">
                 {user ? (
-                  <span className="text-[16px] font-bold text-text-primary leading-none">
+                  <span className="text-[13px] font-bold text-text-primary leading-none">
                     {user.name?.[0]?.toUpperCase() || "U"}
                   </span>
                 ) : (
-                  <User size={16} className="text-text-muted" />
+                  <User size={13} weight="regular" className="text-text-muted" aria-hidden />
                 )}
               </div>
               {user && (
-                <span className="absolute bottom-[-2px] right-[-2px] w-[8px] h-[8px] bg-[#22c55e] rounded-full border-[1.5px] border-base" />
+                <span className="absolute -bottom-px -right-px w-2 h-2 bg-success rounded-full border-[1.5px] border-surface" />
               )}
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-[13px] font-semibold text-text-primary leading-tight truncate">
+              <span className="text-[12px] font-semibold text-text-primary leading-tight truncate">
                 {user?.name || "Guest"}
               </span>
               {user?.email && (
-                <span className="text-[10px] text-text-muted leading-tight truncate">{user.email}</span>
+                <span className="text-[10px] text-text-faint leading-tight truncate">{user.email}</span>
               )}
             </div>
           </div>
           {user ? (
             <button
               onClick={signOut}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded shrink-0"
-              title="Sign out"
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded text-text-faint hover:text-error hover:bg-error/10 shrink-0 focus-visible:opacity-100 focus-ring"
+              aria-label="Sign out"
             >
-              <LogOut size={16} />
+              <SignOut size={14} weight="regular" aria-hidden />
             </button>
           ) : (
-            <Link
-              href="/auth"
-              className="text-[12px] text-[#0066ff] hover:text-[#3385ff] transition-colors shrink-0"
-            >
+            <Link href="/auth" className="text-[12px] text-accent hover:text-accent-hover transition-colors shrink-0">
               Sign in
             </Link>
           )}
         </div>
       </div>
 
-      <AddProjectModal
-        open={openNewProject}
-        onClose={() => setOpenNewProject(false)}
-      />
+      <AddProjectModal open={openNewProject} onClose={() => setOpenNewProject(false)} />
     </aside>
-  );
-}
-
-function Section({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: { label: string; onClick: () => void };
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between px-2">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.04em] text-text-faint">
-          {title}
-        </h2>
-        {action && (
-          <button
-            onClick={action.onClick}
-            aria-label={`Add ${title.toLowerCase()}`}
-            className="text-text-muted hover:text-text-primary transition-colors flex items-center justify-center w-5 h-5 rounded hover:bg-surface-raised"
-          >
-            <Plus size={14} />
-          </button>
-        )}
-      </div>
-      <div className="flex flex-col gap-1">{children}</div>
-    </div>
   );
 }
 
@@ -197,32 +185,21 @@ function ProjectsSection({
   const visibleProjects = projects.slice(0, MAX_VISIBLE);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between px-2">
-        <h2 className="text-[12px] font-semibold text-text-primary">
-          My Projects
+    <div className="flex flex-col gap-2 px-1">
+      <div className="flex items-center justify-between px-1.5">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-faint">
+          Projects
         </h2>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={onAddProject}
-            aria-label="Add project"
-            className="text-text-muted hover:text-text-primary transition-colors flex items-center justify-center w-5 h-5 rounded hover:bg-surface-raised"
-          >
-            <Plus size={14} />
-          </button>
-          {hasMore && (
-            <button
-              title={`${projects.length - MAX_VISIBLE} more project${projects.length - MAX_VISIBLE !== 1 ? 's' : ''}`}
-              className="text-text-muted hover:text-text-primary transition-colors flex items-center justify-center w-5 h-5 rounded hover:bg-surface-raised"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-              </svg>
-            </button>
-          )}
-        </div>
+        <button
+          onClick={onAddProject}
+          aria-label="Add project"
+          className="text-text-faint hover:text-text-primary transition-colors flex items-center justify-center w-5 h-5 rounded hover:bg-surface-raised focus-ring"
+        >
+          <Plus size={13} weight="regular" aria-hidden />
+        </button>
       </div>
-      <div className="flex flex-col gap-1 max-h-[180px] overflow-y-auto">
+
+      <div className="flex flex-col gap-0.5 max-h-[180px] overflow-y-auto scrollbar-hide">
         {visibleProjects.map((p) => {
           const active = selectedProjectId === p.id;
           return (
@@ -230,30 +207,23 @@ function ProjectsSection({
               key={p.id}
               onClick={() => onNavigateProject(p.id)}
               className={cn(
-                "nav-interactive flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[13px] w-full transition-colors",
+                "nav-interactive flex items-center gap-2 rounded-[7px] px-2 py-[6px] text-left text-[12px] w-full",
                 active
-                  ? "bg-surface-mid text-text-primary"
-                  : "text-text-muted hover:bg-surface-raised hover:text-text-primary"
+                  ? "bg-accent/10 text-accent font-medium"
+                  : "text-text-muted hover:bg-surface-raised hover:text-text-secondary font-normal"
               )}
             >
-              <span className="text-[12px] font-semibold">
-                #
-              </span>
+              <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", colorDot(p.color))} />
               <span className="truncate">{p.name}</span>
             </button>
           );
         })}
       </div>
+
       {hasMore && (
         <button
           onClick={() => onSelectProject(null)}
-          className={cn(
-            "nav-interactive flex items-center justify-center rounded-[6px] px-2 py-1.5 text-[12px] font-normal w-full transition-colors",
-            !selectedProjectId
-              ? "bg-surface-mid text-text-primary"
-              : "text-text-muted hover:bg-surface-raised hover:text-text-primary"
-          )}
-          title="View all projects"
+          className="nav-interactive flex items-center justify-center rounded-[6px] px-2 py-1.5 text-[12px] font-normal w-full text-text-muted hover:bg-surface-raised hover:text-text-secondary"
         >
           View all {projects.length} projects
         </button>
@@ -271,4 +241,3 @@ function colorDot(c: string) {
     default:       return "bg-text-muted";
   }
 }
-

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Play, RotateCcw, CheckCheck, Edit2, Archive, Trash2 } from "lucide-react";
+import { Play, ArrowClockwise, Checks, PencilSimple, Archive, Trash } from "@/components/ui/icon";
 import type { Task } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
 import { ProjectTag } from "./ProjectTag";
@@ -11,10 +11,10 @@ import { ConfirmDialog } from "./ui/confirm-dialog";
 import { useState } from "react";
 
 const URGENCY_CONFIG = {
-  urgent: { label: "Urgent", bg: "bg-red-500/20", text: "text-red-500" },
-  high: { label: "High", bg: "bg-accent-dim", text: "text-accent" },
-  normal: { label: "Normal", bg: "bg-blue-500/20", text: "text-blue-500" },
-  low: { label: "Low", bg: "bg-gray-500/20", text: "text-gray-500" },
+  urgent: { label: "Urgent", bg: "bg-error/12", text: "text-error" },
+  high:   { label: "High",   bg: "bg-warning/12", text: "text-warning" },
+  normal: { label: "Normal", bg: "bg-accent/10",  text: "text-accent" },
+  low:    { label: "Low",    bg: "bg-surface-mid", text: "text-text-faint" },
 };
 
 export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) => void }) {
@@ -56,20 +56,24 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
     <>
       <div
         onClick={handleCardClick}
-        className="group flex flex-col gap-md rounded-md bg-surface-raised p-md transition-all hover:bg-surface-mid hover:shadow-md cursor-pointer hover:scale-[1.02]"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === "Enter" && handleCardClick()}
+        aria-label={`${task.title} — click to start timer`}
+        className="group flex flex-col gap-3 rounded-xl bg-surface-raised p-3.5 transition-all hover:bg-surface-mid cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
       >
       {/* Title row with urgency tag */}
-      <div className="flex items-start gap-sm justify-between">
+      <div className="flex items-start gap-2 justify-between">
         <p
-          className={`text-[13px] font-medium leading-snug tracking-[-0.01em] flex-1 ${
+          className={`text-[13px] font-medium leading-snug tracking-[-0.01em] flex-1 min-w-0 break-words ${
             task.status === "done"
-              ? "text-text-muted line-through"
+              ? "text-text-faint line-through"
               : "text-text-primary"
           }`}
         >
-          {task.title}
+          {task.title || "Untitled task"}
         </p>
-        <span className={`shrink-0 text-[11px] font-semibold px-2 py-1 rounded-full whitespace-nowrap ${urgencyConfig.bg} ${urgencyConfig.text}`}>
+        <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${urgencyConfig.bg} ${urgencyConfig.text}`}>
           {urgencyConfig.label}
         </span>
       </div>
@@ -80,69 +84,59 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
         <ClientBadge client={client} />
       </div>
 
-      {/* Estimate + action */}
-      <div className="flex items-center justify-between text-[12px] text-text-muted">
-        <span>
-          {task.estimateMinutes
-            ? `Est: ${task.estimateMinutes} min`
-            : "No estimate"}
-        </span>
-      </div>
+      {/* Estimate */}
+      {task.estimateMinutes ? (
+        <div className="text-[11px] text-text-faint">
+          Est. {task.estimateMinutes} min
+        </div>
+      ) : null}
 
       {/* Action buttons */}
-      <div className="flex items-center gap-xs border-t border-border-subtle pt-sm flex-wrap">
+      <div className="flex items-center gap-1 border-t border-border-subtle pt-2.5 flex-wrap">
         {task.status !== "done" ? (
           <>
             {task.status !== "todo" && (
               <Button
-                size="sm"
+                size="xs"
                 variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setTaskStatus(task.id, "todo");
-                }}
+                onClick={(e) => { e.stopPropagation(); setTaskStatus(task.id, "todo"); }}
+                aria-label="Move to To Do"
                 className="flex items-center gap-1 text-[11px]"
               >
-                <RotateCcw size={12} /> To Do
+                <ArrowClockwise size={11} /> To Do
               </Button>
             )}
             {task.status !== "doing" && (
               <Button
-                size="sm"
+                size="xs"
                 variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setTaskStatus(task.id, "doing");
-                }}
+                onClick={(e) => { e.stopPropagation(); setTaskStatus(task.id, "doing"); }}
+                aria-label="Move to In Progress"
                 className="text-[11px]"
               >
-                Doing
+                In Progress
               </Button>
             )}
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                setTaskStatus(task.id, "done");
-              }}
+              onClick={(e) => { e.stopPropagation(); setTaskStatus(task.id, "done"); }}
+              aria-label="Mark as done"
               className="ml-auto flex items-center gap-1 text-[11px]"
             >
-              <CheckCheck size={12} /> Done
+              <Checks size={11} /> Done
             </Button>
           </>
         ) : (
           <>
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                setTaskStatus(task.id, "todo");
-              }}
+              onClick={(e) => { e.stopPropagation(); setTaskStatus(task.id, "todo"); }}
+              aria-label="Reopen task"
               className="flex items-center gap-1 text-[11px]"
             >
-              <RotateCcw size={12} /> Reopen
+              <ArrowClockwise size={11} /> Reopen
             </Button>
             <div className="ml-auto" />
           </>
@@ -150,42 +144,36 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
 
         {onEdit && (
           <Button
-            size="sm"
+            size="icon-xs"
             variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(task);
-            }}
-            className="flex items-center gap-1 text-[11px]"
+            onClick={(e) => { e.stopPropagation(); onEdit(task); }}
+            aria-label="Edit task"
+            title="Edit task"
           >
-            <Edit2 size={12} />
+            <PencilSimple size={12} />
           </Button>
         )}
 
         <Button
-          size="sm"
+          size="icon-xs"
           variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            archiveTask(task.id);
-          }}
-          className="flex items-center gap-1 text-[11px] text-text-muted hover:text-accent"
-          title="Archive task"
+          onClick={(e) => { e.stopPropagation(); archiveTask(task.id); }}
+          aria-label="Archive task"
+          title="Move to archive"
+          className="text-text-faint hover:text-text-muted"
         >
           <Archive size={12} />
         </Button>
 
         <Button
-          size="sm"
+          size="icon-xs"
           variant="ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setConfirmDelete(true);
-          }}
-          className="flex items-center gap-1 text-[11px] text-text-muted hover:text-error"
-          title="Delete task"
+          onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
+          aria-label="Delete task"
+          title="Delete task permanently"
+          className="text-text-faint hover:text-error"
         >
-          <Trash2 size={12} />
+          <Trash size={12} />
         </Button>
       </div>
     </div>

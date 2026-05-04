@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RotateCcw, Trash2, Search, Calendar, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { ArrowClockwise, Trash, MagnifyingGlass, CalendarBlank, CheckCircle, Clock, Warning } from "@/components/ui/icon";
 import type { Task } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
 import { UrgencyDot } from "./UrgencyDot";
@@ -14,9 +14,9 @@ import { ConfirmDialog } from "./ui/confirm-dialog";
 const URGENCY_ORDER = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
 
 const STATUS_ICON = {
-  todo: <AlertCircle size={14} className="text-text-faint" />,
+  todo: <Warning size={14} className="text-text-faint" />,
   doing: <Clock size={14} className="text-accent" />,
-  done: <CheckCircle2 size={14} className="text-status-success" />,
+  done: <CheckCircle size={14} className="text-status-success" />,
 } as const;
 
 const STATUS_LABEL = {
@@ -66,14 +66,14 @@ export function TaskArchive({ tasks }: { tasks: Task[] }) {
 
   if (tasks.length === 0) {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-lg rounded-xl bg-surface p-2xl text-center">
-        <div className="w-16 h-16 rounded-full bg-surface-raised flex items-center justify-center">
-          <Calendar size={24} className="text-text-faint" />
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 rounded-lg p-2xl text-center" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#1e1f20" }}>
+          <CalendarBlank size={22} className="text-text-faint" />
         </div>
-        <div className="flex flex-col gap-2">
-          <h3 className="text-lg font-medium text-text-primary">No archived tasks</h3>
-          <p className="text-sm text-text-muted max-w-md">
-            Completed tasks are automatically archived after the day ends. Archived tasks appear here.
+        <div className="flex flex-col gap-1.5">
+          <h3 className="text-[15px] font-semibold text-text-primary">Archive is empty</h3>
+          <p className="text-[13px] text-text-muted max-w-[360px] leading-relaxed">
+            Tasks you archive from the board will appear here. You can restore or permanently delete them at any time.
           </p>
         </div>
       </div>
@@ -84,15 +84,17 @@ export function TaskArchive({ tasks }: { tasks: Task[] }) {
     <>
       <div className="flex flex-col gap-xl">
       {/* Archive Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-surface border border-border-subtle">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-accent-dim flex items-center justify-center">
-            <CheckCircle2 size={20} className="text-accent" />
+          <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+            <CheckCircle size={17} className="text-accent" />
           </div>
           <div>
-            <h2 className="text-sm font-medium text-text-primary">Archived Tasks</h2>
-            <p className="text-xs text-text-muted">
-              {tasks.length} {tasks.length === 1 ? "task" : "tasks"} archived
+            <h2 className="text-[14px] font-semibold text-text-primary">
+              {tasks.length} archived {tasks.length === 1 ? "task" : "tasks"}
+            </h2>
+            <p className="text-[12px] text-text-muted">
+              Restore tasks to move them back to the board
             </p>
           </div>
         </div>
@@ -100,7 +102,7 @@ export function TaskArchive({ tasks }: { tasks: Task[] }) {
         <div className="flex items-center gap-3">
           {/* Search */}
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" aria-hidden />
             <input
               type="text"
               placeholder="Search archived tasks..."
@@ -124,9 +126,9 @@ export function TaskArchive({ tasks }: { tasks: Task[] }) {
       </div>
 
       {/* Archive Table */}
-      <div className="rounded-xl border border-border-subtle overflow-hidden bg-surface">
+      <div className="rounded-lg overflow-hidden" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
         {/* Table Header */}
-        <div className="grid grid-cols-[1fr_120px_100px_140px_120px_100px] gap-4 px-4 py-3 border-b border-border-subtle bg-surface-raised text-xs font-medium text-text-faint uppercase tracking-wider">
+        <div className="grid grid-cols-[1fr_120px_100px_140px_120px_100px] gap-4 px-4 py-3 border-b text-xs font-medium text-text-faint uppercase tracking-wider" style={{ borderColor: "#1e1f20", background: "#161718" }}>
           <span>Task</span>
           <span>Project</span>
           <span>Status</span>
@@ -138,8 +140,14 @@ export function TaskArchive({ tasks }: { tasks: Task[] }) {
         {/* Table Body */}
         <div className="flex flex-col">
           {filteredTasks.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-text-muted">
-              No tasks match your search.
+            <div className="px-4 py-10 text-center">
+              <p className="text-[13px] text-text-muted">No archived tasks match &ldquo;{searchQuery}&rdquo;</p>
+              <button
+                onClick={() => setSearchQuery("")}
+                className="mt-2 text-[12px] text-accent hover:text-accent-hover transition-colors"
+              >
+                Clear search
+              </button>
             </div>
           ) : (
             filteredTasks.map((task, index) => {
@@ -207,19 +215,21 @@ export function TaskArchive({ tasks }: { tasks: Task[] }) {
                       size="xs"
                       variant="ghost"
                       onClick={() => restoreTask(task.id)}
-                      className="gap-1 text-text-muted hover:text-success"
-                      title="Restore task"
+                      className="gap-1 text-text-faint hover:text-success"
+                      title="Restore to board"
+                      aria-label={`Restore ${task.title} to board`}
                     >
-                      <RotateCcw size={14} />
+                      <ArrowClockwise size={13} />
                     </Button>
                     <Button
                       size="xs"
                       variant="ghost"
                       onClick={() => setDeleteTarget(task)}
-                      className="gap-1 text-text-muted hover:text-error"
+                      className="gap-1 text-text-faint hover:text-error"
                       title="Delete permanently"
+                      aria-label={`Delete ${task.title} permanently`}
                     >
-                      <Trash2 size={14} />
+                      <Trash size={13} />
                     </Button>
                   </div>
                 </div>

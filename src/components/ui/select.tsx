@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { ChevronDown } from "lucide-react";
+import { CaretDown } from "@/components/ui/icon";
 
 export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'size'> {
   value?: string;
@@ -46,34 +46,35 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           type="button"
           onClick={() => setOpen(!open)}
           className={cn(
-            "flex items-center justify-between font-normal transition-all outline-none",
-            !isPill && "w-full border border-border-subtle bg-surface-raised text-text-primary",
+            "flex items-center justify-between font-normal outline-none select-none",
+            "transition-[border-color,background,box-shadow] duration-[120ms] ease-out",
+            !isPill && "w-full bg-surface-mid text-text-primary rounded-[8px]",
             isPill && "gap-1.5 px-3 py-1.5 rounded-full bg-surface-raised hover:bg-surface-mid text-[12px] font-medium text-text-secondary",
-            !isPill && size === "sm" && "h-9 px-3 py-1 text-sm rounded-lg",
-            !isPill && size === "md" && "h-10 px-3 py-2 text-sm rounded-lg",
-            !isPill && size === "lg" && "h-11 px-4 py-2.5 text-base rounded-lg",
-            !isPill && "hover:border-border transition-colors",
-            !isPill && open && "border-accent",
+            !isPill && size === "sm" && "h-9 px-3 text-[13px]",
+            !isPill && size === "md" && "h-9 px-3 text-[14px]",
+            !isPill && size === "lg" && "h-10 px-4 text-[15px]",
+            !isPill && "hover:bg-surface-raised",
+            !isPill && open && "ring-2 ring-accent/30",
             props.disabled && "cursor-not-allowed opacity-50"
           )}
           disabled={props.disabled}
         >
           <span className={cn("truncate", isPill && "max-w-[120px]")}>{selectedOption?.label}</span>
-          <ChevronDown 
+          <CaretDown 
             size={isPill ? 11 : (size === "sm" ? 14 : 16)} 
             className={cn(
               "shrink-0 transition-transform",
               isPill ? "text-text-faint" : "text-text-muted",
               open && "rotate-180"
             )} 
-            strokeWidth={2.5} 
+            weight="regular"
           />
         </button>
         
         {open && !props.disabled && (
           <div className={cn(
-            "absolute z-[100] w-full overflow-hidden border border-border-subtle bg-surface-raised shadow-lg animate-in fade-in-0 zoom-in-95",
-            isPill ? "bottom-full mb-2 rounded-lg py-1 min-w-[160px]" : "top-full mt-1 rounded-lg py-1"
+            "absolute z-[100] w-full overflow-hidden bg-surface-raised shadow-2xl animate-dropdown-in",
+            isPill ? "bottom-full mb-2 rounded-lg py-1 min-w-[160px]" : "top-full mt-1 rounded-xl py-1"
           )}>
             {options.map((opt) => {
               const isSelected = opt.value === value;

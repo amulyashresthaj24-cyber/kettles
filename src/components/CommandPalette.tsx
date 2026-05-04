@@ -3,15 +3,15 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Search,
+  MagnifyingGlass,
   Plus,
   FolderOpen,
   CheckSquare,
   Timer,
-  BarChart2,
-  LayoutDashboard,
+  ChartBar,
+  SquaresFour,
   ArrowRight,
-} from "lucide-react";
+} from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +73,7 @@ export function CommandPalette({
       id: "nav-dashboard",
       group: "Navigate",
       label: "Go to Dashboard",
-      icon: <LayoutDashboard size={15} />,
+      icon: <SquaresFour size={15} />,
       action: () => { onClose(); router.push("/dashboard"); },
     },
     {
@@ -94,7 +94,7 @@ export function CommandPalette({
       id: "nav-report",
       group: "Navigate",
       label: "Go to Report",
-      icon: <BarChart2 size={15} />,
+      icon: <ChartBar size={15} />,
       action: () => { onClose(); router.push("/report"); },
     },
   ], [onClose, onNewTask, onNewProject, router]);
@@ -189,7 +189,7 @@ export function CommandPalette({
 
         {/* Search input */}
         <div className="flex items-center gap-md px-lg py-md border-b border-border-subtle">
-          <Search size={16} className="text-text-muted shrink-0" />
+          <MagnifyingGlass size={16} className="text-text-muted shrink-0" aria-hidden />
           <input
             ref={inputRef}
             value={query}

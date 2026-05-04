@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase";
-import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/icon";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -52,7 +52,7 @@ export default function AuthCallbackPage() {
   return (
     <div className="flex h-screen items-center justify-center bg-base">
       <div className="flex flex-col items-center gap-4">
-        <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
+        <Spinner size={24} weight="regular" className="animate-spin text-text-muted" aria-hidden />
         <p className="text-[14px] text-text-muted">Confirming your email...</p>
       </div>
     </div>

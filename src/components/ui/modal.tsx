@@ -35,13 +35,13 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "relative z-10 w-full max-w-md rounded-[8px] bg-surface-raised p-2xl shadow-2xl",
-          "animate-in fade-in zoom-in-95 duration-150",
+          "relative z-10 w-full max-w-md rounded-xl bg-surface-raised p-2xl shadow-2xl",
+          "animate-modal-in",
           className
         )}
       >
         {title && (
-          <h3 className="mb-lg text-[18px] font-semibold tracking-[-0.01em] text-text-primary">
+          <h3 className="mb-lg text-[17px] font-semibold tracking-[-0.01em] text-text-primary">
             {title}
           </h3>
         )}

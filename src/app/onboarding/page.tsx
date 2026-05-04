@@ -6,11 +6,11 @@ import { useAuth } from "@/lib/auth";
 import { useApp } from "@/lib/store-supabase";
 import { getSupabaseClient } from "@/lib/supabase";
 import {
-  ChevronRight,
-  ChevronLeft,
-  Loader2,
-  AlertCircle,
-} from "lucide-react";
+  CaretRight,
+  CaretLeft,
+  Spinner,
+  Warning,
+} from "@/components/ui/icon";
 import { BrandMark } from "@/components/BrandMark";
 
 type Step = "profile" | "project" | "task" | "preference" | "complete";
@@ -189,7 +189,7 @@ export default function OnboardingPage() {
   if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center bg-base">
-        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+        <Spinner size={24} weight="regular" className="animate-spin text-accent" aria-hidden />
       </div>
     );
   }
@@ -295,7 +295,7 @@ export default function OnboardingPage() {
 
                 {error && (
                   <div className="flex gap-md rounded-lg border border-[color-mix(in_srgb,var(--error)_25%,transparent)] bg-[color-mix(in_srgb,var(--error)_8%,transparent)] px-lg py-md">
-                    <AlertCircle className="h-5 w-5 shrink-0 text-status-error" />
+                    <Warning size={20} className="shrink-0 text-status-error" aria-hidden />
                     <p className="font-sans text-[13px] text-status-error">{error}</p>
                   </div>
                 )}
@@ -343,7 +343,7 @@ export default function OnboardingPage() {
 
                 {error && (
                   <div className="flex gap-md rounded-lg border border-[color-mix(in_srgb,var(--error)_25%,transparent)] bg-[color-mix(in_srgb,var(--error)_8%,transparent)] px-lg py-md">
-                    <AlertCircle className="h-5 w-5 shrink-0 text-status-error" />
+                    <Warning size={20} className="shrink-0 text-status-error" aria-hidden />
                     <p className="font-sans text-[13px] text-status-error">{error}</p>
                   </div>
                 )}
@@ -391,7 +391,7 @@ export default function OnboardingPage() {
 
                 {error && (
                   <div className="flex gap-md rounded-lg border border-[color-mix(in_srgb,var(--error)_25%,transparent)] bg-[color-mix(in_srgb,var(--error)_8%,transparent)] px-lg py-md">
-                    <AlertCircle className="h-5 w-5 shrink-0 text-status-error" />
+                    <Warning size={20} className="shrink-0 text-status-error" aria-hidden />
                     <p className="font-sans text-[13px] text-status-error">{error}</p>
                   </div>
                 )}
@@ -435,7 +435,7 @@ export default function OnboardingPage() {
 
                 {error && (
                   <div className="flex gap-md rounded-lg border border-[color-mix(in_srgb,var(--error)_25%,transparent)] bg-[color-mix(in_srgb,var(--error)_8%,transparent)] px-lg py-md">
-                    <AlertCircle className="h-5 w-5 shrink-0 text-status-error" />
+                    <Warning size={20} className="shrink-0 text-status-error" aria-hidden />
                     <p className="font-sans text-[13px] text-status-error">{error}</p>
                   </div>
                 )}
@@ -476,7 +476,7 @@ export default function OnboardingPage() {
                 disabled={isSubmitting}
                 className="flex items-center justify-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--accent)_10%,var(--border-subtle))] px-lg py-md font-sans text-[14px] font-semibold text-text-secondary transition-colors hover:border-accent hover:text-text-primary disabled:opacity-50"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <CaretLeft size={16} aria-hidden />
                 Back
               </button>
             )}
@@ -488,18 +488,18 @@ export default function OnboardingPage() {
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner size={16} weight="regular" className="animate-spin" aria-hidden />
                   Saving...
                 </>
               ) : step === "complete" ? (
                 <>
                   Go to Dashboard
-                  <ChevronRight className="h-4 w-4" />
+                  <CaretRight size={16} aria-hidden />
                 </>
               ) : (
                 <>
                   Next
-                  <ChevronRight className="h-4 w-4" />
+                  <CaretRight size={16} aria-hidden />
                 </>
               )}
             </button>

@@ -2,10 +2,10 @@ import { cn } from "@/lib/utils";
 import type { Urgency } from "@/lib/types";
 
 const COLORS: Record<Urgency, string> = {
-  urgent: "bg-[#DC2626]",
-  high: "bg-accent",
-  normal: "bg-[#16A34A]",
-  low: "bg-[#808080]",
+  urgent: "bg-error",
+  high: "bg-warning",
+  normal: "bg-success",
+  low: "bg-text-faint",
 };
 
 const LABELS: Record<Urgency, string> = {

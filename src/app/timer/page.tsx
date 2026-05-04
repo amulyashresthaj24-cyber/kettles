@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Play, Pause, Square, Zap, Clock, Search, ChevronDown, ChevronUp, Plus, AtSign } from "lucide-react";
+import { Play, Pause, Stop, Lightning, Clock, MagnifyingGlass, CaretDown, CaretUp, Plus, At } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { formatHMS, formatDuration } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -120,8 +120,8 @@ const focusRingOffset = FOCUS_RING_CIRC * (1 - progress);
       {!session ? (
         /* ─── BEFORE TIMER STARTS ─── */
         <section
-          className="relative rounded-2xl p-12 flex flex-col items-center gap-10"
-          style={{ background: "var(--surface)" }}
+          className="relative rounded-lg p-12 flex flex-col items-center gap-10"
+          style={{ background: "#0f1011", border: "1px solid #1e1f20" }}
         >
           {/* Centered sentence */}
           <div className="flex flex-wrap items-center justify-center gap-3 text-[16px] text-text-secondary">
@@ -192,9 +192,11 @@ const focusRingOffset = FOCUS_RING_CIRC * (1 - progress);
       ) : (
         /* ─── AFTER TIMER STARTS — FOCUS ZONE ─── */
         <section
-          className="relative rounded-2xl flex flex-col items-center justify-center gap-6"
+          className="relative rounded-lg flex flex-col items-center justify-center gap-6"
           style={{
             padding: "2rem",
+            background: "#0f1011",
+            border: "1px solid #1e1f20",
           }}
         >
           {/* Permanent sentence */}
@@ -311,7 +313,7 @@ const focusRingOffset = FOCUS_RING_CIRC * (1 - progress);
               onClick={handleStop}
               className="text-error border-error/30 hover:border-error/60"
             >
-              <Square size={14} /> Stop
+              <Stop size={14} aria-hidden /> Stop
             </Button>
           </div>
         </section>
@@ -354,7 +356,7 @@ const focusRingOffset = FOCUS_RING_CIRC * (1 - progress);
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium opacity-0 group-hover:opacity-100 transition-all"
                       style={{ background: "var(--accent)", color: "#fff" }}
                     >
-                      <Zap size={11} /> Start
+                      <Lightning size={11} aria-hidden /> Start
                     </button>
                   </div>
                   {i < quickPick.length - 1 && (
@@ -437,7 +439,7 @@ function StepInput({
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--text-primary)"; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"; }}
       >
-        <ChevronDown size={12} strokeWidth={2.5} />
+        <CaretDown size={12} aria-hidden />
       </button>
 
       <input
@@ -464,7 +466,7 @@ function StepInput({
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--text-primary)"; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--text-muted)"; }}
       >
-        <ChevronUp size={12} strokeWidth={2.5} />
+        <CaretUp size={12} aria-hidden />
       </button>
     </div>
   );
@@ -508,11 +510,11 @@ function TaskTokenPicker({
           borderColor: open ? "var(--accent)" : "var(--border-subtle)",
         }}
       >
-        <AtSign size={12} style={{ opacity: 0.7 }} />
+        <At size={12} style={{ opacity: 0.7 }} />
         <span className="max-w-[160px] truncate">
           {selected ? selected.title : "pick task…"}
         </span>
-        {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        {open ? <CaretUp size={12} /> : <CaretDown size={12} />}
       </button>
 
       {open && (
@@ -530,7 +532,7 @@ function TaskTokenPicker({
               className="flex items-center gap-2 px-3 py-2 rounded-lg"
               style={{ background: "var(--surface-mid)", border: "1px solid var(--border-subtle)" }}
             >
-              <Search size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+              <MagnifyingGlass size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
               <input
                 autoFocus
                 type="text"
@@ -644,11 +646,11 @@ function ProjectTokenPicker({
           borderColor: open ? "var(--border)" : "var(--border-subtle)",
         }}
       >
-        <AtSign size={12} style={{ opacity: 0.7 }} />
+        <At size={12} style={{ opacity: 0.7 }} />
         <span className="max-w-[140px] truncate">
           {selected ? selected.name : "pick project…"}
         </span>
-        <ChevronDown size={12} />
+        <CaretDown size={12} />
       </button>
 
       {open && (
@@ -665,7 +667,7 @@ function ProjectTokenPicker({
               className="flex items-center gap-2 px-3 py-2 rounded-lg"
               style={{ background: "var(--surface-mid)", border: "1px solid var(--border-subtle)" }}
             >
-              <Search size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+              <MagnifyingGlass size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
               <input
                 autoFocus
                 type="text"

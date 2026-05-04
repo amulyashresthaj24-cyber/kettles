@@ -4,14 +4,14 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
-  Edit,
-  Trash2,
-  DollarSign,
+  PencilSimple,
+  Trash,
+  CurrencyDollar,
   Archive,
-  RotateCcw,
-  Search,
+  ArrowClockwise,
+  MagnifyingGlass,
   FolderOpen,
-} from "lucide-react";
+} from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -114,10 +114,10 @@ export default function ProjectsPage() {
         )}
       </header>
 
-      <section className="flex flex-col gap-md rounded-lg bg-surface p-lg">
+      <section className="flex flex-col gap-md rounded-lg p-lg" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
         <div className="flex flex-col gap-md lg:flex-row lg:items-center">
           <div className="relative flex-1">
-            <Search
+            <MagnifyingGlass
               size={15}
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-faint"
             />
@@ -168,10 +168,10 @@ export default function ProjectsPage() {
         </div>
       </section>
 
-      <section className="flex flex-col overflow-hidden rounded-lg bg-surface">
+      <section className="flex flex-col overflow-hidden rounded-lg" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
         {filteredProjects.length === 0 ? (
           <div className="flex min-h-[240px] flex-col items-center justify-center gap-md px-6 py-10 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-surface-raised text-text-muted">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md text-text-muted" style={{ background: "#1e1f20" }}>
               <FolderOpen size={18} />
             </div>
             <div className="flex flex-col gap-xs">
@@ -260,7 +260,7 @@ export default function ProjectsPage() {
                             variant="accent" 
                             className="rounded-sm text-[11px] transition-all duration-200 ease-out origin-left transform group-hover:opacity-100 group-hover:scale-100 opacity-0 scale-95 pointer-events-none"
                           >
-                            <DollarSign size={11} />
+                            <CurrencyDollar size={11} />
                             Billable
                           </Badge>
                         )}
@@ -282,7 +282,7 @@ export default function ProjectsPage() {
                           aria-label="Edit project"
                           title="Edit"
                         >
-                          <Edit size={15} />
+                          <PencilSimple size={15} />
                         </Button>
                         <Button
                           type="button"
@@ -309,7 +309,7 @@ export default function ProjectsPage() {
                           aria-label="Delete project"
                           title="Delete"
                         >
-                          <Trash2 size={15} />
+                          <Trash size={15} />
                         </Button>
                       </>
                     ) : (
@@ -326,7 +326,7 @@ export default function ProjectsPage() {
                           aria-label="Restore project"
                           title="Restore"
                         >
-                          <RotateCcw size={15} />
+                          <ArrowClockwise size={15} />
                         </Button>
                         <Button
                           type="button"
@@ -340,7 +340,7 @@ export default function ProjectsPage() {
                           aria-label="Delete project permanently"
                           title="Delete permanently"
                         >
-                          <Trash2 size={15} />
+                          <Trash size={15} />
                         </Button>
                       </>
                     )}

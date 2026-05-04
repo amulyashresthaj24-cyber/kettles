@@ -41,7 +41,11 @@ export default {
           warning: "var(--warning)",
           error: "var(--error)",
           info: "var(--info)",
-        }
+        },
+        success: "var(--success)",
+        warning: "var(--warning)",
+        error: "var(--error)",
+        info: "var(--info)",
       },
       borderRadius: {
         xs: "4px",

@@ -5,7 +5,7 @@ import { useApp } from "@/lib/store-supabase";
 import type { ProjectColor, ProjectStatus, Client } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { X, Palette, ChevronDown, Briefcase, Plus } from "lucide-react";
+import { X, Palette, CaretDown, Briefcase, Plus } from "@/components/ui/icon";
 import { Checkbox } from "./ui/checkbox";
 import { Select } from "./ui/select";
 
@@ -59,7 +59,7 @@ function PillSelect<T extends string>({
         {selected?.bg && <span className={cn("w-2 h-2 rounded-full shrink-0", selected.bg)} />}
         {!selected?.bg && <span className="text-text-muted">{icon}</span>}
         <span>{selected ? selected.label : label}</span>
-        <ChevronDown size={11} className="text-text-faint" />
+        <CaretDown size={11} className="text-text-faint" />
       </button>
 
       {open && (

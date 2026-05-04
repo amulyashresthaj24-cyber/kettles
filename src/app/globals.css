@@ -103,6 +103,49 @@ body {
     background: var(--accent);
     border-radius: 2px 2px 0 0;
   }
+
+  /* Focus ring — use on custom interactive elements */
+  .focus-ring {
+    outline: none;
+  }
+  .focus-ring:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--base), 0 0 0 4px var(--accent);
+  }
+
+  /* Surface glass card */
+  .glass-surface {
+    background: var(--surface-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-subtle);
+  }
+
+  /* Empty state container */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-faint);
+  }
+
+  /* Truncate with tooltip support */
+  .truncate-safe {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: var(--border-subtle);
+  }
 }
 
 /* ─── Hide native number spinners ───────────────────────── */
@@ -164,6 +207,21 @@ input[type="number"] {
   to   { transform: scaleY(1); transform-origin: bottom; }
 }
 
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-out-right {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(12px); }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.8; }
+}
+
 /* ─── Animation classes ──────────────────────────────────── */
 
 .animate-fade-up {
@@ -192,6 +250,16 @@ input[type="number"] {
 
 .animate-bar-grow {
   animation: bar-grow 400ms var(--ease-out) both;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right var(--motion-base) var(--ease-out) both;
+}
+
+.animate-skeleton {
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+  background: var(--surface-raised);
+  border-radius: 4px;
 }
 
 /* Stagger helpers — set --index on the element */

@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { getFriendlySupabaseErrorMessage } from "@/lib/supabase";
 import {
-  CheckCircle2,
-  Loader2,
+  CheckCircle,
+  Spinner,
   Eye,
-  EyeOff,
-} from "lucide-react";
+  EyeSlash,
+} from "@/components/ui/icon";
 import { BrandMark } from "@/components/BrandMark";
 
 export default function AuthPage() {
@@ -109,7 +109,7 @@ export default function AuthPage() {
   if (loading || user) {
     return (
       <div className="flex h-screen items-center justify-center bg-base">
-        <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
+        <Spinner size={24} weight="regular" className="animate-spin text-text-muted" aria-hidden />
       </div>
     );
   }
@@ -154,7 +154,7 @@ export default function AuthPage() {
                 "Bill accurately with confidence",
               ].map((feature) => (
                 <div key={feature} className="flex items-center gap-md">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-accent" />
+                  <CheckCircle size={20} className="shrink-0 text-accent" aria-hidden />
                   <span className="font-sans text-[15px] font-medium text-text-secondary">
                     {feature}
                   </span>
@@ -193,7 +193,7 @@ export default function AuthPage() {
             <div className="space-y-xl">
               <div className="overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--accent)_30%,var(--border-subtle))] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_8%,transparent),color-mix(in_srgb,var(--accent)_4%,transparent))]">
                 <div className="flex gap-md p-lg">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-accent" />
+                  <CheckCircle size={20} className="shrink-0 text-accent" aria-hidden />
                   <div className="flex flex-col gap-sm">
                     <p className="font-sans text-[14px] font-semibold text-text-primary">
                       Account created successfully
@@ -297,9 +297,9 @@ export default function AuthPage() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted transition-colors hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
+                      <EyeSlash size={20} aria-hidden />
                     ) : (
-                      <Eye className="h-5 w-5" />
+                      <Eye size={20} aria-hidden />
                     )}
                   </button>
                 </div>
@@ -316,7 +316,7 @@ export default function AuthPage() {
               >
                 {isSubmitting ? (
                   <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Spinner size={16} weight="regular" className="animate-spin" aria-hidden />
                     {mode === "signin" ? "Signing in..." : "Creating account..."}
                   </span>
                 ) : mode === "signin" ? (

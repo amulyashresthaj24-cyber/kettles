@@ -19,7 +19,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus } from "lucide-react";
+import { Plus } from "@/components/ui/icon";
 import type { Task, TaskStatus } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
 import { TaskCard } from "./TaskCard";
@@ -53,9 +53,14 @@ function KanbanColumn({
     <div
       ref={setNodeRef}
       id={id}
-      className={`flex flex-col gap-md rounded-lg bg-surface p-md transition-all duration-200 ${
-        isOver ? "bg-surface-raised ring-2 ring-accent ring-opacity-30 shadow-lg" : ""
+      className={`flex flex-col gap-md rounded-lg p-md transition-all duration-200 ${
+        isOver ? "ring-2 ring-accent ring-opacity-30 shadow-lg" : ""
       }`}
+      style={{
+        background: "#0f1011",
+        border: "1px solid #1e1f20",
+        ...(isOver && { borderColor: "var(--accent)", background: "#0f1011" }),
+      }}
     >
       <div className="flex items-center justify-between px-xs">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-secondary">
@@ -201,7 +206,7 @@ export function KanbanBoard({
 
   if (tasks.length === 0) {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-md rounded-lg bg-surface p-2xl text-center">
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-md rounded-lg p-2xl text-center" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
         <p className="text-[16px] text-text-secondary">
           No tasks match this filter.
         </p>

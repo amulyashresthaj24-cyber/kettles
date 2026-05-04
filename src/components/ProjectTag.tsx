@@ -12,12 +12,12 @@ export function ProjectTag({ project, className }: { project: Project; className
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-xs rounded-full bg-surface-raised px-sm py-xs text-[12px] font-medium text-text-secondary",
+        "inline-flex items-center gap-1 rounded-full bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-secondary truncate max-w-[160px]",
         className
       )}
     >
-      <span className={cn("h-1.5 w-1.5 rounded-full", DOT[project.color])} />
-      {project.name}
+      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", DOT[project.color])} />
+      <span className="truncate">{project.name}</span>
     </span>
   );
 }

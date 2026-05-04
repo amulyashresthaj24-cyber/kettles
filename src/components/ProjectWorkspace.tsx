@@ -2,14 +2,14 @@
 
 import { useState, useMemo } from "react";
 import {
-  ChevronDown,
-  ChevronLeft,
+  CaretDown,
+  CaretLeft,
   Eye,
   Lock,
   LockOpen,
-  MoreVertical,
+  DotsThreeVertical,
   Plus,
-} from "lucide-react";
+} from "@/components/ui/icon";
 import type { Project, Task } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
 import { Button } from "@/components/ui/button";
@@ -99,7 +99,7 @@ export function ProjectWorkspace({
             onClick={onBack}
             className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-surface-raised transition-colors text-text-secondary hover:text-text-primary"
           >
-            <ChevronLeft size={18} />
+            <CaretLeft size={18} />
           </button>
 
           <div 
@@ -146,18 +146,18 @@ export function ProjectWorkspace({
 
           <button className="flex items-center gap-xs text-text-secondary hover:text-text-primary transition-colors text-sm ml-sm">
             <span>Rochak</span>
-            <ChevronDown size={14} />
+            <CaretDown size={14} />
           </button>
 
           <button className="flex items-center gap-xs text-text-secondary hover:text-text-primary transition-colors">
-            <MoreVertical size={16} />
+            <DotsThreeVertical size={16} />
           </button>
         </div>
 
         <div className="flex items-center gap-sm">
           <button className="text-sm text-text-secondary hover:text-text-primary transition-colors flex items-center gap-xs">
             Saved views
-            <ChevronDown size={14} />
+            <CaretDown size={14} />
           </button>
           <Button className="flex items-center gap-xs" variant="secondary" size="sm">
             <Plus size={14} />
@@ -262,7 +262,7 @@ function CollapsibleSection({
             </div>
           )}
         </div>
-        <ChevronDown
+        <CaretDown
           size={16}
           className={`text-text-secondary transition-transform ${
             isOpen ? "rotate-180" : ""
@@ -339,7 +339,7 @@ function TabContent({
                     ? `${project.startDate ? new Date(project.startDate).toLocaleDateString() : ''} – ${project.endDate ? new Date(project.endDate).toLocaleDateString() : ''}`.trim()
                     : "Set start date – End date"}
                 </span>
-                <ChevronDown size={14} />
+                <CaretDown size={14} />
               </button>
             </div>
 

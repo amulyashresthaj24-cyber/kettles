@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCheck, RotateCcw, Pause } from "lucide-react";
+import { Checks, ArrowClockwise, Pause } from "@/components/ui/icon";
 import { Modal } from "./ui/modal";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -87,7 +87,7 @@ export function SessionCompleteModal({
         {/* Session Summary */}
         <div
           className="rounded-lg p-4 flex flex-col gap-3"
-          style={{ background: "var(--surface)" }}
+          style={{ background: "#0f1011", border: "1px solid #1e1f20" }}
         >
           <div className="flex items-center justify-between">
             <span className="text-[12px] text-text-muted uppercase font-semibold">
@@ -142,7 +142,7 @@ export function SessionCompleteModal({
               variant="primary"
               className="w-full justify-start gap-2 h-auto py-3 px-4 flex items-center"
             >
-              <CheckCheck size={16} />
+              <Checks size={16} />
               <div className="flex flex-col items-start gap-0.5">
                 <span className="text-[13px] font-semibold">Mark as Done</span>
                 <span className="text-[11px] text-white/60">Move to Done column</span>
@@ -168,7 +168,7 @@ export function SessionCompleteModal({
               variant="secondary"
               className="w-full justify-start gap-2 h-auto py-3 px-4 flex items-center"
             >
-              <RotateCcw size={16} />
+              <ArrowClockwise size={16} />
               <div className="flex flex-col items-start gap-0.5">
                 <span className="text-[13px] font-semibold">Reopen as To Do</span>
                 <span className="text-[11px] text-text-secondary">Move back to backlog</span>

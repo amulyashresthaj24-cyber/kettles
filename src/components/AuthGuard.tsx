@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/icon";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -25,7 +25,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   if (loading || isRedirecting) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <Loader2 className="w-8 h-8 text-[#8a8f98] animate-spin" />
+        <Spinner size={32} weight="regular" className="text-text-muted animate-spin" aria-hidden />
         <p className="text-[14px] text-[#8a8f98] font-sans">
           {isRedirecting ? "Redirecting to sign in..." : "Loading..."}
         </p>
@@ -37,7 +37,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <Loader2 className="w-8 h-8 text-[#8a8f98] animate-spin" />
+        <Spinner size={32} weight="regular" className="text-text-muted animate-spin" aria-hidden />
         <p className="text-[14px] text-[#8a8f98] font-sans">Redirecting to sign in...</p>
       </div>
     );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, LayoutGrid, List, Archive as ArchiveIcon } from "lucide-react";
+import { Plus, SquaresFour as LayoutGrid, List, Archive as ArchiveIcon } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { TaskList } from "@/components/TaskList";
@@ -87,7 +87,7 @@ export default function TasksPage() {
       </header>
 
       {/* Filter bar */}
-      <div className="flex items-center gap-2 rounded-[8px] bg-surface-mid px-3 py-2">
+      <div className="flex items-center gap-2 rounded-[8px] bg-surface-raised px-3 py-2">
         {!showArchived && (
           <>
             <Select
@@ -112,54 +112,66 @@ export default function TasksPage() {
               className="w-auto min-w-[130px]"
               size="sm"
             >
-              <option value="all">All urgencies</option>
-              <option value="urgent">🔴 Urgent</option>
-              <option value="high">🟡 High</option>
-              <option value="normal">🟢 Normal</option>
-              <option value="low">⚪ Low</option>
+              <option value="all">All priorities</option>
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="normal">Normal</option>
+              <option value="low">Low</option>
             </Select>
           </>
         )}
 
         <div className="ml-auto flex items-center gap-2">
           {!showArchived && (
-            <div className="flex items-center bg-surface-raised rounded-[8px] p-0.5">
+            <div
+              className="flex items-center bg-surface-raised rounded-[8px] p-0.5 gap-0.5"
+              role="group"
+              aria-label="View mode"
+            >
               <button
                 onClick={() => setView("kanban")}
-                className={`p-1.5 rounded-[8px] transition-colors ${
+                className={`p-1.5 rounded-[7px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
                   view === "kanban"
                     ? "bg-surface-mid text-text-primary shadow-sm"
-                    : "text-text-muted hover:text-text-primary"
+                    : "text-text-faint hover:text-text-primary"
                 }`}
-                aria-label="Kanban View"
+                aria-label="Kanban view"
+                aria-pressed={view === "kanban"}
               >
-                <LayoutGrid size={15} />
+                <LayoutGrid size={14} />
               </button>
               <button
                 onClick={() => setView("list")}
-                className={`p-1.5 rounded-[8px] transition-colors ${
+                className={`p-1.5 rounded-[7px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
                   view === "list"
                     ? "bg-surface-mid text-text-primary shadow-sm"
-                    : "text-text-muted hover:text-text-primary"
+                    : "text-text-faint hover:text-text-primary"
                 }`}
-                aria-label="List View"
+                aria-label="List view"
+                aria-pressed={view === "list"}
               >
-                <List size={15} />
+                <List size={14} />
               </button>
             </div>
           )}
 
           <button
             onClick={() => setShowArchived(!showArchived)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
+            aria-pressed={showArchived}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[13px] font-medium transition-colors ${
               showArchived
-                ? "bg-accent text-white"
-                : "bg-surface-raised text-text-muted hover:text-text-primary"
+                ? "bg-accent/10 text-accent"
+                : "bg-surface-raised text-text-muted hover:text-text-secondary"
             }`}
-            title={`${archivedCount} archived task(s)`}
+            title={archivedCount > 0 ? `${archivedCount} archived task${archivedCount !== 1 ? "s" : ""}` : "No archived tasks"}
           >
-            <ArchiveIcon size={14} />
-            {archivedCount > 0 && <span className="text-xs font-medium">{archivedCount}</span>}
+            <ArchiveIcon size={13} />
+            <span>Archive</span>
+            {archivedCount > 0 && (
+              <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${showArchived ? "bg-accent/15 text-accent" : "bg-surface-mid text-text-faint"}`}>
+                {archivedCount}
+              </span>
+            )}
           </button>
         </div>
       </div>

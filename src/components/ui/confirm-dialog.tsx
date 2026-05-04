@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { Warning } from "@/components/ui/icon";
 import { Button } from "./button";
 import { Modal } from "./modal";
 
@@ -29,10 +29,10 @@ export function ConfirmDialog({
     <Modal open={open} onClose={onClose} title={title}>
       <div className="flex flex-col gap-lg">
         <div className="flex gap-md">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-error/10 text-error">
-            <AlertTriangle size={18} />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-error/10 text-error">
+            <Warning size={16} aria-hidden />
           </div>
-          <p className="text-[14px] leading-relaxed text-text-secondary">
+          <p className="text-[13px] leading-relaxed text-text-secondary">
             {description}
           </p>
         </div>
@@ -42,11 +42,11 @@ export function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button
-            variant="secondary"
+            variant="danger"
             size="sm"
             onClick={onConfirm}
             disabled={pending}
-            className="text-error hover:text-error"
+            className="bg-error/10 hover:bg-error/20"
           >
             {pending ? "Deleting..." : confirmLabel}
           </Button>

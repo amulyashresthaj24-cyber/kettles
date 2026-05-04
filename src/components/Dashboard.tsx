@@ -4,18 +4,17 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Clock,
-  CalendarDays,
-  CheckCircle2,
-  DollarSign,
+  CalendarBlank,
+  CheckCircle,
+  CurrencyDollar,
   Plus,
   Timer,
-  ChevronRight,
+  CaretRight,
   Circle,
-  CheckCircle,
   ArrowUpRight,
-  Zap,
-  Calendar,
-} from "lucide-react";
+  Lightning,
+  CalendarBlank as CalendarIcon,
+} from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { formatDuration, formatCurrency } from "@/lib/format";
 import { isTaskOnDay } from "@/lib/task-dates";
@@ -180,10 +179,10 @@ export default function Dashboard() {
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-3">
           {[
-            { icon: <Clock size={16} className="text-accent opacity-75" />, label: "Today Tracked", value: formatDuration(todayTracked), sub: `${todaySessions.length} session${todaySessions.length === 1 ? "" : "s"}` },
-            { icon: <CalendarDays size={16} className="text-accent opacity-75" />, label: "This Week", value: formatDuration(weekTracked), sub: `${weekSessions.length} session${weekSessions.length === 1 ? "" : "s"}` },
-            { icon: <CheckCircle2 size={16} className="text-accent opacity-75" />, label: "Tasks Done", value: String(tasksDone), sub: `${tasks.length} total` },
-            { icon: <DollarSign size={16} className="text-accent opacity-75" />, label: "Billable This Week", value: formatCurrency(weekEarnings), sub: "Across all clients" },
+            { icon: <Clock size={16} className="text-accent opacity-75" aria-hidden />, label: "Today Tracked", value: formatDuration(todayTracked), sub: `${todaySessions.length} session${todaySessions.length === 1 ? "" : "s"}` },
+            { icon: <CalendarBlank size={16} className="text-accent opacity-75" aria-hidden />, label: "This Week", value: formatDuration(weekTracked), sub: `${weekSessions.length} session${weekSessions.length === 1 ? "" : "s"}` },
+            { icon: <CheckCircle size={16} className="text-accent opacity-75" aria-hidden />, label: "Tasks Done", value: String(tasksDone), sub: `${tasks.length} total` },
+            { icon: <CurrencyDollar size={16} className="text-accent opacity-75" aria-hidden />, label: "Billable This Week", value: formatCurrency(weekEarnings), sub: "Across all clients" },
           ].map((card, i) => (
             <StatCard
               key={card.label}
@@ -199,27 +198,30 @@ export default function Dashboard() {
         {/* Active session banner */}
         {activeSession && activeTask && (
           <div
-            className="animate-fade-up flex items-center justify-between px-5 py-3.5 rounded-xl bg-accent-dim border border-accent"
-            style={{ "--index": 5 } as React.CSSProperties}
+            className="animate-fade-up stagger flex items-center justify-between px-5 py-4 rounded-xl"
+            style={{ background: "linear-gradient(135deg, var(--card-gradient-start) 0%, var(--card-gradient-mid) 100%)", "--index": 5 } as React.CSSProperties}
           >
             <div className="flex items-center gap-3">
-              <span className="w-2 h-2 rounded-full animate-pulse bg-accent" />
+              <span className="relative flex shrink-0">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-accent opacity-40 animate-ping" />
+                <span className="relative w-2 h-2 rounded-full bg-accent" />
+              </span>
               <div className="flex flex-col gap-0.5">
-                <span className="text-[13px] font-medium text-text-primary">
-                  Timer running: {activeTask.title}
+                <span className="text-[13px] font-semibold text-text-primary truncate max-w-[320px]">
+                  {activeTask.title}
                 </span>
                 {activeProject && (
                   <span className="text-[12px] text-text-muted">
-                    {activeProject.name}
+                    {activeProject.name} · Timer running
                   </span>
                 )}
               </div>
             </div>
             <Link
               href="/timer"
-              className="btn-interactive flex items-center gap-1.5 text-[13px] font-medium text-accent"
+              className="btn-interactive flex items-center gap-1.5 text-[13px] font-medium text-accent hover:text-accent-hover shrink-0 ml-4"
             >
-              View timer <ArrowUpRight size={14} />
+              Open timer <ArrowUpRight size={13} />
             </Link>
           </div>
         )}
@@ -231,14 +233,14 @@ export default function Dashboard() {
         >
 
           {/* Today's Tasks */}
-          <section className="rounded-2xl flex flex-col bg-surface">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
+          <section className="rounded-lg flex flex-col overflow-hidden" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid #1e1f20" }}>
               <div className="flex items-center gap-2.5">
                 <h2 className="text-[15px] font-semibold text-text-primary">
                   Today&apos;s Tasks
                 </h2>
                 {todayTasks.length > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-surface-raised text-text-muted">
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-medium text-text-muted" style={{ background: "#1e1f20" }}>
                     {todayTasks.length}
                   </span>
                 )}
@@ -254,8 +256,14 @@ export default function Dashboard() {
 
             <div className="flex flex-col">
               {todayTasks.length === 0 && doneTasks.length === 0 && (
-                <div className="px-5 py-10 text-center text-text-faint">
-                  <p className="text-[13px]">No tasks yet. Add one to get started.</p>
+                <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "#1e1f20" }}>
+                    <CheckCircle size={18} className="text-text-faint" />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-medium text-text-secondary">No tasks for today</p>
+                    <p className="text-[12px] text-text-faint mt-1">Add a task to start tracking your work.</p>
+                  </div>
                 </div>
               )}
 
@@ -267,7 +275,7 @@ export default function Dashboard() {
                     className="animate-fade-up stagger"
                     style={{ "--index": i } as React.CSSProperties}
                   >
-                    <div className="card-interactive flex items-start gap-3 px-5 py-3.5 group hover:bg-surface-raised rounded-[8px] mx-1">
+                    <div className="card-interactive flex items-start gap-3 px-5 py-3.5 group hover:bg-surface-mid rounded-[8px] mx-1">
                       <button
                         onClick={() => setTaskStatus(task.id, "done")}
                         className="mt-0.5 shrink-0 text-text-faint hover:text-status-success animate-task-done-trigger"
@@ -362,11 +370,11 @@ export default function Dashboard() {
 
             <div className="mt-auto px-5 py-3 border-t border-border-subtle">
               <Link
-                href="/"
+                href="/tasks"
                 className="flex items-center justify-between text-[13px] transition-colors text-text-muted hover:text-text-primary"
               >
                 View all tasks
-                <ChevronRight size={14} />
+                <CaretRight size={14} aria-hidden />
               </Link>
             </div>
           </section>
@@ -375,8 +383,8 @@ export default function Dashboard() {
           <div className="flex flex-col gap-4">
 
             {/* Quick actions */}
-            <section className="rounded-2xl p-5 flex flex-col gap-3 bg-surface">
-              <h2 className="text-[13px] font-semibold text-text-muted">
+            <section className="rounded-lg p-5 flex flex-col gap-3" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-faint">
                 Quick Actions
               </h2>
               <div className="flex flex-col gap-2">
@@ -391,12 +399,12 @@ export default function Dashboard() {
                   href="/timer"
                 />
                 <QuickAction
-                  icon={<Calendar size={15} />}
+                  icon={<CalendarIcon size={15} aria-hidden />}
                   label="View Reports"
                   href="/report"
                 />
                 <QuickAction
-                  icon={<Zap size={15} />}
+                  icon={<Lightning size={15} aria-hidden />}
                   label="Manage Projects"
                   href="/projects"
                 />
@@ -404,9 +412,9 @@ export default function Dashboard() {
             </section>
 
             {/* Project breakdown */}
-            <section className="rounded-2xl p-5 flex flex-col gap-4 bg-surface">
+            <section className="rounded-lg p-5 flex flex-col gap-4" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
               <div className="flex items-center justify-between">
-                <h2 className="text-[13px] font-semibold text-text-muted">
+                <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-faint">
                   Projects
                 </h2>
                 <Link
@@ -440,7 +448,7 @@ export default function Dashboard() {
                           {done}/{projTasks.length}
                         </span>
                       </div>
-                      <div className="h-1 rounded-full overflow-hidden bg-surface-raised">
+                      <div className="h-1 rounded-full overflow-hidden bg-surface-mid">
                         <div
                           className="h-full rounded-full progress-fill"
                           style={{
@@ -458,16 +466,19 @@ export default function Dashboard() {
                   );
                 })}
                 {projects.length === 0 && (
-                  <p className="text-[13px] text-text-faint">
-                    No projects yet.
-                  </p>
+                  <div className="flex flex-col items-center gap-2 py-4 text-center">
+                    <p className="text-[12px] text-text-faint">No projects yet.</p>
+                    <Link href="/projects" className="text-[12px] text-accent hover:text-accent-hover transition-colors">
+                      Create your first project
+                    </Link>
+                  </div>
                 )}
               </div>
             </section>
 
             {/* Scratch pad */}
-            <section className="rounded-2xl p-5 flex flex-col gap-3 flex-1 bg-surface">
-              <h2 className="text-[13px] font-semibold text-text-muted">
+            <section className="rounded-lg p-5 flex flex-col gap-3 flex-1" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-faint">
                 Scratch Pad
               </h2>
               <textarea
@@ -507,20 +518,23 @@ function StatCard({
 }) {
   return (
     <div
-      className="rounded-2xl p-5 flex flex-col gap-3 relative animate-fade-up stagger card-interactive"
-      style={{ background: "var(--surface)", "--index": index } as React.CSSProperties}
+      className="rounded-lg p-5 flex flex-col gap-2.5 relative animate-fade-up stagger card-interactive"
+      style={{ background: "#0f1011", border: "1px solid #1e1f20", "--index": index } as React.CSSProperties}
     >
-      <div className="absolute top-4 right-4 p-2 rounded-[8px]" style={{ background: "var(--surface-raised)" }}>
+      <div
+        className="absolute top-4 right-4 p-1.5 rounded-[7px]"
+        style={{ background: "var(--accent-dim)" }}
+      >
         {icon}
       </div>
-      <div className="flex flex-col gap-0.5 pr-12">
+      <div className="flex flex-col gap-1 pr-10">
         <span
-          className="text-[24px] font-semibold leading-none tracking-[-0.02em]"
+          className="text-[22px] font-semibold leading-none tracking-[-0.03em]"
           style={{ color: "var(--text-primary)" }}
         >
           {value}
         </span>
-        <span className="text-[12px] font-medium" style={{ color: "var(--text-muted)" }}>
+        <span className="text-[12px] font-medium" style={{ color: "var(--text-secondary)" }}>
           {label}
         </span>
       </div>
@@ -543,7 +557,7 @@ function QuickAction({
   onClick?: () => void;
 }) {
   const cls =
-    "btn-interactive flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium w-full text-left bg-surface-raised text-text-secondary hover:text-text-primary";
+    "btn-interactive flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium w-full text-left bg-surface-mid text-text-secondary hover:text-text-primary hover:bg-surface";
 
   if (href) {
     return (

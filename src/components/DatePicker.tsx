@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { CaretLeft, CaretRight, CalendarBlank } from "@/components/ui/icon";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -99,7 +99,7 @@ export function DatePicker({ value, onChange, placeholder = "Due date" }: DatePi
         }}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-raised hover:bg-surface-mid text-[12px] font-medium text-text-secondary transition-colors"
       >
-        <Calendar size={12} className="text-text-muted shrink-0" />
+        <CalendarBlank size={12} className="text-text-muted shrink-0" />
         <span>{displayValue || placeholder}</span>
       </button>
 
@@ -119,7 +119,7 @@ export function DatePicker({ value, onChange, placeholder = "Due date" }: DatePi
               className="w-7 h-7 flex items-center justify-center rounded-md transition-colors hover:bg-surface-mid"
               style={{ color: "var(--text-muted)" }}
             >
-              <ChevronLeft size={16} />
+              <CaretLeft size={16} />
             </button>
             <span className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
               {MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}
@@ -130,7 +130,7 @@ export function DatePicker({ value, onChange, placeholder = "Due date" }: DatePi
               className="w-7 h-7 flex items-center justify-center rounded-md transition-colors hover:bg-surface-mid"
               style={{ color: "var(--text-muted)" }}
             >
-              <ChevronRight size={16} />
+              <CaretRight size={16} />
             </button>
           </div>
 

@@ -5,37 +5,41 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-base disabled:pointer-events-none disabled:opacity-40 font-sans",
+  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap font-medium rounded-[8px] font-sans select-none " +
+  "transition-[background,color,border-color,opacity,transform,box-shadow] duration-[120ms] ease-out " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-base " +
+  "disabled:pointer-events-none disabled:opacity-40 " +
+  "active:scale-[0.97]",
   {
     variants: {
       variant: {
         primary:
-          "bg-accent text-white hover:bg-accent-hover rounded-[8px]",
+          "bg-accent text-white hover:bg-accent-hover shadow-sm hover:shadow-md",
         secondary:
-          "bg-surface-raised text-text-primary hover:bg-surface-mid rounded-[8px] border border-border-subtle hover:border-border",
+          "bg-surface-raised text-text-primary hover:bg-surface-mid border border-border-subtle hover:border-border",
         toolbar:
-          "bg-surface-raised text-text-primary hover:bg-surface-mid rounded-[8px] border border-border-subtle hover:border-border",
+          "bg-surface-raised text-text-secondary hover:text-text-primary hover:bg-surface-mid border border-border-subtle hover:border-border",
         "primary-rounded":
-          "bg-accent text-white hover:bg-accent-hover rounded-[8px]",
+          "bg-accent text-white hover:bg-accent-hover shadow-sm hover:shadow-md",
         "secondary-rounded":
-          "bg-surface-raised text-text-primary hover:bg-surface-mid rounded-[8px] border border-border-subtle hover:border-border",
+          "bg-surface-raised text-text-primary hover:bg-surface-mid border border-border-subtle hover:border-border",
         ghost:
-          "bg-transparent text-text-muted hover:text-text-primary hover:bg-surface-raised rounded-[8px]",
+          "bg-transparent text-text-muted hover:text-text-primary hover:bg-surface-raised",
         subtle:
-          "bg-transparent text-text-muted hover:text-text-primary rounded-[8px]",
+          "bg-transparent text-text-muted hover:text-text-secondary",
         filter:
-          "bg-surface-raised text-text-secondary hover:text-text-primary border border-border rounded-[8px]",
+          "bg-surface-raised text-text-secondary hover:text-text-primary border border-border hover:border-border-subtle hover:bg-surface-mid",
         danger:
-          "bg-transparent text-error hover:opacity-80 rounded-[8px]",
+          "bg-transparent text-error hover:bg-error/10 hover:text-error",
       },
       size: {
         default: "h-9 px-4 text-[14px]",
         sm: "h-8 px-3 text-[13px]",
-        xs: "h-7 px-2 text-[12px]",
-        lg: "h-10 px-5 text-[14px]",
-        icon: "h-9 w-9 text-[14px] rounded-[8px]",
-        "icon-sm": "h-8 w-8 text-[13px] rounded-[8px]",
-        "icon-xs": "h-7 w-7 text-[12px] rounded-[8px]",
+        xs: "h-7 px-2.5 text-[12px]",
+        lg: "h-10 px-5 text-[15px]",
+        icon: "h-9 w-9 text-[14px]",
+        "icon-sm": "h-8 w-8 text-[13px]",
+        "icon-xs": "h-7 w-7 text-[12px]",
       },
     },
     defaultVariants: {

@@ -62,11 +62,12 @@ export function Checkbox({
       onKeyDown={handleKeyDown}
       tabIndex={disabled ? -1 : 0}
       className={cn(
-        "relative flex items-center justify-center shrink-0 border-2 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
+        "relative flex items-center justify-center shrink-0 border-2 transition-[background,border-color,box-shadow] duration-[120ms] ease-out",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-1 focus-visible:ring-offset-base",
         sizeClasses[size],
         checked || indeterminate
           ? "bg-accent border-accent shadow-sm"
-          : "bg-surface border-border hover:border-text-secondary",
+          : "bg-surface-mid border-border hover:border-text-muted",
         disabled && "opacity-50 cursor-not-allowed hover:border-border",
         className
       )}

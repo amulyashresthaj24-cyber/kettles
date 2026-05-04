@@ -9,9 +9,9 @@ import {
   X,
   Folder,
   Clock,
-  BarChart2,
-  ChevronDown,
-} from "lucide-react";
+  ChartBar,
+  CaretDown,
+} from "@/components/ui/icon";
 import { DatePicker } from "./DatePicker";
 
 const URGENCY_OPTIONS: { label: string; value: Urgency; dot: string }[] = [
@@ -57,7 +57,7 @@ function PillSelect<T extends string>({
         {selected?.dot && <span className={cn("w-2 h-2 rounded-full shrink-0", selected.dot)} />}
         {!selected?.dot && <span className="text-text-muted">{icon}</span>}
         <span>{selected ? selected.label : label}</span>
-        <ChevronDown size={11} className="text-text-faint" />
+        <CaretDown size={11} className="text-text-faint" />
       </button>
 
       {open && (
@@ -258,7 +258,7 @@ export function AddTaskModal({
               value={urgency}
               onChange={setUrgency}
               options={URGENCY_OPTIONS}
-              icon={<BarChart2 size={12} />}
+              icon={<ChartBar size={12} />}
               label="Priority"
             />
 

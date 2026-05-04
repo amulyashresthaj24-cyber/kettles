@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Play, RotateCcw, CheckSquare, Archive, Trash2, Edit2 } from "lucide-react";
+import { Play, ArrowClockwise, CheckSquare, Archive, Trash, PencilSimple } from "@/components/ui/icon";
 import { useState } from "react";
 import type { Task, TaskStatus } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
@@ -35,7 +35,7 @@ export function TaskList({
 
   if (tasks.length === 0) {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-md rounded-lg bg-surface p-2xl text-center">
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-md rounded-lg p-2xl text-center" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
         <p className="text-[16px] text-text-secondary">
           No tasks match this filter.
         </p>
@@ -90,7 +90,7 @@ export function TaskList({
               <span className="text-[12px] text-text-muted">{group.tasks.length}</span>
             </div>
 
-            <div className="flex flex-col border border-border-subtle rounded-lg bg-surface overflow-hidden">
+            <div className="flex flex-col rounded-lg overflow-hidden" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
               {group.tasks.map((task, index) => {
                 const project = projects.find((p) => p.id === task.projectId);
                 const client = project?.clientId
@@ -162,7 +162,7 @@ export function TaskList({
                             className="gap-1 text-text-muted hover:text-text-primary"
                             title="Edit task"
                           >
-                            <Edit2 size={14} />
+                            <PencilSimple size={14} />
                           </Button>
                         )}
 
@@ -189,7 +189,7 @@ export function TaskList({
                             }}
                             className="gap-1"
                           >
-                            <RotateCcw size={14} />
+                            <ArrowClockwise size={14} />
                             Reopen
                           </Button>
                         )}
@@ -217,7 +217,7 @@ export function TaskList({
                           className="gap-1 text-text-muted hover:text-error"
                           title="Delete"
                         >
-                          <Trash2 size={14} />
+                          <Trash size={14} />
                         </Button>
                       </div>
                     </div>

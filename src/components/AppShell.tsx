@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/icon";
 import Sidebar from "./Sidebar";
 import { ActiveSessionBanner } from "./ActiveSessionBanner";
 import { CommandPalette } from "./CommandPalette";
@@ -41,10 +41,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Show full-screen loading while checking auth (skip on auth page)
   if ((loading || !user) && !isAuthPage && !isOnboardingPage) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-base">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
-        <p className="font-sans text-[14px] text-text-muted">
-          {!user ? "Redirecting to sign in..." : "Loading..."}
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-base">
+        <Spinner size={20} weight="regular" className="animate-spin text-accent" aria-hidden />
+        <p className="font-sans text-[13px] text-text-faint">
+          {loading ? "Loading your workspace..." : "Redirecting to sign in..."}
         </p>
       </div>
     );
@@ -83,12 +83,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function MobileBanner() {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-surface p-2xl text-center md:hidden">
-      <div className="flex max-w-xs flex-col gap-md">
-        <h2 className="text-[24px] font-semibold tracking-[-0.01em]">Switch to desktop</h2>
-        <p className="text-[14px] text-text-muted">
-          Kettles works best on a larger screen. Open this on your laptop or desktop.
-        </p>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-base p-2xl text-center md:hidden">
+      <div className="flex max-w-[280px] flex-col gap-3 items-center">
+        <div className="w-12 h-12 rounded-xl bg-surface-raised border border-border-subtle flex items-center justify-center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent">
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <path d="M8 21h8M12 17v4" />
+          </svg>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-text-primary">Desktop required</h2>
+          <p className="text-[13px] text-text-muted leading-relaxed">
+            Kettles is optimized for desktop. Open it on your laptop or desktop for the full experience.
+          </p>
+        </div>
       </div>
     </div>
   );

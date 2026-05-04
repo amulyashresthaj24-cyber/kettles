@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useApp } from "@/lib/store-supabase";
-import { Edit, Archive, Trash2, Calendar, DollarSign } from "lucide-react";
+import { PencilSimple, Archive, Trash, CalendarBlank, CurrencyDollar } from "@/components/ui/icon";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import type { Project, ProjectStatus } from "@/lib/types";
@@ -66,7 +66,7 @@ export function ProjectDetailsCard({
   };
 
   return (
-    <div className="bg-surface rounded-lg border border-border p-4xl space-y-3xl">
+    <div className="rounded-lg p-4xl space-y-3xl" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
       {/* Header with title and actions */}
       <div className="flex items-start justify-between">
         <div className="flex-1 space-y-lg">
@@ -97,7 +97,7 @@ export function ProjectDetailsCard({
             className="p-2 rounded-lg hover:bg-surface-raised transition-colors text-text-secondary hover:text-text-primary"
             title="Edit project"
           >
-            <Edit size={18} />
+            <PencilSimple size={18} aria-hidden />
           </button>
           <button
             onClick={handleArchive}
@@ -111,7 +111,7 @@ export function ProjectDetailsCard({
             className="p-2 rounded-lg hover:bg-surface-raised transition-colors text-text-secondary hover:text-rose-400"
             title="Delete project"
           >
-            <Trash2 size={18} />
+            <Trash size={18} />
           </button>
         </div>
       </div>
@@ -141,7 +141,7 @@ export function ProjectDetailsCard({
             Start Date
           </p>
           <div className="flex items-center gap-sm">
-            <Calendar size={14} className="text-text-muted" />
+            <CalendarBlank size={14} className="text-text-muted" />
             <p className="text-text-primary font-medium">
               {formatDate(project.startDate)}
             </p>
@@ -154,7 +154,7 @@ export function ProjectDetailsCard({
             End Date
           </p>
           <div className="flex items-center gap-sm">
-            <Calendar size={14} className="text-text-muted" />
+            <CalendarBlank size={14} className="text-text-muted" />
             <p className="text-text-primary font-medium">
               {formatDate(project.endDate)}
             </p>
@@ -167,7 +167,7 @@ export function ProjectDetailsCard({
             Budget
           </p>
           <div className="flex items-center gap-sm">
-            <DollarSign size={14} className="text-text-muted" />
+            <CurrencyDollar size={14} className="text-text-muted" />
             <p className="text-text-primary font-medium">
               {project.budget ? `$${project.budget}` : "Not set"}
             </p>

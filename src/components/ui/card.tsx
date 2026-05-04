@@ -9,7 +9,7 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-lg p-lg font-sans text-text-primary",
+      "rounded-xl p-lg font-sans text-text-primary",
       variant === "raised" ? "bg-surface-raised" : "bg-surface",
       className
     )}

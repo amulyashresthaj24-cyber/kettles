@@ -2,14 +2,14 @@
 
 import { useState, useMemo } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
+  CaretLeft,
+  CaretRight,
   Plus,
-  Calendar as CalIcon,
+  CalendarBlank as CalIcon,
   List,
-  LayoutGrid,
-  AlignJustify,
-} from "lucide-react";
+  SquaresFour as LayoutGrid,
+  AlignLeft as AlignJustify,
+} from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
 import { taskDateTimestamp } from "@/lib/task-dates";
@@ -150,7 +150,7 @@ export default function CalendarPage() {
               className="w-7 h-7 flex items-center justify-center rounded-[8px] transition-colors hover:bg-[var(--surface-raised)]"
               style={{ color: "var(--text-muted)" }}
             >
-              <ChevronLeft size={16} />
+              <CaretLeft size={16} />
             </button>
             <span className="text-[14px] font-medium min-w-[200px] text-center" style={{ color: "var(--text-secondary)" }}>
               {headerLabel()}
@@ -161,7 +161,7 @@ export default function CalendarPage() {
               className="w-7 h-7 flex items-center justify-center rounded-[8px] transition-colors hover:bg-[var(--surface-raised)]"
               style={{ color: "var(--text-muted)" }}
             >
-              <ChevronRight size={16} />
+              <CaretRight size={16} />
             </button>
           </div>
           <button
@@ -608,7 +608,7 @@ function ListView({ cursor, events, onAddTask }: { cursor: Date; events: Calenda
         <div className="flex items-center justify-between mt-3 mb-0">
           <button className="flex items-center gap-1.5 text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>
             {MONTHS[cursor.getMonth()]} {cursor.getFullYear()}
-            <ChevronRight size={16} style={{ color: "var(--text-muted)" }} />
+            <CaretRight size={16} style={{ color: "var(--text-muted)" }} />
           </button>
         </div>
 
