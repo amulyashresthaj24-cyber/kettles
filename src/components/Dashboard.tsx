@@ -75,12 +75,12 @@ export default function Dashboard() {
   const { start: weekStart, end: weekEnd } = weekBounds();
 
   const todaySessions = useMemo(
-    () => sessions.filter((s) => s.endedAt && s.endedAt >= todayStart && s.endedAt < todayEnd),
+    () => sessions.filter((s) => s.endedAt && (s.state ?? "confirmed") === "confirmed" && s.endedAt >= todayStart && s.endedAt < todayEnd),
     [sessions, todayStart, todayEnd]
   );
 
   const weekSessions = useMemo(
-    () => sessions.filter((s) => s.endedAt && s.endedAt >= weekStart && s.endedAt < weekEnd),
+    () => sessions.filter((s) => s.endedAt && (s.state ?? "confirmed") === "confirmed" && s.endedAt >= weekStart && s.endedAt < weekEnd),
     [sessions, weekStart, weekEnd]
   );
 

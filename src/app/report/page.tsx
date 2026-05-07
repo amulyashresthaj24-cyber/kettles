@@ -140,7 +140,7 @@ export default function ReportPage() {
   // ── Filter sessions to period + optional client/project ─────────────────
   const filteredSessions = useMemo(() => {
     return sessions.filter((s) => {
-      if (!s.endedAt) return false;
+      if (!s.endedAt || (s.state ?? "confirmed") !== "confirmed") return false;
       const t = s.endedAt;
       if (t < period.start.getTime() || t > period.end.getTime()) return false;
       if (filterClientId) {

@@ -992,8 +992,253 @@ public/
 
 ---
 
-## 15. Last Updated
+## 15. Dropdown Module
 
-- **Version**: 1.0 (Alpha)
-- **Date**: 2026-04-27
+All dropdown menus across the app **must** follow this spec exactly. Do not deviate.
+
+### Visual Spec
+
+```
+Background:    bg-surface-raised  (#191a1b)
+Border:        border border-border-subtle  (1px solid #1e1f20)
+Border radius: rounded-lg  (16px)
+Shadow:        shadow-2xl
+Z-index:       z-[100]
+Overflow:      overflow-hidden
+Position:      absolute, top-full mt-1  (below trigger)
+               OR bottom-full mb-2  (above trigger, e.g. inside modals)
+Min width:     match trigger or content, never narrower than 160px
+```
+
+### Animation
+
+Use **only** `.animate-dropdown-in` (160ms, ease-out). No other class. No inline animation.
+
+```css
+/* globals.css — do not add more dropdown keyframes */
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-dropdown-in {
+  animation: dropdown-in 160ms var(--ease-out) both;
+}
+```
+
+### Search Input (when dropdown has search)
+
+```
+Container:   border-b border-border-subtle
+Input:       w-full px-3 py-2 text-[12px] bg-transparent outline-none
+             text-text-primary placeholder:text-text-faint
+```
+
+### Item Row
+
+```
+Padding:     px-2.5 py-1.5
+Font:        text-[12px] text-text-primary
+Radius:      rounded-md  (on each item, not container)
+Hover:       hover:bg-surface-mid
+Selected:    bg-accent text-white font-medium
+Danger item: text-error hover:bg-error/10
+```
+
+### Scroll Area (when items overflow)
+
+```
+max-h-[240px] overflow-y-auto p-1
+```
+
+### Section Group Header (optional)
+
+```
+text-[11px] font-semibold uppercase tracking-[0.05em] text-text-faint
+px-2.5 pt-2 pb-1
+```
+
+### Trigger Button
+
+```
+Use existing Button variants (ghost, secondary) or a pill control.
+Caret icon: rotate-180 when open.
+Never use a raw <select> element styled as a dropdown — only for native OS selects.
+```
+
+### Close Behavior
+
+- Click outside → close (mousedown listener on document, check `ref.current.contains`)
+- Escape key → close
+- Item select → close
+
+### Rules
+
+- **Never** use `box-shadow` inline for dropdowns — use `shadow-2xl` class.
+- **Never** use `rounded-[10px]` or other arbitrary radii — use `rounded-lg`.
+- **Never** use CSS variables inline (`style={{ border: "1px solid var(--border-subtle)" }}`) — use Tailwind token classes (`border border-border-subtle`).
+- **Never** add a new animation class for dropdowns — `animate-dropdown-in` is canonical.
+- **Always** set `z-[100]` so dropdowns float above modals and panels.
+
+---
+
+## 16. Overlay Module
+
+Overlays cover two patterns: **centered modals** and **side panels**. Both share a backdrop.
+
+---
+
+### 16a. Centered Modal
+
+Use the `<Modal>` primitive (`src/components/ui/modal.tsx`) as the shell. Only customize content inside.
+
+#### Backdrop
+
+```
+fixed inset-0 z-50
+background: bg-base/60 backdrop-blur-sm
+animation: animate-fade-in  (opacity only, 180ms)
+```
+
+#### Modal Container
+
+```
+background:    bg-surface-raised
+border:        border border-border-subtle
+border-radius: rounded-xl  (20px)
+shadow:        shadow-2xl
+padding:       p-2xl  (24px)
+animation:     animate-modal-in  (220ms, scale+translateY)
+max-width:     max-w-[560px] w-full
+```
+
+#### Animation
+
+```css
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.98) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-modal-in { animation: modal-in 220ms var(--ease-out) both; }
+```
+
+#### Header
+
+```
+flex items-center justify-between
+padding: px-xl py-md  (or px-6 py-4)
+border-bottom: border-b border-border-subtle
+title: text-[17px] font-semibold tracking-[-0.01em] text-text-primary
+close button: w-8 h-8 rounded-[8px] hover:bg-surface-mid text-text-faint
+```
+
+#### Body
+
+```
+flex flex-col gap-md px-xl pt-xl pb-lg
+overflow-y-auto if content may overflow
+```
+
+#### Footer
+
+```
+flex items-center justify-between gap-sm px-xl py-lg
+border-top: border-t border-border-subtle
+```
+
+#### Keyboard / Close
+
+- Escape → close
+- Backdrop click → close
+- Never close on content click (stopPropagation on modal container)
+
+---
+
+### 16b. Side Panel (Right Drawer)
+
+Used for detail views (TaskDetailSidebar, etc.). Slides in from the right.
+
+#### Backdrop
+
+```
+fixed inset-0 z-40  (one level below panel)
+No background color — click-to-close only, transparent.
+```
+
+#### Panel Container
+
+```
+fixed right-0 top-0 bottom-0
+width: w-96  (384px)
+z-index: z-50
+background: bg-surface-raised
+border-left: border-l border-border-subtle
+shadow: -4px 0 24px rgba(0,0,0,0.2)
+animation: panel-animate  (200ms translateX slide-in from right)
+flex flex-col overflow-hidden
+```
+
+#### Animation
+
+```css
+@keyframes panel-slide-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.panel-animate { animation: panel-slide-in 0.2s var(--ease-out) both; }
+```
+
+#### Panel Header
+
+```
+flex items-start justify-between p-6 shrink-0
+border-bottom: border-b border-border-subtle
+title: text-[17px] font-semibold text-text-primary
+close button: w-8 h-8 rounded-[8px] hover:bg-surface-mid text-text-muted
+```
+
+#### Panel Body
+
+```
+flex-1 overflow-y-auto
+content: flex flex-col gap-6 p-6
+section labels: text-[11px] uppercase tracking-wider font-medium text-text-faint
+```
+
+#### Panel Footer
+
+```
+shrink-0 p-5
+border-top: border-t border-border-subtle
+buttons: flex gap-3, h-9 rounded-[8px] text-[13px] font-medium
+  secondary: bg-surface-mid text-text-secondary
+  primary:   bg-accent text-white
+```
+
+#### Keyboard / Close
+
+- Escape → close
+- Backdrop click → close
+- Panel content click → no close (stopPropagation not needed — backdrop is behind panel)
+
+---
+
+### Z-Index Stack
+
+| Layer | z-index | Element |
+|-------|---------|---------|
+| Base content | 0 | Page, time grid |
+| Sticky headers | 10 | Floating now-indicator |
+| Side panel backdrop | 40 | Click-to-close transparent layer |
+| Side panel / Modal | 50 | Panel, modal container |
+| Dropdown | 100 | All dropdown menus |
+| Command palette | 100 | Global command menu |
+
+**Rule:** Dropdowns always win over panels. Panels win over page content.
+
+---
+
+## 17. Last Updated
+
+- **Version**: 1.1
+- **Date**: 2026-05-07
 - **Status**: Production-ready for MVP phase

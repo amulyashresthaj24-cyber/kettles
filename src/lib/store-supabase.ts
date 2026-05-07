@@ -1,9 +1,40 @@
 "use client";
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { api } from "./supabase";
 import type { Client, Project, Task, Session, Urgency, TaskStatus } from "./types";
 import { uid } from "./format";
+
+function normalizeSession(session: Session): Session {
+  const state = session.state ?? (session.endedAt ? "confirmed" : session.paused ? "paused" : "running");
+  return {
+    ...session,
+    taskId: session.taskId ?? "",
+    projectId: session.projectId ?? "",
+    paused: state === "paused" || state === "finishing" || session.paused === true,
+    state,
+    notes: session.notes ?? [],
+    isDraft: session.isDraft ?? (state === "draft" || !session.taskId || !session.projectId),
+  };
+}
+
+function elapsedFor(session: Session) {
+  const normalized = normalizeSession(session);
+  return normalized.durationSeconds + (normalized.state === "running"
+    ? Math.floor((Date.now() - normalized.startedAt) / 1000)
+    : 0);
+}
+
+function reportableSession(session: Session) {
+  return normalizeSession(session).state === "confirmed";
+}
+
+function mergeSessionLists(remoteSessions: Session[], localSessions: Session[]) {
+  const remoteIds = new Set(remoteSessions.map((session) => session.id));
+  const localOnly = localSessions.filter((session) => !remoteIds.has(session.id) && !reportableSession(session));
+  return [...remoteSessions, ...localOnly].map(normalizeSession);
+}
 
 function withTaskDisplayFallbacks(tasks: Task[]) {
   return tasks.map((task) => ({
@@ -77,13 +108,26 @@ interface State {
   setTaskStatus: (id: string, status: TaskStatus) => Promise<void>;
 
   startSession: (taskId: string, billable?: boolean) => Promise<Session | null>;
+  startDraftSession: (billable?: boolean) => Promise<Session | null>;
   pauseSession: () => Promise<void>;
   resumeSession: () => Promise<void>;
+  finishSession: () => Promise<void>;
+  resumeFromFinishing: () => Promise<void>;
+  confirmSession: (adjustedSeconds?: number) => Promise<Session | null>;
+  saveSessionAsDraft: () => Promise<void>;
+  reviewDraftSession: (id: string) => void;
+  discardSession: () => Promise<void>;
+  classifyDraftSession: (taskId: string, projectId: string, billable: boolean) => void;
+  addSessionNote: (text: string) => void;
+  updateSessionNote: (noteId: string, text: string) => void;
+  deleteSessionNote: (noteId: string) => void;
   stopSession: () => Promise<Session | null>;
   adjustSessionDuration: (id: string, seconds: number) => Promise<void>;
 
   setSelectedProject: (id: string | null) => void;
   setSelectedUrgency: (u: Urgency | "all") => void;
+  selectedTaskId: string | null;
+  setSelectedTaskId: (id: string | null) => void;
 
   // Data loading
   loadClients: () => Promise<void>;
@@ -95,7 +139,8 @@ interface State {
   performDailyArchive: () => Promise<void>;
 }
 
-export const useApp = create<State>()((set, get) => ({
+export const useApp = create<State>()(
+persist((set, get) => ({
   user: null,
   clients: [],
   projects: [],
@@ -103,6 +148,7 @@ export const useApp = create<State>()((set, get) => ({
   sessions: [],
   activeSessionId: null,
   selectedProjectId: null,
+  selectedTaskId: null,
   selectedUrgency: "all",
   isLoading: false,
   error: null,
@@ -276,13 +322,18 @@ export const useApp = create<State>()((set, get) => ({
   setTaskStatus: async (id, status) => {
     set({ isLoading: true, error: null });
     try {
-      const patch: any = { status };
+      const task = get().tasks.find((t) => t.id === id);
+      // Include the full task payload so the edge function merge never loses the title,
+      // even if the DB JSONB is incomplete or stale.
+      const patch: any = { ...(task ?? {}), status };
       if (status === "done") {
         patch.completedAt = Date.now();
+      } else {
+        delete patch.completedAt;
       }
-      await api.tasks.update(id, patch);
+      const updated = await api.tasks.update(id, patch);
       set({
-        tasks: get().tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+        tasks: get().tasks.map((t) => (t.id === id ? { ...t, ...updated } : t)),
       });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to update task status' });
@@ -308,6 +359,9 @@ export const useApp = create<State>()((set, get) => ({
         startedAt: Date.now(),
         durationSeconds: 0,
         paused: false,
+        state: "running",
+        isDraft: false,
+        notes: [],
       });
 
       set({
@@ -329,20 +383,43 @@ export const useApp = create<State>()((set, get) => ({
     }
   },
 
+  startDraftSession: async (billable = false) => {
+    if (get().activeSessionId) return null;
+    const session: Session = {
+      id: uid(),
+      taskId: "",
+      projectId: "",
+      billable,
+      startedAt: Date.now(),
+      durationSeconds: 0,
+      paused: false,
+      state: "running",
+      isDraft: true,
+      notes: [],
+    };
+    set({
+      sessions: [...get().sessions, session],
+      activeSessionId: session.id,
+    });
+    return session;
+  },
+
   pauseSession: async () => {
     const id = get().activeSessionId;
     if (!id) return;
     const session = get().sessions.find((s) => s.id === id);
-    if (!session || session.paused) return;
+    if (!session) return;
+    const normalized = normalizeSession(session);
+    if (!normalized || normalized.state !== "running") return;
 
-    const duration = session.durationSeconds + Math.floor((Date.now() - session.startedAt) / 1000);
+    const duration = elapsedFor(normalized);
     
     set({ isLoading: true, error: null });
     try {
-      await api.sessions.update(id, { paused: true, durationSeconds: duration });
+      if (!normalized.isDraft) await api.sessions.update(id, { paused: true, state: "paused", durationSeconds: duration });
       set({
         sessions: get().sessions.map((s) =>
-          s.id === id ? { ...s, paused: true, durationSeconds: duration } : s
+          s.id === id ? { ...s, paused: true, state: "paused", durationSeconds: duration } : s
         ),
       });
     } catch (error) {
@@ -356,12 +433,17 @@ export const useApp = create<State>()((set, get) => ({
     const id = get().activeSessionId;
     if (!id) return;
     
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) return;
+    const normalized = normalizeSession(session);
+    if (normalized.state !== "paused") return;
+    const startedAt = Date.now();
     set({ isLoading: true, error: null });
     try {
-      await api.sessions.update(id, { paused: false, startedAt: Date.now() });
+      if (!normalized.isDraft) await api.sessions.update(id, { paused: false, state: "running", startedAt });
       set({
         sessions: get().sessions.map((s) =>
-          s.id === id ? { ...s, paused: false, startedAt: Date.now() } : s
+          s.id === id ? { ...s, paused: false, state: "running", startedAt } : s
         ),
       });
     } catch (error) {
@@ -371,15 +453,202 @@ export const useApp = create<State>()((set, get) => ({
     }
   },
 
+  finishSession: async () => {
+    const id = get().activeSessionId;
+    if (!id) return;
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) return;
+    const normalized = normalizeSession(session);
+    if (normalized.state !== "running" && normalized.state !== "paused") return;
+    const frozenAt = Date.now();
+    const durationSeconds = elapsedFor(normalized);
+    const patch: Partial<Session> = {
+      state: "finishing",
+      paused: true,
+      frozenAt,
+      durationSeconds,
+    };
+
+    set({ isLoading: true, error: null });
+    try {
+      if (!normalized.isDraft) await api.sessions.update(id, patch);
+      set({ sessions: get().sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Failed to finish session" });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  resumeFromFinishing: async () => {
+    const id = get().activeSessionId;
+    if (!id) return;
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) return;
+    const normalized = normalizeSession(session);
+    if (normalized.state !== "finishing") return;
+    const patch: Partial<Session> = {
+      state: "running",
+      paused: false,
+      startedAt: Date.now(),
+      frozenAt: undefined,
+    };
+
+    set({ isLoading: true, error: null });
+    try {
+      if (!normalized.isDraft) await api.sessions.update(id, patch);
+      set({ sessions: get().sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Failed to resume session" });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  confirmSession: async (adjustedSeconds) => {
+    const id = get().activeSessionId;
+    if (!id) return null;
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) return null;
+    const normalized = normalizeSession(session);
+    const durationSeconds = Math.max(0, adjustedSeconds ?? normalized.durationSeconds);
+    const endedAt = normalized.frozenAt ?? Date.now();
+    const patch: Partial<Session> = {
+      state: "confirmed",
+      paused: true,
+      endedAt,
+      durationSeconds,
+      isDraft: false,
+      frozenAt: undefined,
+    };
+
+    set({ isLoading: true, error: null });
+    try {
+      let updated: Session = { ...normalized, ...patch };
+      if (normalized.taskId && normalized.projectId) {
+        if (normalized.id.length < 20) {
+          updated = await api.sessions.create({ ...updated, id: undefined });
+        } else {
+          updated = await api.sessions.update(id, patch);
+        }
+        updated = normalizeSession({ ...updated, state: "confirmed", paused: true, isDraft: false, notes: normalized.notes });
+      }
+      set({
+        sessions: get().sessions.map((s) => (s.id === id ? updated : s)),
+        activeSessionId: null,
+      });
+      return updated;
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Failed to confirm session" });
+      return null;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  saveSessionAsDraft: async () => {
+    const id = get().activeSessionId;
+    if (!id) return;
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) return;
+    const normalized = normalizeSession(session);
+    const patch: Partial<Session> = {
+      state: "draft",
+      isDraft: true,
+      paused: true,
+      durationSeconds: elapsedFor(normalized),
+      frozenAt: normalized.frozenAt ?? Date.now(),
+    };
+    set({
+      sessions: get().sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+      activeSessionId: null,
+    });
+  },
+
+  reviewDraftSession: (id) => {
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) return;
+    set({
+      sessions: get().sessions.map((s) =>
+        s.id === id
+          ? { ...s, state: "finishing", paused: true, isDraft: true, frozenAt: s.frozenAt ?? Date.now() }
+          : s
+      ),
+      activeSessionId: id,
+    });
+  },
+
+  discardSession: async () => {
+    const id = get().activeSessionId;
+    if (!id) return;
+    const session = get().sessions.find((s) => s.id === id);
+    set({ sessions: get().sessions.filter((s) => s.id !== id), activeSessionId: null });
+    if (session && !normalizeSession(session).isDraft && id.length >= 20) {
+      try {
+        await api.sessions.delete(id);
+      } catch (error) {
+        set({ error: error instanceof Error ? error.message : "Failed to discard session" });
+      }
+    }
+  },
+
+  classifyDraftSession: (taskId, projectId, billable) => {
+    const id = get().activeSessionId;
+    if (!id) return;
+    set({
+      sessions: get().sessions.map((s) =>
+        s.id === id ? { ...s, taskId, projectId, billable, isDraft: false } : s
+      ),
+    });
+  },
+
+  addSessionNote: (text) => {
+    const trimmed = text.trim();
+    const id = get().activeSessionId;
+    if (!id || !trimmed) return;
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) return;
+    const note = { id: uid(), timestamp: elapsedFor(session), text: trimmed };
+    const notes = [...(session.notes ?? []), note];
+    set({ sessions: get().sessions.map((s) => (s.id === id ? { ...s, notes } : s)) });
+    if (!normalizeSession(session).isDraft) {
+      api.sessions.update(id, { notes }).catch(() => undefined);
+    }
+  },
+
+  updateSessionNote: (noteId, text) => {
+    const trimmed = text.trim();
+    const id = get().activeSessionId;
+    if (!id || !trimmed) return;
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) return;
+    const notes = (session.notes ?? []).map((note) => (note.id === noteId ? { ...note, text: trimmed } : note));
+    set({ sessions: get().sessions.map((s) => (s.id === id ? { ...s, notes } : s)) });
+    if (!normalizeSession(session).isDraft) {
+      api.sessions.update(id, { notes }).catch(() => undefined);
+    }
+  },
+
+  deleteSessionNote: (noteId) => {
+    const id = get().activeSessionId;
+    if (!id) return;
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) return;
+    const notes = (session.notes ?? []).filter((note) => note.id !== noteId);
+    set({ sessions: get().sessions.map((s) => (s.id === id ? { ...s, notes } : s)) });
+    if (!normalizeSession(session).isDraft) {
+      api.sessions.update(id, { notes }).catch(() => undefined);
+    }
+  },
+
   stopSession: async () => {
     const id = get().activeSessionId;
     if (!id) return null;
     const session = get().sessions.find((s) => s.id === id);
     if (!session) return null;
 
-    const final = session.paused
-      ? session.durationSeconds
-      : session.durationSeconds + Math.floor((Date.now() - session.startedAt) / 1000);
+    const normalized = normalizeSession(session);
+    const final = elapsedFor(normalized);
 
     set({ isLoading: true, error: null });
     try {
@@ -387,10 +656,12 @@ export const useApp = create<State>()((set, get) => ({
         durationSeconds: final,
         endedAt: Date.now(),
         paused: true,
+        state: "confirmed",
+        isDraft: false,
       });
 
       set({
-        sessions: get().sessions.map((s) => (s.id === id ? updated : s)),
+        sessions: get().sessions.map((s) => (s.id === id ? normalizeSession(updated) : s)),
         activeSessionId: null,
       });
 
@@ -419,6 +690,7 @@ export const useApp = create<State>()((set, get) => ({
   },
 
   setSelectedProject: (id) => set({ selectedProjectId: id }),
+  setSelectedTaskId: (id) => set({ selectedTaskId: id }),
   setSelectedUrgency: (u) => set({ selectedUrgency: u }),
 
   loadClients: async () => {
@@ -451,10 +723,11 @@ export const useApp = create<State>()((set, get) => ({
   loadSessions: async () => {
     try {
       const { sessions } = await api.sessions.list();
-      set({ sessions: sessions || [] });
+      const mergedSessions = mergeSessionLists((sessions || []).map(normalizeSession), get().sessions);
+      set({ sessions: mergedSessions });
       
       // Check for active session (not ended)
-      const activeSession = sessions?.find((s: Session) => !s.endedAt);
+      const activeSession = mergedSessions.find((s: Session) => !s.endedAt && ["running", "paused", "finishing"].includes(normalizeSession(s).state));
       if (activeSession) {
         set({ activeSessionId: activeSession.id });
       }
@@ -473,9 +746,9 @@ export const useApp = create<State>()((set, get) => ({
         api.sessions.list(),
       ]);
 
-      const sessions = sessionsResult.sessions || [];
+      const sessions = mergeSessionLists((sessionsResult.sessions || []).map(normalizeSession), get().sessions);
       const tasks = reconcileSessionTasks(withTaskDisplayFallbacks(tasksResult.tasks || []), sessions);
-      const activeSession = sessions.find((s: Session) => !s.endedAt);
+      const activeSession = sessions.find((s: Session) => !s.endedAt && ["running", "paused", "finishing"].includes(normalizeSession(s).state));
 
       set({
         clients: clientsResult.clients || [],
@@ -551,4 +824,11 @@ export const useApp = create<State>()((set, get) => ({
     error: null,
     lastDailyArchiveDate: undefined,
   }),
-}));
+}), {
+  name: "flowmate-supabase-session-store",
+  partialize: (state) => ({
+    sessions: state.sessions.filter((session) => !reportableSession(session)),
+    activeSessionId: state.activeSessionId,
+  }),
+})
+);

@@ -159,6 +159,9 @@ serve(async (req) => {
         if (body.billable !== undefined) {
           updateData.billable = body.billable;
         }
+        if (body.startedAt !== undefined) {
+          updateData.started_at = new Date(body.startedAt).toISOString();
+        }
         if (body.endedAt !== undefined) {
           updateData.ended_at = body.endedAt ? new Date(body.endedAt).toISOString() : null;
         }

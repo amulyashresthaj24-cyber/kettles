@@ -77,10 +77,10 @@ export function SessionCompleteModal({
         {/* Header */}
         <div className="flex flex-col gap-2">
           <h2 className="text-[18px] font-semibold text-text-primary">
-            Session Complete ✓
+            Session logged
           </h2>
           <p className="text-[14px] text-text-muted">
-            You worked on <strong className="text-text-primary font-medium">{task.title}</strong>
+            Logged time for <strong className="text-text-primary font-medium">{task.title}</strong>
           </p>
         </div>
 
@@ -91,7 +91,7 @@ export function SessionCompleteModal({
         >
           <div className="flex items-center justify-between">
             <span className="text-[12px] text-text-muted uppercase font-semibold">
-              Total Time
+              Logged time
             </span>
             {isEditing ? (
               <div className="flex items-center gap-2">
@@ -125,14 +125,14 @@ export function SessionCompleteModal({
             )}
           </div>
           <p className="text-[11px] text-text-faint">
-            Click time to adjust if needed
+            Click time to adjust if needed.
           </p>
         </div>
 
         {/* Task Completion Question */}
         <div className="flex flex-col gap-3">
           <p className="text-[13px] font-medium text-text-primary">
-            Did you complete this task?
+            Mark task complete?
           </p>
 
           <div className="flex flex-col gap-2">
@@ -144,7 +144,7 @@ export function SessionCompleteModal({
             >
               <Checks size={16} />
               <div className="flex flex-col items-start gap-0.5">
-                <span className="text-[13px] font-semibold">Mark as Done</span>
+                <span className="text-[13px] font-semibold">Mark as done</span>
                 <span className="text-[11px] text-white/60">Move to Done column</span>
               </div>
             </Button>
@@ -157,7 +157,7 @@ export function SessionCompleteModal({
             >
               <Pause size={16} />
               <div className="flex flex-col items-start gap-0.5">
-                <span className="text-[13px] font-semibold">Keep in Progress</span>
+                <span className="text-[13px] font-semibold">Keep in progress</span>
                 <span className="text-[11px] text-text-secondary">Continue later</span>
               </div>
             </Button>

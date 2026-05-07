@@ -9,6 +9,7 @@ import { CommandPalette } from "./CommandPalette";
 import { AddTaskModal } from "./AddTaskModal";
 import { AddProjectModal } from "./AddProjectModal";
 import { useAuth } from "@/lib/auth";
+import { NotificationProvider } from "./ui/notification";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -52,29 +53,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-surface">
-      <Sidebar onSearchClick={() => setCmdOpen(true)} />
-      <main className="flex flex-1 flex-col overflow-hidden p-lg gap-lg">
-        <div className="hidden md:block">
-          <ActiveSessionBanner />
-        </div>
-        <div className="flex-1 overflow-hidden rounded-xl bg-base">
-          <div className="h-full overflow-y-auto px-3xl pt-3xl">
-            <div className="flex flex-col gap-2xl">{children}</div>
+    <NotificationProvider>
+      <div className="flex h-screen overflow-hidden bg-surface">
+        <Sidebar onSearchClick={() => setCmdOpen(true)} />
+        <main className="flex flex-1 flex-col overflow-hidden p-lg gap-lg">
+          <div className="hidden md:block">
+            <ActiveSessionBanner />
           </div>
-        </div>
-        <MobileBanner />
-      </main>
+          <div className="flex-1 overflow-hidden rounded-xl bg-base">
+            <div className="h-full overflow-y-auto px-3xl pt-3xl [&:has(.no-shell-padding)]:p-0 [&:has(.no-shell-padding)]:overflow-hidden">
+              <div className="flex flex-col gap-2xl [&:has(.no-shell-padding)]:gap-0 [&:has(.no-shell-padding)]:h-full">{children}</div>
+            </div>
+          </div>
+          <MobileBanner />
+        </main>
 
-      <CommandPalette
-        open={cmdOpen}
-        onClose={() => setCmdOpen(false)}
-        onNewTask={() => setTaskOpen(true)}
-        onNewProject={() => setProjectOpen(true)}
-      />
-      <AddTaskModal open={taskOpen} onClose={() => setTaskOpen(false)} />
-      <AddProjectModal open={projectOpen} onClose={() => setProjectOpen(false)} />
-    </div>
+        <CommandPalette
+          open={cmdOpen}
+          onClose={() => setCmdOpen(false)}
+          onNewTask={() => setTaskOpen(true)}
+          onNewProject={() => setProjectOpen(true)}
+        />
+        <AddTaskModal open={taskOpen} onClose={() => setTaskOpen(false)} />
+        <AddProjectModal open={projectOpen} onClose={() => setProjectOpen(false)} />
+      </div>
+    </NotificationProvider>
   );
 }
 

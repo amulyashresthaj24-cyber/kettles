@@ -112,12 +112,12 @@ serve(async (req) => {
           .eq('id', id)
           .eq('user_id', user.id)
           .single();
-        
+
         if (fetchError) throw fetchError;
-        
+
         // Merge new data with existing data instead of replacing
         const mergedData = {
-          ...currentData?.data,
+          ...(currentData?.data || {}),
           ...sanitizeData(body),
         };
         

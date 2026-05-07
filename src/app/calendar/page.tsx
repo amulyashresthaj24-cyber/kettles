@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
   CaretLeft,
   CaretRight,
@@ -14,8 +14,8 @@ import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
 import { taskDateTimestamp } from "@/lib/task-dates";
 import { AddTaskModal } from "@/components/AddTaskModal";
+import { TaskDetailSidebar } from "@/components/TaskDetailSidebar";
 import { Button } from "@/components/ui/button";
-import { PageToolbar } from "@/components/layout";
 import type { Task } from "@/lib/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -40,6 +40,18 @@ const PROJECT_COLORS: Record<string, string> = {
 
 function getProjectColor(color: string) {
   return PROJECT_COLORS[color] ?? "#8a8f98";
+}
+
+const URGENCY_RING: Record<string, string | null> = {
+  urgent: "var(--error)",
+  high: "#f59e0b",
+  normal: null,
+  low: "rgba(98,102,109,0.4)",
+};
+
+function urgencyOutlineStyle(urgency: string): React.CSSProperties {
+  const ring = URGENCY_RING[urgency];
+  return ring ? { outline: `2px solid ${ring}`, outlineOffset: "1px" } : {};
 }
 
 function startOfWeek(date: Date): Date {
@@ -81,16 +93,46 @@ const DAYS_LONG = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function CalendarPage() {
-  const [view, setView] = useState<ViewMode>("week");
+  const [view, setView] = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "week";
+    return (localStorage.getItem("flowmate-calendar-view") as ViewMode) ?? "week";
+  });
   const [cursor, setCursor] = useState(new Date());
   const [openAddTask, setOpenAddTask] = useState(false);
+  const [filterProject, setFilterProject] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "todo" | "doing" | "done">("all");
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+  const projectDropdownRef = useRef<HTMLDivElement>(null);
 
   const tasks = useApp((s) => s.tasks);
   const projects = useApp((s) => s.projects);
+  const activeSessionId = useApp((s) => s.activeSessionId);
+  const sessions = useApp((s) => s.sessions);
+  const selectedTaskId = useApp((s) => s.selectedTaskId);
+  const setSelectedTaskId = useApp((s) => s.setSelectedTaskId);
+  const activeTaskId = sessions.find((s) => s.id === activeSessionId)?.taskId ?? null;
+
+  useEffect(() => {
+    if (!projectDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
+        setProjectDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [projectDropdownOpen]);
+
+  function changeView(v: ViewMode) {
+    setView(v);
+    localStorage.setItem("flowmate-calendar-view", v);
+  }
 
   const events: CalendarEvent[] = useMemo(() => {
     return tasks
       .filter((t) => !t.archived && !t.deletedAt)
+      .filter((t) => filterProject === "all" || t.projectId === filterProject)
+      .filter((t) => filterStatus === "all" || t.status === filterStatus)
       .map((t) => {
         const project = projects.find((p) => p.id === t.projectId);
         return {
@@ -100,7 +142,7 @@ export default function CalendarPage() {
           projectName: project?.name?.trim() || "Unassigned",
         };
       });
-  }, [tasks, projects]);
+  }, [tasks, projects, filterProject, filterStatus]);
 
   function eventsForDay(day: Date) {
     return events.filter((e) => isSameDay(e.date, day));
@@ -136,69 +178,161 @@ export default function CalendarPage() {
     { id: "list", Icon: List, label: "List" },
   ];
 
+  const STATUS_FILTERS: { id: typeof filterStatus; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "todo", label: "To-Do" },
+    { id: "doing", label: "In Progress" },
+    { id: "done", label: "Done" },
+  ];
+
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--base)", color: "var(--text-primary)" }}>
-      {/* Header */}
+    <div className="no-shell-padding flex flex-col h-full overflow-hidden" style={{ background: "var(--base)", color: "var(--text-primary)" }}>
+      {/* Header block — matches PageHeader + PageToolbar pattern used in Tasks/Report pages */}
       <div
-        className="flex items-center justify-between shrink-0"
+        className="shrink-0 flex flex-col"
         style={{
-          paddingLeft: "var(--content-padding-x)",
-          paddingRight: "var(--content-padding-x)",
-          paddingTop: "var(--content-padding-y)",
+          paddingLeft: "32px",
+          paddingRight: "32px",
+          paddingTop: "32px",
           paddingBottom: "16px",
           borderBottom: "1px solid var(--border-subtle)",
-          gap: "var(--toolbar-gap)",
+          gap: "12px",
         }}
       >
-        <div className="flex items-center gap-4">
-          <h1
-            className="font-semibold tracking-tight text-text-primary"
-            style={{
-              fontSize: "var(--heading-xl-size)",
-              fontWeight: "var(--heading-xl-weight)",
-              lineHeight: "var(--heading-xl-line-height)",
-              letterSpacing: "var(--heading-xl-letter-spacing)",
-            }}
-          >
-            Calendar
-          </h1>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => navigate(-1)}
-              aria-label="Previous"
-              className="w-7 h-7 flex items-center justify-center rounded-[8px] transition-colors hover:bg-[var(--surface-raised)]"
-              style={{ color: "var(--text-muted)" }}
+        {/* Row 1 — PageHeader: title + subtitle + primary action */}
+        <header className="flex items-center justify-between" style={{ gap: "var(--header-gap)" }}>
+          <div className="flex flex-col" style={{ gap: 4 }}>
+            <h1
+              className="font-semibold text-text-primary"
+              style={{
+                fontSize: "var(--heading-xl-size)",
+                fontWeight: "var(--heading-xl-weight)",
+                lineHeight: "var(--heading-xl-line-height)",
+                letterSpacing: "var(--heading-xl-letter-spacing)",
+              }}
             >
-              <CaretLeft size={16} />
-            </button>
-            <span className="text-[14px] font-medium min-w-[200px] text-center" style={{ color: "var(--text-secondary)" }}>
+              Calendar
+            </h1>
+            <p className="text-text-muted" style={{ fontSize: "var(--body-sm-size)" }}>
               {headerLabel()}
-            </span>
-            <button
-              onClick={() => navigate(1)}
-              aria-label="Next"
-              className="w-7 h-7 flex items-center justify-center rounded-[8px] transition-colors hover:bg-[var(--surface-raised)]"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <CaretRight size={16} />
-            </button>
+            </p>
           </div>
-          <button
-            onClick={() => setCursor(new Date())}
-            className="px-3 h-7 text-[12px] font-medium rounded-[8px] transition-colors"
-            style={{ background: "var(--surface-raised)", color: "var(--text-muted)" }}
-          >
-            Today
-          </button>
-        </div>
+          <Button variant="primary" size="default" onClick={() => setOpenAddTask(true)}>
+            <Plus size={14} />
+            Add Task
+          </Button>
+        </header>
 
-        <div className="flex items-center gap-3">
-          {/* View switcher */}
-          <div className="flex items-center rounded-[8px] p-0.5 gap-0.5" style={{ background: "var(--surface-raised)" }}>
+        {/* Row 2 — PageToolbar: left navigation + filters | right view switcher */}
+        <div className="flex items-center justify-between" style={{ gap: "var(--toolbar-gap)" }}>
+          {/* Left: nav arrows + Today + status filter pills */}
+          <div className="flex items-center" style={{ gap: "var(--component-gap)" }}>
+            {/* Date nav */}
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => navigate(-1)}
+                aria-label="Previous"
+                className="w-7 h-7 flex items-center justify-center rounded-[8px] transition-colors hover:bg-[var(--surface-raised)]"
+                style={{ color: "var(--text-muted)" }}
+              >
+                <CaretLeft size={15} />
+              </button>
+              <button
+                onClick={() => navigate(1)}
+                aria-label="Next"
+                className="w-7 h-7 flex items-center justify-center rounded-[8px] transition-colors hover:bg-[var(--surface-raised)]"
+                style={{ color: "var(--text-muted)" }}
+              >
+                <CaretRight size={15} />
+              </button>
+            </div>
+
+            <button
+              onClick={() => setCursor(new Date())}
+              className="px-3 h-7 text-[12px] font-medium rounded-[8px] transition-colors hover:opacity-80"
+              style={{ background: "var(--surface-raised)", color: "var(--text-secondary)" }}
+            >
+              Today
+            </button>
+
+            {/* Divider */}
+            <div className="w-px h-5 shrink-0" style={{ background: "var(--border-subtle)" }} />
+
+            {/* Status filter pills */}
+            <div
+              className="flex items-center rounded-[8px] p-0.5 gap-0.5"
+              style={{ background: "var(--surface-raised)" }}
+            >
+              {STATUS_FILTERS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => setFilterStatus(id)}
+                  className="px-3 h-7 text-[12px] font-medium rounded-[6px] transition-all"
+                  style={{
+                    background: filterStatus === id ? "var(--surface-mid)" : "transparent",
+                    color: filterStatus === id ? "var(--text-primary)" : "var(--text-muted)",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Project filter */}
+            <div className="relative" ref={projectDropdownRef}>
+              <button
+                onClick={() => setProjectDropdownOpen((o) => !o)}
+                className="flex items-center gap-1.5 h-7 px-2.5 text-[12px] font-medium rounded-[8px] transition-colors hover:opacity-80"
+                style={{ background: "var(--surface-raised)", color: "var(--text-secondary)" }}
+              >
+                {filterProject === "all"
+                  ? "All projects"
+                  : (projects.find((p) => p.id === filterProject)?.name ?? "All projects")}
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ color: "var(--text-muted)" }}>
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              {projectDropdownOpen && (
+                <div className="absolute top-full mt-1 left-0 min-w-[140px] rounded-lg bg-surface-raised border border-border-subtle shadow-2xl z-[100] overflow-hidden animate-dropdown-in">
+                  <div className="p-1">
+                    <button
+                      onClick={() => { setFilterProject("all"); setProjectDropdownOpen(false); }}
+                      className="w-full text-left px-2.5 py-1.5 text-[12px] rounded-md transition-colors hover:bg-surface-mid"
+                      style={{ color: filterProject === "all" ? "var(--accent)" : "var(--text-primary)" }}
+                    >
+                      All projects
+                    </button>
+                    {projects.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => { setFilterProject(p.id); setProjectDropdownOpen(false); }}
+                        className="w-full text-left px-2.5 py-1.5 text-[12px] rounded-md transition-colors hover:bg-surface-mid flex items-center gap-2"
+                        style={{ color: filterProject === p.id ? "var(--accent)" : "var(--text-primary)" }}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ background: getProjectColor(p.color) }}
+                        />
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right: view switcher */}
+          <div
+            className="flex items-center rounded-[8px] p-0.5 gap-0.5"
+            style={{ background: "var(--surface-raised)" }}
+            role="group"
+            aria-label="View mode"
+          >
             {VIEW_TABS.map(({ id, Icon, label }) => (
               <button
                 key={id}
-                onClick={() => setView(id)}
+                onClick={() => changeView(id)}
                 className={cn(
                   "flex items-center gap-1.5 px-3 h-7 text-[12px] font-medium rounded-[8px] transition-all",
                   view === id
@@ -206,27 +340,61 @@ export default function CalendarPage() {
                     : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                 )}
                 style={view === id ? { background: "var(--surface-mid)" } : {}}
+                aria-pressed={view === id}
               >
                 <Icon size={13} />
                 {label}
               </button>
             ))}
           </div>
-
-          <Button variant="primary" size="default" onClick={() => setOpenAddTask(true)}>
-            <Plus size={14} />
-            Add Task
-          </Button>
         </div>
       </div>
 
-      {/* View Content */}
-      <div className="flex-1 overflow-auto">
-        {view === "week" && <WeekView cursor={cursor} eventsForDay={eventsForDay} />}
-        {view === "month" && <MonthView cursor={cursor} eventsForDay={eventsForDay} />}
-        {view === "day" && <DayView cursor={cursor} eventsForDay={eventsForDay} />}
-        {view === "list" && <ListView cursor={cursor} events={events} onAddTask={() => setOpenAddTask(true)} />}
+      {/* View content */}
+      <div className="flex-1 overflow-hidden flex flex-col px-8 pb-6">
+        {view === "week" && (
+          <WeekView
+            cursor={cursor}
+            eventsForDay={eventsForDay}
+            onTaskClick={(id) => setSelectedTaskId(id)}
+            onSlotClick={() => setOpenAddTask(true)}
+            activeTaskId={activeTaskId}
+          />
+        )}
+        {view === "month" && (
+          <MonthView
+            cursor={cursor}
+            eventsForDay={eventsForDay}
+            onTaskClick={(id) => setSelectedTaskId(id)}
+            onDayClick={() => setOpenAddTask(true)}
+            activeTaskId={activeTaskId}
+          />
+        )}
+        {view === "day" && (
+          <DayView
+            cursor={cursor}
+            eventsForDay={eventsForDay}
+            onTaskClick={(id) => setSelectedTaskId(id)}
+            activeTaskId={activeTaskId}
+          />
+        )}
+        {view === "list" && (
+          <ListView
+            cursor={cursor}
+            events={events}
+            onAddTask={() => setOpenAddTask(true)}
+            onTaskClick={(id) => setSelectedTaskId(id)}
+            activeTaskId={activeTaskId}
+          />
+        )}
       </div>
+
+      {/* Task detail sidebar */}
+      <TaskDetailSidebar
+        taskId={selectedTaskId}
+        onClose={() => setSelectedTaskId(null)}
+        onOpenAddTask={() => setOpenAddTask(true)}
+      />
 
       <AddTaskModal open={openAddTask} onClose={() => setOpenAddTask(false)} />
     </div>
@@ -235,27 +403,61 @@ export default function CalendarPage() {
 
 // ─── Week View ────────────────────────────────────────────────────────────────
 
-function WeekView({ cursor, eventsForDay }: { cursor: Date; eventsForDay: (d: Date) => CalendarEvent[] }) {
+function WeekView({
+  cursor,
+  eventsForDay,
+  onTaskClick,
+  onSlotClick,
+  activeTaskId,
+}: {
+  cursor: Date;
+  eventsForDay: (d: Date) => CalendarEvent[];
+  onTaskClick: (taskId: string) => void;
+  onSlotClick: (day: Date, hour: number) => void;
+  activeTaskId: string | null;
+}) {
   const ws = startOfWeek(cursor);
   const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
   const today = new Date();
   const hours = Array.from({ length: 24 }, (_, i) => i);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const targetPx = Math.max(0, (nowMin / 60) * 56 - scrollRef.current.clientHeight / 3);
+    scrollRef.current.scrollTop = targetPx;
+  }, []);
 
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className="flex flex-col h-full overflow-hidden"
+      style={{ border: "1px solid var(--border-subtle)", borderRadius: 4, marginTop: 12 }}
+    >
       {/* Day headers */}
-      <div className="grid shrink-0" style={{ gridTemplateColumns: "56px repeat(7, 1fr)", borderBottom: "1px solid var(--border-subtle)" }}>
+      <div
+        className="grid shrink-0"
+        style={{
+          gridTemplateColumns: "56px repeat(7, 1fr)",
+          borderBottom: "1px solid var(--border-subtle)",
+        }}
+      >
         <div className="h-12" />
         {days.map((day, i) => {
           const isToday = isSameDay(day, today);
           return (
-            <div key={i} className="h-12 flex flex-col items-center justify-center gap-0.5" style={{ borderLeft: "1px solid var(--border-subtle)" }}>
-              <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-faint)" }}>
+            <div
+              key={i}
+              className="h-12 flex flex-col items-center justify-center gap-0.5"
+              style={{ borderLeft: "1px solid var(--border-subtle)" }}
+            >
+              <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-faint)" }}>
                 {DAYS_SHORT[i]}
               </span>
               <span
                 className={cn(
-                  "text-[15px] font-semibold w-7 h-7 flex items-center justify-center rounded-full",
+                  "text-[14px] font-semibold w-7 h-7 flex items-center justify-center rounded-full",
                   isToday ? "text-white" : "text-[var(--text-primary)]"
                 )}
                 style={isToday ? { background: "var(--accent)" } : {}}
@@ -268,30 +470,37 @@ function WeekView({ cursor, eventsForDay }: { cursor: Date; eventsForDay: (d: Da
       </div>
 
       {/* Time grid */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="grid" style={{ gridTemplateColumns: "56px repeat(7, 1fr)" }}>
           {hours.map((h) => (
             <>
               <div
                 key={`label-${h}`}
-                className="h-14 flex items-start justify-end pr-2 pt-1"
-                style={{ color: "var(--text-faint)" }}
+                className="h-14 flex items-start justify-end pr-2 pt-1 shrink-0"
+                style={{ color: "var(--text-faint)", borderTop: h > 0 ? "1px solid var(--border-subtle)" : undefined }}
               >
-                <span className="text-[11px]">{formatTime(h)}</span>
+                <span className="text-[10px]">{h > 0 ? formatTime(h) : ""}</span>
               </div>
               {days.map((day, di) => {
-                const dayEvents = eventsForDay(day).filter((e) => (e.date.getHours() === h));
+                const dayEvents = eventsForDay(day).filter((e) => e.date.getHours() === h);
                 return (
                   <div
                     key={`cell-${h}-${di}`}
-                    className="h-14 relative"
+                    className="h-14 relative cursor-pointer transition-colors hover:bg-[var(--surface-raised)]"
                     style={{
                       borderLeft: "1px solid var(--border-subtle)",
                       borderTop: "1px solid var(--border-subtle)",
                     }}
+                    onClick={() => dayEvents.length === 0 && onSlotClick(day, h)}
                   >
                     {dayEvents.map((ev) => (
-                      <EventPill key={ev.task.id} ev={ev} compact />
+                      <EventPill
+                        key={ev.task.id}
+                        ev={ev}
+                        compact
+                        activeTaskId={activeTaskId}
+                        onClick={() => onTaskClick(ev.task.id)}
+                      />
                     ))}
                   </div>
                 );
@@ -306,7 +515,19 @@ function WeekView({ cursor, eventsForDay }: { cursor: Date; eventsForDay: (d: Da
 
 // ─── Month View ───────────────────────────────────────────────────────────────
 
-function MonthView({ cursor, eventsForDay }: { cursor: Date; eventsForDay: (d: Date) => CalendarEvent[] }) {
+function MonthView({
+  cursor,
+  eventsForDay,
+  onTaskClick,
+  onDayClick,
+  activeTaskId,
+}: {
+  cursor: Date;
+  eventsForDay: (d: Date) => CalendarEvent[];
+  onTaskClick: (taskId: string) => void;
+  onDayClick: (day: Date) => void;
+  activeTaskId: string | null;
+}) {
   const today = new Date();
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
@@ -316,47 +537,73 @@ function MonthView({ cursor, eventsForDay }: { cursor: Date; eventsForDay: (d: D
   const cells: Date[] = [];
   for (let i = 0; i < 42; i++) cells.push(addDays(startDay, i));
 
+  const weeks = 6;
+
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className="flex flex-col h-full overflow-hidden"
+      style={{
+        border: "1px solid var(--border-subtle)",
+        borderRadius: 4,
+        marginTop: 12,
+      }}
+    >
       {/* Day headers */}
-      <div className="grid grid-cols-7 shrink-0" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-        {DAYS_SHORT.map((d) => (
-          <div key={d} className="h-10 flex items-center justify-center">
+      <div
+        className="grid grid-cols-7 shrink-0"
+        style={{ borderBottom: "1px solid var(--border-subtle)" }}
+      >
+        {DAYS_SHORT.map((d, i) => (
+          <div
+            key={d}
+            className="h-9 flex items-center justify-center"
+            style={{ borderRight: i < 6 ? "1px solid var(--border-subtle)" : undefined }}
+          >
             <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-faint)" }}>{d}</span>
           </div>
         ))}
       </div>
 
-      {/* Grid */}
-      <div className="flex-1 grid grid-cols-7" style={{ gridTemplateRows: "repeat(6, 1fr)" }}>
+      {/* Grid — flex-1 so it fills remaining height, no scroll */}
+      <div
+        className="flex-1 grid grid-cols-7 overflow-hidden"
+        style={{ gridTemplateRows: `repeat(${weeks}, 1fr)` }}
+      >
         {cells.map((day, i) => {
           const isToday = isSameDay(day, today);
           const isCurrentMonth = day.getMonth() === month;
           const dayEvents = eventsForDay(day);
+          const col = i % 7;
+          const row = Math.floor(i / 7);
           return (
             <div
               key={i}
-              className="p-2 flex flex-col gap-1 overflow-hidden"
+              className="relative p-1.5 flex flex-col gap-1 overflow-hidden cursor-pointer transition-colors hover:bg-[var(--surface-raised)]"
               style={{
-                borderRight: "1px solid var(--border-subtle)",
-                borderBottom: "1px solid var(--border-subtle)",
-                minHeight: 100,
+                borderRight: col < 6 ? "1px solid var(--border-subtle)" : undefined,
+                borderBottom: row < weeks - 1 ? "1px solid var(--border-subtle)" : undefined,
               }}
+              onClick={() => dayEvents.length === 0 && onDayClick(day)}
             >
               <span
                 className={cn(
-                  "text-[13px] font-medium w-6 h-6 flex items-center justify-center rounded-full self-center",
+                  "text-[12px] font-medium w-5 h-5 flex items-center justify-center rounded-full self-end shrink-0",
                   isToday ? "text-white" : isCurrentMonth ? "text-[var(--text-primary)]" : "text-[var(--text-faint)]"
                 )}
                 style={isToday ? { background: "var(--accent)" } : {}}
               >
                 {day.getDate()}
               </span>
-              {dayEvents.slice(0, 3).map((ev) => (
-                <EventPill key={ev.task.id} ev={ev} />
+              {dayEvents.slice(0, 2).map((ev) => (
+                <EventPill
+                  key={ev.task.id}
+                  ev={ev}
+                  activeTaskId={activeTaskId}
+                  onClick={() => onTaskClick(ev.task.id)}
+                />
               ))}
-              {dayEvents.length > 3 && (
-                <span className="text-[11px]" style={{ color: "var(--text-faint)" }}>+{dayEvents.length - 3} more</span>
+              {dayEvents.length > 2 && (
+                <span className="text-[10px] px-1" style={{ color: "var(--text-faint)" }}>+{dayEvents.length - 2}</span>
               )}
             </div>
           );
@@ -425,18 +672,36 @@ function layoutDayEvents(evs: CalendarEvent[]): LaidOutEvent[] {
   return out;
 }
 
-function DayView({ cursor, eventsForDay }: { cursor: Date; eventsForDay: (d: Date) => CalendarEvent[] }) {
+function DayView({
+  cursor,
+  eventsForDay,
+  onTaskClick,
+  activeTaskId,
+}: {
+  cursor: Date;
+  eventsForDay: (d: Date) => CalendarEvent[];
+  onTaskClick: (taskId: string) => void;
+  activeTaskId: string | null;
+}) {
   const today = new Date();
   const isToday = isSameDay(cursor, today);
   const laid = useMemo(() => layoutDayEvents(eventsForDay(cursor)), [cursor, eventsForDay]);
   const hours = Array.from({ length: 24 }, (_, i) => i);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const setTaskStatus = useApp((s) => s.setTaskStatus);
 
   const nowMin = today.getHours() * 60 + today.getMinutes();
   const nowTop = (nowMin / 60) * DAY_HOUR_PX;
 
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const targetPx = Math.max(0, (nowMin / 60) * DAY_HOUR_PX - scrollRef.current.clientHeight / 3);
+    scrollRef.current.scrollTop = targetPx;
+  }, []);
+
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Day header */}
       <div
         className="flex items-center justify-between px-8 py-4 shrink-0"
         style={{ borderBottom: "1px solid var(--border-subtle)" }}
@@ -450,11 +715,7 @@ function DayView({ cursor, eventsForDay }: { cursor: Date; eventsForDay: (d: Dat
           </span>
           <span
             className="text-[26px] font-semibold w-11 h-11 flex items-center justify-center rounded-full"
-            style={
-              isToday
-                ? { background: "var(--accent)", color: "white" }
-                : { color: "var(--text-primary)" }
-            }
+            style={isToday ? { background: "var(--accent)", color: "white" } : { color: "var(--text-primary)" }}
           >
             {cursor.getDate()}
           </span>
@@ -470,9 +731,8 @@ function DayView({ cursor, eventsForDay }: { cursor: Date; eventsForDay: (d: Dat
       </div>
 
       {/* Time grid */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="relative" style={{ paddingLeft: DAY_GUTTER_PX }}>
-          {/* Hour rows */}
           {hours.map((h) => (
             <div
               key={h}
@@ -493,53 +753,35 @@ function DayView({ cursor, eventsForDay }: { cursor: Date; eventsForDay: (d: Dat
               >
                 {h === 0 ? "" : formatTime(h)}
               </span>
-              {/* half-hour guide */}
               <div
                 className="absolute left-0 right-0"
-                style={{
-                  top: DAY_HOUR_PX / 2,
-                  borderTop: "1px dashed var(--border-subtle)",
-                  opacity: 0.4,
-                }}
+                style={{ top: DAY_HOUR_PX / 2, borderTop: "1px dashed var(--border-subtle)", opacity: 0.4 }}
               />
             </div>
           ))}
 
-          {/* Now indicator */}
           {isToday && (
-            <div
-              className="absolute left-0 right-4 z-20 pointer-events-none"
-              style={{ top: nowTop }}
-            >
+            <div className="absolute left-0 right-4 z-20 pointer-events-none" style={{ top: nowTop }}>
               <div className="flex items-center gap-2">
-                <div
-                  className="w-2 h-2 rounded-full -ml-1"
-                  style={{ background: "var(--accent)" }}
-                />
+                <div className="w-2 h-2 rounded-full -ml-1" style={{ background: "var(--accent)" }} />
                 <div className="flex-1 h-px" style={{ background: "var(--accent)" }} />
               </div>
             </div>
           )}
 
-          {/* Events overlay */}
-          <div
-            className="absolute inset-0 z-10"
-            style={{ paddingLeft: 8, paddingRight: 16 }}
-          >
+          <div className="absolute inset-0 z-10" style={{ paddingLeft: 8, paddingRight: 16 }}>
             {laid.map((ev) => {
               const top = (ev.startMin / 60) * DAY_HOUR_PX;
               const height = Math.max(28, ((ev.endMin - ev.startMin) / 60) * DAY_HOUR_PX - 4);
               const widthPct = 100 / ev.laneCount;
               const leftPct = widthPct * ev.lane;
               const isDone = ev.task.status === "done";
-              const timeStr = ev.date.toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-              });
+              const isActive = ev.task.id === activeTaskId;
+              const timeStr = ev.date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
               return (
                 <div
                   key={ev.task.id}
-                  className="absolute rounded-md px-2 py-1.5 cursor-pointer transition-all hover:brightness-110 overflow-hidden"
+                  className="absolute rounded-md px-2 py-1.5 cursor-pointer transition-all hover:brightness-110 overflow-hidden group"
                   style={{
                     top,
                     height,
@@ -548,65 +790,81 @@ function DayView({ cursor, eventsForDay }: { cursor: Date; eventsForDay: (d: Dat
                     background: ev.color + "1F",
                     borderLeft: `3px solid ${ev.color}`,
                     opacity: isDone ? 0.5 : 1,
+                    ...urgencyOutlineStyle(ev.task.urgency),
                   }}
                   title={ev.task.title}
+                  onClick={() => onTaskClick(ev.task.id)}
                 >
                   <div
                     className="text-[12px] font-semibold leading-tight truncate"
-                    style={{
-                      color: ev.color,
-                      textDecoration: isDone ? "line-through" : "none",
-                    }}
+                    style={{ color: ev.color, textDecoration: isDone ? "line-through" : "none" }}
                   >
                     {ev.task.title}
                   </div>
                   {height > 32 && (
-                    <div
-                      className="text-[11px] mt-0.5 tabular-nums"
-                      style={{ color: ev.color, opacity: 0.75 }}
-                    >
+                    <div className="text-[11px] mt-0.5 tabular-nums" style={{ color: ev.color, opacity: 0.75 }}>
                       {timeStr}
                     </div>
                   )}
+                  {isActive && (
+                    <span
+                      className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full animate-slow-pulse pointer-events-none"
+                      style={{ background: "var(--success)" }}
+                    />
+                  )}
+                  <button
+                    className="absolute bottom-1 right-1 w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{
+                      background: isDone ? "var(--success)" : "var(--surface-mid)",
+                      transitionDuration: "var(--motion-fast)",
+                    }}
+                    onClick={(e) => { e.stopPropagation(); setTaskStatus(ev.task.id, isDone ? "todo" : "done"); }}
+                    aria-label={isDone ? "Mark as todo" : "Mark as done"}
+                  >
+                    <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                      <path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
                 </div>
               );
             })}
           </div>
         </div>
-
-        {laid.length === 0 && (
-          <div className="absolute inset-x-0 top-32 flex flex-col items-center gap-2 pointer-events-none">
-            <span className="text-[13px]" style={{ color: "var(--text-faint)" }}>
-              No events scheduled
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-// ─── List View (Upcoming style) ───────────────────────────────────────────────
+// ─── List View ────────────────────────────────────────────────────────────────
 
-function ListView({ cursor, events, onAddTask }: { cursor: Date; events: CalendarEvent[]; onAddTask: () => void }) {
+function ListView({
+  cursor,
+  events,
+  onAddTask,
+  onTaskClick,
+  activeTaskId,
+}: {
+  cursor: Date;
+  events: CalendarEvent[];
+  onAddTask: () => void;
+  onTaskClick: (taskId: string) => void;
+  activeTaskId: string | null;
+}) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Overdue: events before today
   const overdueEvents = events.filter((e) => {
     const d = new Date(e.date);
     d.setHours(0, 0, 0, 0);
     return d < today;
   });
 
-  // Future: today + 13 more days
   const futureDays = Array.from({ length: 14 }, (_, i) => addDays(today, i));
   const grouped = futureDays.map((day) => ({
     day,
     events: events.filter((e) => isSameDay(e.date, day)),
   }));
 
-  // Week strip: Mon–Sun of cursor week
   const ws = startOfWeek(cursor);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
 
@@ -618,20 +876,18 @@ function ListView({ cursor, events, onAddTask }: { cursor: Date; events: Calenda
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Upcoming header */}
       <div
         className="shrink-0"
         style={{
-          paddingLeft: "var(--content-padding-x)",
-          paddingRight: "var(--content-padding-x)",
-          paddingTop: "var(--content-padding-y)",
+          paddingLeft: "32px",
+          paddingRight: "32px",
+          paddingTop: "20px",
           paddingBottom: 0,
         }}
       >
         <h2 className="text-[28px] font-bold tracking-tight mb-1" style={{ color: "var(--text-primary)" }}>
           Upcoming
         </h2>
-        {/* Month + week strip */}
         <div className="flex items-center justify-between mt-3 mb-0">
           <button className="flex items-center gap-1.5 text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>
             {MONTHS[cursor.getMonth()]} {cursor.getFullYear()}
@@ -639,7 +895,6 @@ function ListView({ cursor, events, onAddTask }: { cursor: Date; events: Calenda
           </button>
         </div>
 
-        {/* Week strip */}
         <div className="grid grid-cols-7 mt-3 pb-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
           {weekDays.map((day, i) => {
             const isToday = isSameDay(day, today);
@@ -650,10 +905,7 @@ function ListView({ cursor, events, onAddTask }: { cursor: Date; events: Calenda
                 </span>
                 <span
                   className="text-[14px] font-semibold w-7 h-7 flex items-center justify-center rounded-full"
-                  style={isToday
-                    ? { background: "var(--accent)", color: "white" }
-                    : { color: "var(--text-secondary)" }
-                  }
+                  style={isToday ? { background: "var(--accent)", color: "white" } : { color: "var(--text-secondary)" }}
                 >
                   {day.getDate()}
                 </span>
@@ -663,18 +915,15 @@ function ListView({ cursor, events, onAddTask }: { cursor: Date; events: Calenda
         </div>
       </div>
 
-      {/* Scrollable content */}
       <div
         className="flex-1 overflow-y-auto flex flex-col gap-0"
         style={{
-          paddingLeft: "var(--content-padding-x)",
-          paddingRight: "var(--content-padding-x)",
-          paddingTop: "var(--section-gap)",
-          paddingBottom: "var(--content-padding-y)",
+          paddingLeft: "32px",
+          paddingRight: "32px",
+          paddingTop: "12px",
+          paddingBottom: "24px",
         }}
       >
-
-        {/* Overdue section */}
         {overdueEvents.length > 0 && (
           <UpcomingSection
             label="Overdue"
@@ -682,10 +931,11 @@ function ListView({ cursor, events, onAddTask }: { cursor: Date; events: Calenda
             action={{ label: "Reschedule", color: "var(--error)" }}
             events={overdueEvents}
             showTime
+            onTaskClick={onTaskClick}
+            activeTaskId={activeTaskId}
           />
         )}
 
-        {/* Daily sections */}
         {grouped.map(({ day, events: dayEvents }) => {
           const isToday = isSameDay(day, today);
           const isTomorrow = isSameDay(day, addDays(today, 1));
@@ -706,6 +956,8 @@ function ListView({ cursor, events, onAddTask }: { cursor: Date; events: Calenda
               showTime
               showAddTask
               onAddTask={onAddTask}
+              onTaskClick={onTaskClick}
+              activeTaskId={activeTaskId}
             />
           );
         })}
@@ -722,6 +974,8 @@ function UpcomingSection({
   showTime,
   showAddTask,
   onAddTask,
+  onTaskClick,
+  activeTaskId,
 }: {
   label: string;
   labelColor: string;
@@ -730,30 +984,31 @@ function UpcomingSection({
   showTime?: boolean;
   showAddTask?: boolean;
   onAddTask?: () => void;
+  onTaskClick: (taskId: string) => void;
+  activeTaskId: string | null;
 }) {
   return (
     <div className="mb-2">
-      {/* Section header */}
       <div
         className="flex items-center justify-between py-3"
         style={{ borderBottom: "1px solid var(--border-subtle)" }}
       >
-        <span className="text-[14px] font-semibold" style={{ color: labelColor }}>
-          {label}
-        </span>
+        <span className="text-[14px] font-semibold" style={{ color: labelColor }}>{label}</span>
         {action && (
-          <button className="text-[13px] font-medium" style={{ color: action.color }}>
-            {action.label}
-          </button>
+          <button className="text-[13px] font-medium" style={{ color: action.color }}>{action.label}</button>
         )}
       </div>
 
-      {/* Task rows */}
       {sectionEvents.map((ev) => (
-        <UpcomingTaskRow key={ev.task.id} ev={ev} showTime={showTime} />
+        <UpcomingTaskRow
+          key={ev.task.id}
+          ev={ev}
+          showTime={showTime}
+          onTaskClick={onTaskClick}
+          activeTaskId={activeTaskId}
+        />
       ))}
 
-      {/* Add task */}
       {showAddTask && (
         <button
           onClick={onAddTask}
@@ -768,16 +1023,36 @@ function UpcomingSection({
   );
 }
 
-function UpcomingTaskRow({ ev, showTime }: { ev: CalendarEvent; showTime?: boolean }) {
+function UpcomingTaskRow({
+  ev,
+  showTime,
+  onTaskClick,
+  activeTaskId,
+}: {
+  ev: CalendarEvent;
+  showTime?: boolean;
+  onTaskClick: (taskId: string) => void;
+  activeTaskId: string | null;
+}) {
+  const setTaskStatus = useApp((s) => s.setTaskStatus);
   const timeStr = ev.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const isDone = ev.task.status === "done";
+  const isActive = ev.task.id === activeTaskId;
+
+  function handleToggle(e: React.MouseEvent) {
+    e.stopPropagation();
+    setTaskStatus(ev.task.id, isDone ? "todo" : "done");
+  }
 
   return (
     <div
-      className="flex items-start gap-3 py-2.5 group cursor-pointer"
-      style={{ borderBottom: "1px solid var(--border-subtle)" }}
+      className="flex items-start gap-3 py-2.5 group cursor-pointer hover:bg-[var(--surface-raised)] transition-colors rounded-[6px] px-1 -mx-1"
+      style={{
+        borderBottom: "1px solid var(--border-subtle)",
+        borderLeft: isActive ? "2px solid var(--success)" : "2px solid transparent",
+      }}
+      onClick={() => onTaskClick(ev.task.id)}
     >
-      {/* Checkbox */}
       <button
         className="mt-0.5 w-[18px] h-[18px] rounded-full border-2 shrink-0 flex items-center justify-center transition-colors"
         style={{
@@ -785,6 +1060,7 @@ function UpcomingTaskRow({ ev, showTime }: { ev: CalendarEvent; showTime?: boole
           background: isDone ? "var(--success)" : "transparent",
         }}
         aria-label="Toggle task"
+        onClick={handleToggle}
       >
         {isDone && (
           <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
@@ -793,7 +1069,6 @@ function UpcomingTaskRow({ ev, showTime }: { ev: CalendarEvent; showTime?: boole
         )}
       </button>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <span
           className="text-[14px] block"
@@ -806,53 +1081,97 @@ function UpcomingTaskRow({ ev, showTime }: { ev: CalendarEvent; showTime?: boole
         </span>
         {showTime && (
           <div className="flex items-center gap-1 mt-0.5">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: "var(--error)" }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: "var(--text-muted)" }}>
               <rect x="1" y="2" width="10" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
               <path d="M4 1v2M8 1v2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
               <path d="M1 5h10" stroke="currentColor" strokeWidth="1.2" />
             </svg>
-            <span className="text-[12px]" style={{ color: "var(--error)" }}>{timeStr}</span>
+            <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>{timeStr}</span>
           </div>
         )}
       </div>
 
-      {/* Right: project tag */}
-      <div className="flex items-center gap-1.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-        <div className="w-1.5 h-1.5 rounded-full" style={{ background: ev.color }} />
-        <span className="text-[12px]" style={{ color: "var(--text-faint)" }}>{ev.projectName}</span>
+      <div className="flex items-center gap-2 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+        {ev.task.urgency !== "normal" && (
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: URGENCY_RING[ev.task.urgency] ?? "transparent" }}
+          />
+        )}
+        <div className="flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: ev.color }} />
+          <span className="text-[12px]" style={{ color: "var(--text-faint)" }}>{ev.projectName}</span>
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── Sub-Components ───────────────────────────────────────────────────────────
+// ─── EventPill ────────────────────────────────────────────────────────────────
 
-function EventPill({ ev, compact }: { ev: CalendarEvent; compact?: boolean }) {
-  const statusStyle: Record<string, string> = {
+function EventPill({
+  ev,
+  compact,
+  onClick,
+  activeTaskId,
+}: {
+  ev: CalendarEvent;
+  compact?: boolean;
+  onClick?: () => void;
+  activeTaskId: string | null;
+}) {
+  const setTaskStatus = useApp((s) => s.setTaskStatus);
+  const isDone = ev.task.status === "done";
+  const isActive = ev.task.id === activeTaskId;
+
+  const statusOpacity: Record<string, string> = {
     todo: "opacity-70",
     doing: "opacity-100",
-    done: "opacity-40 line-through",
+    done: "opacity-40",
   };
 
   return (
     <div
       className={cn(
-        "rounded px-1.5 py-0.5 text-[11px] font-medium truncate cursor-pointer transition-opacity hover:opacity-80",
+        "group relative rounded px-1.5 py-0.5 text-[11px] font-medium truncate cursor-pointer transition-opacity hover:opacity-80",
         compact ? "absolute inset-x-0.5 top-0.5" : "w-full",
-        statusStyle[ev.task.status]
+        statusOpacity[ev.task.status],
+        isDone && "line-through"
       )}
       style={{
         background: ev.color + "26",
         color: ev.color,
         borderLeft: `2px solid ${ev.color}`,
+        ...urgencyOutlineStyle(ev.task.urgency),
       }}
       title={ev.task.title}
+      onClick={onClick}
     >
       {ev.task.title}
+
+      <button
+        className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{
+          background: isDone ? "var(--success)" : "var(--surface-mid)",
+          transitionDuration: "var(--motion-fast)",
+        }}
+        onClick={(e) => { e.stopPropagation(); setTaskStatus(ev.task.id, isDone ? "todo" : "done"); }}
+        aria-label={isDone ? "Mark as todo" : "Mark as done"}
+      >
+        <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+          <path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {isActive && (
+        <span
+          className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full animate-slow-pulse pointer-events-none"
+          style={{ background: "var(--success)" }}
+        />
+      )}
     </div>
   );
 }
-
 
 function weekNumber(d: Date): number {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));

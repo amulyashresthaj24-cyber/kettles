@@ -102,6 +102,9 @@ export const useApp = create<State>()(
           startedAt: Date.now(),
           durationSeconds: 0,
           paused: false,
+          state: "running",
+          isDraft: false,
+          notes: [],
         };
         set({
           sessions: [...get().sessions, s],
@@ -116,7 +119,7 @@ export const useApp = create<State>()(
         set({
           sessions: get().sessions.map((s) =>
             s.id === id && !s.paused
-              ? { ...s, paused: true, durationSeconds: s.durationSeconds + Math.floor((Date.now() - s.startedAt) / 1000) }
+              ? { ...s, paused: true, state: "paused", durationSeconds: s.durationSeconds + Math.floor((Date.now() - s.startedAt) / 1000) }
               : s
           ),
         });
@@ -126,7 +129,7 @@ export const useApp = create<State>()(
         if (!id) return;
         set({
           sessions: get().sessions.map((s) =>
-            s.id === id && s.paused ? { ...s, paused: false, startedAt: Date.now() } : s
+            s.id === id && s.paused ? { ...s, paused: false, state: "running", startedAt: Date.now() } : s
           ),
         });
       },
@@ -138,7 +141,7 @@ export const useApp = create<State>()(
         const final = s.paused
           ? s.durationSeconds
           : s.durationSeconds + Math.floor((Date.now() - s.startedAt) / 1000);
-        const updated: Session = { ...s, durationSeconds: final, endedAt: Date.now(), paused: true };
+        const updated: Session = { ...s, durationSeconds: final, endedAt: Date.now(), paused: true, state: "confirmed", isDraft: false };
         set({
           sessions: get().sessions.map((x) => (x.id === id ? updated : x)),
           activeSessionId: null,

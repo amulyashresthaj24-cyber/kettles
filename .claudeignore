@@ -1,0 +1,28 @@
+# Build output
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Graphify output (stale snapshots)
+graphify-out/
+
+# Completed implementation summaries (no future value)
+Docs/AUTH_PAGE_REDESIGN.md
+Docs/AUTH_REDIRECT_FIX_README.md
+Docs/IMPLEMENTATION_SUMMARY.md
+Docs/SUPABASE_AUTH_REDIRECT_FIX.md
+Docs/DEPLOYMENT_CHECKLIST.md
+Docs/KETTLES_PRODUCTION_DEPLOYMENT.md
+Docs/SUPABASE_EMAIL_CONFIRMATION_SETUP.md
+Docs/SUPABASE_QUICKSTART.md
+Docs/SUPABASE_URL_CONFIGURATION.md
+Docs/ONBOARDING_COMPLETE.md
+Docs/ONBOARDING_IMPLEMENTATION.md
+Docs/ONBOARDING_SETUP.md
+Docs/NAV_TASK_REDESIGN.md
+Docs/OVERVIEW_TAB_REDESIGN.md
+Docs/POLISH_UPDATE.md
+Docs/REDESIGN_SUMMARY.md
+Docs/SUPABASE_MIGRATION_GUIDE.md

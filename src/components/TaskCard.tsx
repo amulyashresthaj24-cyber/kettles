@@ -60,7 +60,7 @@ export function TaskCard({ task, onEdit }: { task: Task; onEdit?: (task: Task) =
         tabIndex={0}
         onKeyDown={(e) => e.key === "Enter" && handleCardClick()}
         aria-label={`${task.title} — click to start timer`}
-        className="group flex flex-col gap-3 rounded-xl bg-surface-raised p-3.5 transition-all hover:bg-surface-mid cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        className="group flex flex-col gap-3 rounded-lg bg-surface-raised p-3.5 transition-all hover:bg-surface-mid cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
       >
       {/* Title row with urgency tag */}
       <div className="flex items-start gap-2 justify-between">

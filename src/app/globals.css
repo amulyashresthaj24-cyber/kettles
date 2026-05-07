@@ -264,6 +264,35 @@ input[type="number"] {
   50%       { opacity: 0.8; }
 }
 
+@keyframes slow-pulse {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 0.6; }
+}
+
+@keyframes completion-card-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes completion-ring-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes completion-check-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes completion-glow-pulse {
+  0%   { opacity: 0; transform: translateX(-50%) scale(0.82); }
+  45%  { opacity: 0.22; transform: translateX(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) scale(1.18); }
+}
+
+@keyframes completion-summary-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ─── Animation classes ──────────────────────────────────── */
 
 .animate-fade-up {
@@ -304,9 +333,50 @@ input[type="number"] {
   border-radius: 4px;
 }
 
+.animate-slow-pulse {
+  animation: slow-pulse 3s ease-in-out infinite;
+}
+
+.task-finished-card {
+  animation: completion-card-in 220ms var(--ease-out) both;
+}
+
+.task-finished-ring {
+  stroke-dasharray: 132;
+  stroke-dashoffset: 132;
+  animation: completion-ring-draw 260ms var(--ease-out) 90ms both;
+}
+
+.task-finished-check {
+  stroke-dasharray: 28;
+  stroke-dashoffset: 28;
+  animation: completion-check-draw 220ms var(--ease-out) 280ms both;
+}
+
+.task-finished-glow {
+  background: radial-gradient(circle, var(--accent-dim) 0%, transparent 68%);
+  animation: completion-glow-pulse 300ms var(--ease-out) 360ms both;
+}
+
+.task-finished-summary {
+  opacity: 0;
+  animation: completion-summary-in 220ms var(--ease-out) 470ms both;
+}
+
 /* Stagger helpers — set --index on the element */
 .stagger {
   animation-delay: calc(var(--index, 0) * 40ms);
+}
+
+/* ─── Panel & calendar animations ─────────────────────────── */
+
+@keyframes panel-slide-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.panel-animate {
+  animation: panel-slide-in 0.2s var(--ease-out) both;
 }
 
 /* ─── Interactive base states ────────────────────────────── */
@@ -352,5 +422,14 @@ input[type="number"] {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     animation-delay: 0ms !important;
+  }
+
+  .task-finished-ring,
+  .task-finished-check {
+    stroke-dashoffset: 0 !important;
+  }
+
+  .task-finished-summary {
+    opacity: 1 !important;
   }
 }

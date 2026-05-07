@@ -2,6 +2,13 @@ export type Urgency = "urgent" | "high" | "normal" | "low";
 export type TaskStatus = "todo" | "doing" | "done";
 export type ProjectColor = "teal" | "amber" | "rose" | "indigo";
 export type ProjectStatus = "active" | "paused" | "completed" | "archived";
+export type SessionState = "running" | "paused" | "finishing" | "confirmed" | "draft" | "discarded";
+
+export interface SessionNote {
+  id: string;
+  timestamp: number;
+  text: string;
+}
 
 export interface Client {
   id: string;
@@ -62,4 +69,8 @@ export interface Session {
   endedAt?: number;
   durationSeconds: number;
   paused: boolean;
+  state: SessionState;
+  isDraft?: boolean;
+  notes?: SessionNote[];
+  frozenAt?: number;
 }
