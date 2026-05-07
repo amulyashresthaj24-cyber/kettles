@@ -46,6 +46,7 @@ export function TaskDetailSidebar({ taskId, onClose, onOpenAddTask }: TaskDetail
   useEffect(() => {
     if (task) setTitleDraft(task.title);
     setEditingTitle(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id]);
 
   useEffect(() => {

@@ -697,6 +697,7 @@ function DayView({
     if (!scrollRef.current) return;
     const targetPx = Math.max(0, (nowMin / 60) * DAY_HOUR_PX - scrollRef.current.clientHeight / 3);
     scrollRef.current.scrollTop = targetPx;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

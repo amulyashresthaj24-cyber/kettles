@@ -113,7 +113,7 @@ export function TagEditor({ task }: TagEditorProps) {
                   className="w-full text-left px-2.5 py-1.5 text-[12px] rounded-md transition-colors hover:bg-surface-mid flex items-center gap-2 text-accent"
                 >
                   <Plus size={11} />
-                  Create "{search.trim()}"
+                  Create &quot;{search.trim()}&quot;
                 </button>
               )}
               {available.map((tag) => (
