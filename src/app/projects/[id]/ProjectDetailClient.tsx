@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useApp } from "@/lib/store-supabase";
 import { Button } from "@/components/ui/button";
 import { ProjectWorkspace } from "@/components/ProjectWorkspace";
+import { KettleLoader } from "@/components/KettleLoader";
 
 export default function ProjectDetailClient() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function ProjectDetailClient() {
 
   const projects = useApp((s) => s.projects);
   const tasks = useApp((s) => s.tasks);
+  const isLoading = useApp((s) => s.isLoading);
 
   const project = useMemo(
     () => projects.find((p) => p.id === projectId),
@@ -23,6 +25,14 @@ export default function ProjectDetailClient() {
     () => tasks.filter((t) => t.projectId === projectId && !t.archived),
     [tasks, projectId]
   );
+
+  if (isLoading && projects.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-base">
+        <KettleLoader message="Loading project details..." />
+      </div>
+    );
+  }
 
   if (!project) {
     return (

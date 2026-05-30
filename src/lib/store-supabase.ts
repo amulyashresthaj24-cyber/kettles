@@ -868,10 +868,18 @@ persist((set, get) => ({
     const session = get().sessions.find((s) => s.id === id);
     set({ sessions: get().sessions.filter((s) => s.id !== id), activeSessionId: null });
     if (session && isRemoteId(id)) {
+      set({ isLoading: true, error: null });
       try {
+        if (!isOnline()) {
+          queueMutation("sessions", "delete", id, {});
+          return;
+        }
         await api.sessions.delete(id);
       } catch (error) {
+        queueMutation("sessions", "delete", id, {});
         set({ error: error instanceof Error ? error.message : "Failed to discard session" });
+      } finally {
+        set({ isLoading: false });
       }
     }
   },

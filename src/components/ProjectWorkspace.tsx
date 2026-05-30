@@ -132,7 +132,7 @@ export function ProjectWorkspace({ project, tasks, onBack }: ProjectWorkspacePro
   ];
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-base">
+    <div className="no-shell-padding flex h-full flex-col overflow-hidden bg-base">
       <header className="flex items-center justify-between border-b border-border-subtle bg-base px-lg py-sm">
         <div className="flex min-w-0 items-center gap-sm">
           <button
