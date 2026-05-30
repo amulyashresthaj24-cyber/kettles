@@ -61,13 +61,12 @@ export function TagEditor({ task }: TagEditorProps) {
           {tags.map((tag) => (
             <div
               key={tag}
-              className="flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-[11px] font-medium"
-              style={{ background: "var(--accent)", color: "white" }}
+              className="flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-[5px] text-[11px] font-semibold bg-accent/10 text-accent border border-accent/20"
             >
               {tag}
               <button
                 onClick={() => removeTag(tag)}
-                className="w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors"
+                className="w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-accent/15 transition-colors text-accent/80 hover:text-accent"
                 aria-label={`Remove ${tag}`}
               >
                 <X size={9} />

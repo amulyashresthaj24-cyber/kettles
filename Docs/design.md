@@ -312,22 +312,36 @@ All spacing strictly adheres to an **8px baseline grid**:
 | 5xl | 56px | Large vertical separations |
 | 6xl | 64px | Full-page margins |
 
+### Layout Tokens & Spacing Hierarchy
+
+The layout is structured using a consistent set of CSS variables defined in `src/app/globals.css`:
+
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `--content-padding-x` | 32px | Left/right padding for main content areas |
+| `--content-padding-y` | 32px | Top/bottom padding for main content areas |
+| `--content-max-width` | 1200px | Maximum width for centered layouts (Dashboard) |
+| `--content-gap` | 32px | Gap between major layout elements (header → content) |
+| `--header-gap` | 24px | Gap inside the header |
+| `--toolbar-gap` | 16px | Gap inside search and view filters |
+| `--section-gap` | 16px | Vertical gap between content sections |
+| `--component-gap` | 12px | Horizontal/vertical gap between small components |
+
 ### Layout Primitives
 
 **Sidebar + Main Content:**
 - Sidebar is fixed at **204px wide**, dark, contains navigation.
-- Main content uses **flex: 1** to fill remaining space.
-- Sidebar has vertical sections: Top (profile + search + nav), Bottom (settings + help).
+- Main content uses **flex: 1** to fill remaining space, constrained to `--content-max-width` with `--content-padding-x` and `--content-padding-y` padding.
 
 **Cards & Sections:**
 - Use `Surface` background (`#0f1011`) for primary cards.
-- Add padding of **16px** (lg) for breathing room.
+- Add padding of **16px** (`lg`) for breathing room.
 - Rounded corners: **12px** for standard cards, **16px** for larger panels.
 
 **Gaps & Margins:**
-- Between sections: **gap-5** (Tailwind = 20px)
-- Within sections: **gap-3** to **gap-4** (12–16px)
-- List items: **gap-2** or **gap-3** (8–12px)
+- Between sections: `gap-5` or `gap-6` (20-24px)
+- Within sections: `gap-3` to `gap-4` (12–16px)
+- List items: `gap-2` or `gap-3` (8–12px)
 
 ---
 
@@ -718,28 +732,65 @@ Indicator slides. No fade switching. No bounce.
 ```css
 .token { animation: token-in 140ms var(--ease-out); }
 
-@keyframes token-in {
-  from { opacity: 0; transform: scale(0.96); }
-  to   { opacity: 1; transform: scale(1); }
-}
-```
-
-#### Page Load / Content Reveal
+#### Sliding Tab Indicator
+Slide active line smoothly below navigation tabs instead of snapping.
 
 ```css
-.fade-in { animation: fade-in 180ms var(--ease-out); }
-
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+.tab-indicator-sliding {
+  position: absolute;
+  bottom: 0;
+  height: 2px;
+  background-color: var(--accent);
+  transition: left 300ms var(--ease-out), width 300ms var(--ease-out);
 }
-
-/* Optional stagger */
-.item { animation-delay: calc(var(--index) * 20ms); }
 ```
 
-#### Timer Start
+*Rule:* Measure the active tab button's `offsetLeft` and `clientWidth` in a `useEffect` loop or on state changes and apply them as inline styles (`left`, `width`) on the absolute indicator.
 
+#### Satisfying Task Completion (Delayed Transition)
+Prevent tasks from instantly vanishing from view when checked off.
+
+```css
+/* Checkbox check pop animation */
+@keyframes checkbox-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.animate-checkbox-pop {
+  animation: checkbox-pop 200ms var(--ease-out) both;
+}
+
+/* Strikethrough draw animation */
+.task-title-completed {
+  text-decoration: line-through;
+  color: var(--text-faint);
+  transition: color 300ms var(--ease-out);
+}
+```
+
+*Rule:* When clicking check:
+1. Trigger local item state `isCompleting: true`.
+2. Play the checkbox check-pop, draw the checkmark, and fade the task title color with a line-through.
+3. Wait **350ms** before triggering the Zustand store update. This gives the user immediate visual reward before updating list state.
+
+#### Sidebar active indicator
+Sidebar items use a subtle active state entry transition rather than popping in.
+
+```css
+@keyframes active-nav-indicator {
+  from { opacity: 0; transform: translateY(-50%) scaleY(0.4); }
+  to { opacity: 1; transform: translateY(-50%) scaleY(1); }
+}
+.animate-nav-indicator {
+  animation: active-nav-indicator 200ms var(--ease-out) both;
+}
+```
+
+*Rule:* On hover, nav items shift slightly: `hover:translate-x-0.5`. On click, apply a small tactile feedback: `active:scale-[0.98]`.
+*Rule:* Active nav item shows a vertical line with scale-Y entry.
+
+#### Timer Start
 ```css
 .timer-bar { transition: transform var(--motion-base) var(--ease-out); }
 .timer-active { transform: translateY(-2px); }
@@ -959,6 +1010,17 @@ Add these to `src/app/globals.css`:
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Layout Tokens */
+  --content-padding-x: 32px;
+  --content-padding-y: 32px;
+  --content-max-width: 1200px;
+
+  --content-gap: 32px;
+  --header-gap: 24px;
+  --toolbar-gap: 16px;
+  --section-gap: 16px;
+  --component-gap: 12px;
 }
 ```
 

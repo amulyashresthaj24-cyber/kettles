@@ -5,6 +5,7 @@ import { Play, ArrowClockwise, CheckSquare, Archive, Trash, PencilSimple } from 
 import { useState } from "react";
 import type { Task, TaskStatus } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
+import { cn } from "@/lib/utils";
 import { UrgencyDot } from "./UrgencyDot";
 import { ProjectTag } from "./ProjectTag";
 import { ClientBadge } from "./ClientBadge";
@@ -32,10 +33,36 @@ export function TaskList({
   const deleteTask = useApp((s) => s.deleteTask);
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [completingTasks, setCompletingTasks] = useState<Record<string, boolean>>({});
+  const [reopeningTasks, setReopeningTasks] = useState<Record<string, boolean>>({});
+
+  const handleToggleStatus = (taskId: string, currentStatus: TaskStatus) => {
+    if (currentStatus === "done") {
+      setReopeningTasks((prev) => ({ ...prev, [taskId]: true }));
+      setTimeout(() => {
+        setTaskStatus(taskId, "todo");
+        setReopeningTasks((prev) => {
+          const next = { ...prev };
+          delete next[taskId];
+          return next;
+        });
+      }, 350);
+    } else {
+      setCompletingTasks((prev) => ({ ...prev, [taskId]: true }));
+      setTimeout(() => {
+        setTaskStatus(taskId, "done");
+        setCompletingTasks((prev) => {
+          const next = { ...prev };
+          delete next[taskId];
+          return next;
+        });
+      }, 350);
+    }
+  };
 
   if (tasks.length === 0) {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-md rounded-lg p-2xl text-center" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-md rounded-lg p-2xl text-center" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
         <p className="text-[16px] text-text-secondary">
           No tasks match this filter.
         </p>
@@ -90,36 +117,44 @@ export function TaskList({
               <span className="text-[12px] text-text-muted">{group.tasks.length}</span>
             </div>
 
-            <div className="flex flex-col rounded-lg overflow-hidden" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+            <div className="flex flex-col rounded-lg overflow-hidden" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
               {group.tasks.map((task, index) => {
                 const project = projects.find((p) => p.id === task.projectId);
                 const client = project?.clientId
                   ? clients.find((c) => c.id === project.clientId)
                   : undefined;
+                const isCompleting = completingTasks[task.id];
+                const isReopening = reopeningTasks[task.id];
+                const isTaskDone = (task.status === "done" && !isReopening) || isCompleting;
                 const isLast = index === group.tasks.length - 1;
 
                 return (
                   <div
                     key={task.id}
                     onClick={() => handleStart(task.id)}
-                    className={`group flex items-center gap-3 px-4 py-3 transition-all hover:bg-surface-raised cursor-pointer ${
-                      !isLast ? "border-b border-border-subtle" : ""
-                    }`}
+                    className={cn(
+                      "group flex items-center gap-3 px-4 py-3 transition-all hover:bg-surface-raised cursor-pointer",
+                      !isLast && "border-b border-border-subtle",
+                      (isCompleting || isReopening) && "task-row-completing"
+                    )}
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {/* Custom themed checkbox */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setTaskStatus(task.id, task.status === "done" ? "todo" : "done");
+                          handleToggleStatus(task.id, task.status);
                         }}
-                        className={`shrink-0 flex items-center justify-center w-[18px] h-[18px] rounded-[5px] border-2 transition-all duration-150 ${
-                          task.status === "done"
-                            ? "bg-accent border-accent shadow-sm"
-                            : "border-border hover:border-text-secondary bg-surface"
-                        }`}
+                        disabled={isCompleting || isReopening}
+                        className={cn(
+                          "shrink-0 flex items-center justify-center w-[18px] h-[18px] rounded-[5px] border-2 transition-all duration-150",
+                          isTaskDone
+                            ? "bg-success border-success shadow-sm"
+                            : "border-border hover:border-text-secondary bg-surface",
+                          isCompleting && "animate-checkbox-pop"
+                        )}
                       >
-                        {task.status === "done" && (
+                        {isTaskDone && (
                           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
@@ -129,11 +164,12 @@ export function TaskList({
                       <UrgencyDot urgency={task.urgency} size={8} />
 
                       <span
-                        className={`text-[14px] font-medium truncate transition-colors ${
-                          task.status === "done"
+                        className={cn(
+                          "text-[14px] font-medium truncate transition-all duration-300",
+                          isTaskDone
                             ? "text-text-muted line-through"
                             : "text-text-primary"
-                        }`}
+                        )}
                       >
                         {task.title}
                       </span>

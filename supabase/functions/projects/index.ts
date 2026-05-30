@@ -102,6 +102,12 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+        if (!validateUUID(id)) {
+          return new Response(JSON.stringify({ error: 'Invalid project ID' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
 
         const body = await req.json();
         
@@ -144,6 +150,12 @@ serve(async (req) => {
       case 'DELETE': {
         if (!id) {
           return new Response(JSON.stringify({ error: 'Project ID required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        if (!validateUUID(id)) {
+          return new Response(JSON.stringify({ error: 'Invalid project ID' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });

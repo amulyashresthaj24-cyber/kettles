@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kettles Companion</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="app-header">
+        <div class="brand-row">
+          <span class="brand-mark" aria-hidden="true">
+            <img src="../assets/fan.svg" alt="">
+          </span>
+          <div>
+            <p class="eyebrow">Kettles</p>
+            <h1>Focus desk</h1>
+          </div>
+        </div>
+        <button id="settingsButton" class="icon-button" type="button" title="Settings" aria-label="Open settings">
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+        </button>
+      </header>
+
+      <section id="focusPanel" class="focus-panel" aria-live="polite">
+        <div class="skeleton skeleton-line short"></div>
+        <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-line"></div>
+      </section>
+
+      <section id="contextPanel" class="context-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Project</p>
+            <h2>Current context</h2>
+          </div>
+          <button id="openProjectButton" class="subtle-button" type="button">Open</button>
+        </div>
+        <select id="projectSelect" class="project-select" aria-label="Choose project"></select>
+        <div class="section-head compact-head">
+          <div>
+            <p class="eyebrow">Today</p>
+            <h2>Today's tags</h2>
+          </div>
+          <span id="selectedTagCount" class="count-pill">0</span>
+        </div>
+        <div id="tagSelector" class="tag-cloud" aria-label="Today's tags"></div>
+      </section>
+
+      <section id="notesPanel" class="notes-panel" hidden>
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Live</p>
+            <h2>Working notes</h2>
+          </div>
+          <span id="noteStatus" class="save-state">Saved</span>
+        </div>
+        <textarea id="notesInput" rows="3" spellcheck="true" placeholder="Capture the thread while it is fresh."></textarea>
+      </section>
+
+      <section id="actionPanel" class="action-panel"></section>
+
+      <section class="footer-actions">
+        <button id="connectButton" class="button secondary" type="button">Connect current tab</button>
+      </section>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

@@ -6,6 +6,7 @@ Task-linked time tracking, project management, and analytics for solo workers an
 
 - **[📚 Complete Documentation](./Docs/INDEX.md)** — Start here for guides, architecture, and references
 - **[🏗️ Codebase Structure](./Docs/CODEBASE_STRUCTURE.md)** — Folder organization and quick navigation
+- **[📁 Folder Guide](./Docs/folder-guide.md)** — Current active folders, future app/package direction, and AI prompt guide
 - **[⚙️ Setup Guide](./Docs/SUPABASE_QUICKSTART.md)** — Get started in 5 minutes
 - **[🚢 Deployment](./Docs/DEPLOYMENT_GUIDE.md)** — Production deployment checklist
 
@@ -17,7 +18,7 @@ Flowmate combines project management, task tracking, and time tracking into a un
 - **Tasks** — Break projects into actionable items
 - **Kanban Board** — Visualize workflow (Todo → Doing → Done)
 - **Timer** — Track time with Pomodoro-based sessions
-- **Calendar** — View tasks across dates
+- **Calendar** — View tasks across dates4
 - **Reports** — Weekly analytics and productivity insights
 
 ## Tech Stack
@@ -35,6 +36,7 @@ All documentation is organized in the [`Docs/`](./Docs/) folder:
 | Category | Documents |
 |----------|-----------|
 | **Getting Started** | [Overview](./Docs/CODEBASE_OVERVIEW.md), [Structure](./Docs/CODEBASE_STRUCTURE.md), [Guide](./Docs/CLAUDE.md) |
+| **Folder Direction** | [Folder Guide](./Docs/folder-guide.md) |
 | **Backend** | [Supabase Setup](./Docs/SUPABASE_QUICKSTART.md), [Migration](./Docs/SUPABASE_MIGRATION_GUIDE.md), [Deploy](./Docs/DEPLOYMENT_GUIDE.md) |
 | **Design** | [Visual System](./Docs/design.md), [Screens](./Docs/screens.md), [Database](./Docs/database.md) |
 | **Architecture** | [Layout v2](./Docs/LAYOUT_ARCHITECTURE_V2.md), [Redesigns](./Docs/REDESIGN_SUMMARY.md) |

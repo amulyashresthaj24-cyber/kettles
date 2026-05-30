@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kettles Companion Settings</title>
+    <link rel="stylesheet" href="options.css">
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="brand-row">
+          <span class="brand-mark" aria-hidden="true">
+            <img src="../assets/fan.svg" alt="">
+          </span>
+          <div>
+            <p class="eyebrow">Kettles Companion</p>
+            <h1>Extension settings</h1>
+          </div>
+        </div>
+        <p class="lede">Configure local reminders and working tags for the browser companion.</p>
+      </header>
+
+      <section class="section accent-section">
+        <div>
+          <h2>Connection</h2>
+          <p class="muted">Connect from an already signed-in Kettles tab.</p>
+        </div>
+        <div class="stack">
+          <label>
+            App URL
+            <input id="appOrigin" type="url" placeholder="http://localhost:3000">
+          </label>
+          <label>
+            Supabase URL
+            <input id="supabaseUrl" type="url" placeholder="https://project-ref.supabase.co">
+          </label>
+          <div class="row">
+            <button id="connectButton" class="button primary" type="button">Connect active tab</button>
+            <button id="disconnectButton" class="button secondary" type="button">Disconnect</button>
+          </div>
+          <p id="connectionStatus" class="muted"></p>
+        </div>
+      </section>
+
+      <section class="section">
+        <div>
+          <h2>Notifications</h2>
+          <p class="muted">Reminders are local to Chrome and only run during your workday.</p>
+        </div>
+        <div class="stack">
+          <label class="check">
+            <input id="notificationsEnabled" type="checkbox">
+            Enable extension notifications
+          </label>
+          <label class="check">
+            <input id="longRunningSessionEnabled" type="checkbox">
+            Focus check while a timer is running
+          </label>
+          <label class="check">
+            <input id="noActiveSessionEnabled" type="checkbox">
+            Notify once per day when no timer is running
+          </label>
+          <label class="check">
+            <input id="tagMismatchEnabled" type="checkbox">
+            Notify when current task is outside selected working tags
+          </label>
+          <label>
+            Reminder interval
+            <input id="reminderIntervalMinutes" type="number" min="5" step="5">
+          </label>
+          <div class="time-grid">
+            <label>
+              Workday start
+              <input id="workdayStart" type="time">
+            </label>
+            <label>
+              Workday end
+              <input id="workdayEnd" type="time">
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div>
+          <h2>Working tags</h2>
+          <p class="muted">Use comma-separated tags such as Design, Dev, Review.</p>
+        </div>
+        <div class="stack">
+          <label>
+            Tags
+            <input id="workingTags" type="text" placeholder="Design, Dev, Review">
+          </label>
+          <div id="tagPreview" class="tag-preview"></div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <button id="saveButton" class="button primary" type="button">Save settings</button>
+        <button id="testButton" class="button secondary" type="button">Send test notification</button>
+        <span id="saveStatus" class="muted"></span>
+      </footer>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

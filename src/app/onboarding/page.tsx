@@ -65,9 +65,8 @@ export default function OnboardingPage() {
         if (profile?.onboarding_completed) {
           router.replace("/dashboard");
         }
-      } catch (err) {
-        // Profile might not exist yet, that's okay
-        console.log("Profile check:", err);
+      } catch {
+        // Profile might not exist yet; onboarding can continue normally.
       }
     };
 
@@ -235,7 +234,7 @@ export default function OnboardingPage() {
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full font-sans text-[13px] font-semibold ${
                     item.active
-                      ? "bg-accent text-text-primary"
+                      ? "bg-accent text-white"
                       : "border border-text-muted text-text-muted"
                   }`}
                 >
@@ -485,7 +484,7 @@ export default function OnboardingPage() {
             <button
               onClick={step === "complete" ? handleComplete : handleNext}
               disabled={isSubmitting}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-lg py-md font-sans text-[14px] font-semibold text-text-primary transition-all hover:bg-accent-hover active:scale-95 disabled:opacity-60"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-lg py-md font-sans text-[14px] font-semibold text-white transition-all hover:bg-accent-hover active:scale-95 disabled:opacity-60"
             >
               {isSubmitting ? (
                 <>

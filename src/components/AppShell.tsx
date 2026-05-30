@@ -1,25 +1,57 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import { KettleLoader } from "./KettleLoader";
-import { ActiveSessionBanner } from "./ActiveSessionBanner";
-import { CommandPalette } from "./CommandPalette";
-import { AddTaskModal } from "./AddTaskModal";
-import { AddProjectModal } from "./AddProjectModal";
 import { useAuth } from "@/lib/auth";
 import { NotificationProvider } from "./ui/notification";
+import { getSyncEngine } from "@/lib/sync-engine";
+import { isDesktop } from "@/lib/desktop";
+
+const ActiveSessionBanner = dynamic(
+  () => import("./ActiveSessionBanner").then((mod) => mod.ActiveSessionBanner),
+  { ssr: false }
+);
+const CommandPalette = dynamic(
+  () => import("./CommandPalette").then((mod) => mod.CommandPalette),
+  { ssr: false }
+);
+const AddTaskModal = dynamic(
+  () => import("./AddTaskModal").then((mod) => mod.AddTaskModal),
+  { ssr: false }
+);
+const AddProjectModal = dynamic(
+  () => import("./AddProjectModal").then((mod) => mod.AddProjectModal),
+  { ssr: false }
+);
+const DesktopShell = dynamic(
+  () => import("./DesktopShell").then((mod) => mod.DesktopShell),
+  { ssr: false }
+);
+const SyncStatusBadge = dynamic(
+  () => import("./SyncStatusBadge").then((mod) => mod.SyncStatusBadge),
+  { ssr: false }
+);
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const isAuthPage = pathname === "/auth";
   const isOnboardingPage = pathname === "/onboarding";
+  const isMiniTimerPage = pathname === "/mini-timer";
+
+  // Boot the offline sync engine early so its connectivity listener is
+  // registered before the app ever goes offline / comes back online.
+  useEffect(() => {
+    getSyncEngine();
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -31,6 +63,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  useEffect(() => {
+    const syncTheme = () => {
+      const stored = window.localStorage.getItem("flowmate-theme");
+      if (stored === "light" || stored === "dark") {
+        setTheme(stored);
+      } else {
+        setTheme("dark");
+      }
+    };
+    syncTheme();
+
+    window.addEventListener("flowmate-theme-changed", syncTheme);
+    return () => window.removeEventListener("flowmate-theme-changed", syncTheme);
+  }, []);
+
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("flowmate-theme", theme);
+  }, [theme]);
 
   // Redirect to auth if not logged in (but not on auth page)
   useEffect(() => {
@@ -52,13 +105,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
+  if (isMiniTimerPage) {
+    return (
+      <NotificationProvider>
+        <DesktopShell />
+        {children}
+      </NotificationProvider>
+    );
+  }
+
   return (
     <NotificationProvider>
+      <DesktopShell />
       <div className="flex h-screen overflow-hidden bg-surface">
-        <Sidebar onSearchClick={() => setCmdOpen(true)} />
+        <Sidebar
+          onSearchClick={() => setCmdOpen(true)}
+          theme={theme}
+          onToggleTheme={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
+        />
         <main className="flex flex-1 flex-col overflow-hidden p-lg gap-lg">
-          <div className="hidden md:block">
-            <ActiveSessionBanner />
+          <div className="hidden md:flex items-center gap-lg">
+            <div className="flex-1">
+              <ActiveSessionBanner />
+            </div>
+            <SyncStatusBadge />
           </div>
           <div className="flex-1 overflow-hidden rounded-xl bg-base">
             <div className="h-full overflow-y-auto px-3xl pt-3xl [&:has(.no-shell-padding)]:p-0 [&:has(.no-shell-padding)]:overflow-hidden">
@@ -82,6 +152,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function MobileBanner() {
+  // The Tauri desktop app is never "mobile" — even when shrunk to mini-timer
+  // size (340px wide), which would otherwise trip the md:hidden breakpoint.
+  const [isDesktopApp, setIsDesktopApp] = useState(false);
+  useEffect(() => {
+    setIsDesktopApp(isDesktop());
+  }, []);
+  if (isDesktopApp) return null;
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-base p-2xl text-center md:hidden">
       <div className="flex max-w-[280px] flex-col gap-3 items-center">

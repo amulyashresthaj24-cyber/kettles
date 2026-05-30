@@ -87,7 +87,7 @@ export function SessionCompleteModal({
         {/* Session Summary */}
         <div
           className="rounded-lg p-4 flex flex-col gap-3"
-          style={{ background: "#0f1011", border: "1px solid #1e1f20" }}
+          style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}
         >
           <div className="flex items-center justify-between">
             <span className="text-[12px] text-text-muted uppercase font-semibold">

@@ -5,16 +5,11 @@ import { useApp } from "@/lib/store-supabase";
 import type { ProjectColor, ProjectStatus, Client } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { X, Palette, CaretDown, Briefcase, Plus } from "@/components/ui/icon";
+import { X, CaretDown, Plus } from "@/components/ui/icon";
 import { Checkbox } from "./ui/checkbox";
 import { Select } from "./ui/select";
-
-const PROJECT_COLORS: { label: string; value: ProjectColor; bg: string }[] = [
-  { label: "Teal",   value: "teal",   bg: "bg-teal-500" },
-  { label: "Blue",   value: "amber",  bg: "bg-accent" },
-  { label: "Rose",   value: "rose",   bg: "bg-rose-500" },
-  { label: "Indigo", value: "indigo", bg: "bg-indigo-500" },
-];
+import { PROJECT_COLOR_OPTIONS, DEFAULT_PROJECT_COLOR, DEFAULT_PROJECT_ICON } from "@/lib/constants";
+import { ProjectIconPicker } from "./ProjectIconPicker";
 
 const PROJECT_STATUSES: { label: string; value: ProjectStatus }[] = [
   { label: "Active",     value: "active" },
@@ -99,7 +94,8 @@ export function AddProjectModal({
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [color, setColor] = useState<ProjectColor>("teal");
+  const [color, setColor] = useState<ProjectColor>(DEFAULT_PROJECT_COLOR);
+  const [icon, setIcon] = useState(DEFAULT_PROJECT_ICON);
   const [billable, setBillable] = useState(true);
   const [status, setStatus] = useState<ProjectStatus>("active");
   const [budget, setBudget] = useState("");
@@ -115,7 +111,8 @@ export function AddProjectModal({
     if (open) {
       setName("");
       setDescription("");
-      setColor("teal");
+      setColor(DEFAULT_PROJECT_COLOR);
+      setIcon(DEFAULT_PROJECT_ICON);
       setBillable(true);
       setStatus("active");
       setBudget("");
@@ -160,6 +157,7 @@ export function AddProjectModal({
         name: name.trim(),
         description: description.trim() || undefined,
         color,
+        icon,
         billable,
         status,
         budget: budget ? Number(budget) : undefined,
@@ -171,7 +169,7 @@ export function AddProjectModal({
     } finally {
       setIsSubmitting(false);
     }
-  }, [name, description, color, billable, status, budget, clientId, addProject, onClose]);
+  }, [name, description, color, icon, billable, status, budget, clientId, addProject, onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -218,34 +216,34 @@ export function AddProjectModal({
               {error}
             </div>
           )}
-          <input
-            autoFocus
-            className="w-full bg-transparent border-none outline-none text-[22px] font-semibold text-text-primary placeholder:text-text-faint leading-snug"
-            placeholder="Project name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <textarea
-            rows={3}
-            className="w-full resize-none bg-transparent border-none outline-none text-[14px] text-text-secondary placeholder:text-text-muted leading-relaxed"
-            placeholder="Add description..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
+          <div className="flex items-start gap-4">
+            <ProjectIconPicker
+              icon={icon}
+              color={color}
+              onChange={(newIcon, newColor) => { setIcon(newIcon); setColor(newColor); }}
+            />
+            <div className="flex flex-1 flex-col gap-2 pt-1">
+              <input
+                autoFocus
+                className="w-full bg-transparent border-none outline-none text-[22px] font-semibold text-text-primary placeholder:text-text-faint leading-snug"
+                placeholder="Project name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <textarea
+                rows={2}
+                className="w-full resize-none bg-transparent border-none outline-none text-[14px] text-text-secondary placeholder:text-text-muted leading-relaxed"
+                placeholder="Add description..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Footer pill row */}
         <div className="flex items-center justify-between gap-sm px-xl py-lg border-t border-border-subtle">
           <div className="flex items-center gap-sm flex-wrap">
-
-            {/* Color */}
-            <PillSelect
-              value={color}
-              onChange={setColor}
-              options={PROJECT_COLORS}
-              icon={<Palette size={12} />}
-              label="Color"
-            />
 
             {/* Status */}
             <PillSelect

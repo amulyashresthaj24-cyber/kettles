@@ -1,0 +1,22 @@
+# Add these to the [dependencies] table of src-tauri/Cargo.toml.
+# (Or run the two `cargo add` commands shown at the bottom.)
+
+[dependencies]
+# `tauri` itself is already in your project — make sure the "tray-icon" line
+# stays as-is and that the features below are present:
+tauri = { version = "2", features = [] }
+
+# Required by the pet overlay:
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-notification = "2"
+
+# --- equivalently, from src-tauri/ run: -------------------------------------
+#   cargo add serde --features derive
+#   cargo add serde_json
+#   cargo add tauri-plugin-notification
+# ----------------------------------------------------------------------------
+#
+# Transparent windows: Tauri v2 supports them on Windows/Linux out of the box.
+# On macOS only, add the "macos-private-api" feature to `tauri` AND set
+# "app.macOSPrivateApi": true in tauri.conf.json.

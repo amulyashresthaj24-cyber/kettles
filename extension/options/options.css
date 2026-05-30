@@ -1,0 +1,265 @@
+:root {
+  color-scheme: dark;
+  --base: #08090a;
+  --surface: #0f1011;
+  --surface-raised: #191a1b;
+  --surface-mid: #161718;
+  --border: #2a2b2c;
+  --border-subtle: #1e1f20;
+  --text-primary: #f7f8f8;
+  --text-secondary: #d0d6e0;
+  --text-muted: #8a8f98;
+  --text-faint: #62666d;
+  --accent: #0066ff;
+  --accent-hover: #3385ff;
+  --accent-dim: rgba(0, 102, 255, 0.15);
+  --error: #ef4444;
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 90% -10%, rgba(0, 102, 255, 0.24), transparent 32%),
+    var(--base);
+  color: var(--text-primary);
+  font-family: Urbanist, Geist, "Segoe UI", system-ui, sans-serif;
+}
+
+.page {
+  width: min(900px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 40px 0;
+}
+
+.hero {
+  margin-bottom: 24px;
+}
+
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-mark {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--surface-raised);
+}
+
+.brand-mark img {
+  width: 33px;
+  height: auto;
+}
+
+.eyebrow {
+  margin: 0 0 5px;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  color: var(--text-primary);
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.12;
+}
+
+h2 {
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.lede,
+.muted {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.lede {
+  margin-top: 12px;
+  max-width: 560px;
+}
+
+.section {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: 32px;
+  margin-top: 12px;
+  padding: 22px;
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.accent-section {
+  background: linear-gradient(180deg, #05080d 0%, #061733 58%, #072a63 100%);
+}
+
+.stack {
+  display: grid;
+  gap: 14px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.time-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+}
+
+input[type="text"],
+input[type="url"],
+input[type="number"],
+input[type="time"] {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  outline: none;
+  background: var(--surface-mid);
+  color: var(--text-primary);
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+input::placeholder {
+  color: var(--text-faint);
+}
+
+input:focus {
+  border-color: var(--accent);
+}
+
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 16px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+}
+
+.button:hover {
+  transform: translateY(-1px);
+}
+
+.button:active {
+  transform: scale(0.97);
+}
+
+.primary {
+  background: var(--accent);
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+}
+
+.secondary {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+}
+
+.tag-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-height: 30px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 18px 22px;
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+@media (max-width: 720px) {
+  .page {
+    width: min(100vw - 24px, 900px);
+    padding: 24px 0;
+  }
+
+  .section {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .time-grid {
+    grid-template-columns: 1fr;
+  }
+
+  h1 {
+    font-size: 30px;
+  }
+}

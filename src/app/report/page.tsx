@@ -45,7 +45,7 @@ const PROJECT_COLORS = [
 ];
 
 const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const DAY_LABELS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const DAY_LABELS   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const WORK_HOURS_PER_WEEK = 40;
 
 // ─── Date helpers ────────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ function getWeekRange(offset: number): { start: Date; end: Date; label: string }
   const now = new Date();
   const dayOfWeek = now.getDay();
   const monday = new Date(now);
-  monday.setDate(now.getDate() - dayOfWeek + 1 + offset * 7);
+  monday.setDate(now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1) + offset * 7);
   monday.setHours(0, 0, 0, 0);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
@@ -267,7 +267,7 @@ export default function ReportPage() {
     // week
     const map = Array(7).fill(0);
     for (const s of filteredSessions) {
-      map[new Date(s.endedAt!).getDay()] += s.durationSeconds;
+      map[(new Date(s.endedAt!).getDay() + 6) % 7] += s.durationSeconds;
     }
     return { points: map, labels: DAY_LABELS };
   }, [filteredSessions, periodMode, period]);
@@ -287,7 +287,7 @@ export default function ReportPage() {
         .reduce((a, s) => a + s.durationSeconds, 0);
       const workSecsPerDay = (WORK_HOURS_PER_WEEK / 5) * 3600;
       days.push({
-        label: DAY_LABELS[(i + 1) % 7],
+        label: DAY_LABELS[i],
         date: d,
         seconds: secs,
         overtime: secs > workSecsPerDay,
@@ -314,7 +314,7 @@ export default function ReportPage() {
           taskTitle:   task?.title ?? "Unknown task",
           projectName: proj?.name  ?? "—",
           clientName:  client?.name ?? "—",
-          projectColor: PROJECT_COLORS[projects.indexOf(proj!) % PROJECT_COLORS.length] ?? "#8a8f98",
+          projectColor: PROJECT_COLORS[projects.indexOf(proj!) % PROJECT_COLORS.length] ?? "var(--text-muted)",
           startedAt:   s.startedAt,
           endedAt:     s.endedAt!,
           duration:    s.durationSeconds,
@@ -411,7 +411,7 @@ export default function ReportPage() {
             >
               {tab.label}
               {activeTab === tab.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#10b981] rounded-t-full" />
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-success rounded-t-full" />
               )}
             </button>
           ))}
@@ -469,8 +469,8 @@ export default function ReportPage() {
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] border transition-colors shrink-0",
               filterClientId || openClientMenu
-                ? "border-accent bg-accent-dim text-text-primary"
-                : "border-border bg-surface-raised text-text-secondary hover:text-text-primary hover:border-border"
+                ? "border-accent/20 bg-accent/10 text-accent font-semibold"
+                : "border-border-subtle bg-surface-mid/40 text-text-secondary hover:text-text-primary hover:bg-surface-mid/60"
             )}
           >
             <Briefcase size={13} />
@@ -507,8 +507,8 @@ export default function ReportPage() {
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] border transition-colors shrink-0",
               filterProjectId || openProjectMenu
-                ? "border-accent bg-accent-dim text-text-primary"
-                : "border-border bg-surface-raised text-text-secondary hover:text-text-primary hover:border-border"
+                ? "border-accent/20 bg-accent/10 text-accent font-semibold"
+                : "border-border-subtle bg-surface-mid/40 text-text-secondary hover:text-text-primary hover:bg-surface-mid/60"
             )}
           >
             <FolderOpen size={13} />
@@ -550,7 +550,7 @@ export default function ReportPage() {
         )}
 
         <div className="ml-auto shrink-0 pl-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-surface-raised text-[13px] text-text-secondary hover:text-text-primary transition-colors">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border-subtle bg-surface-mid/40 text-[13px] text-text-secondary hover:text-text-primary hover:bg-surface-mid/60 transition-colors">
             <Funnel size={13} aria-hidden />
             Filters
           </button>
@@ -572,7 +572,7 @@ export default function ReportPage() {
                 sub={`${activeDays} active day${activeDays !== 1 ? "s" : ""}`}
               />
               <KpiCard
-                icon={<CurrencyDollar size={14} className="text-[#10b981]" />}
+                icon={<CurrencyDollar size={14} className="text-success" />}
                 label="Billable Hours"
                 value={billableSeconds > 0 ? formatDuration(billableSeconds) : "–"}
                 sub={billablePct > 0 ? `${billablePct.toFixed(0)}% of total` : "No billable time"}
@@ -595,26 +595,26 @@ export default function ReportPage() {
             {/* Charts row */}
             <div className="grid grid-cols-[1fr_320px] gap-3">
               {/* Bar chart */}
-              <div className="rounded-lg p-5 flex flex-col gap-4" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+              <div className="rounded-lg p-5 flex flex-col gap-4" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
                 <h2 className="text-[13px] font-semibold text-text-primary">
                   Duration by {periodMode === "year" ? "month" : periodMode === "month" ? "day" : "day of week"}
                 </h2>
                 <BarChart data={chartData.points} labels={chartData.labels} max={maxChart} />
                 <div className="flex items-center gap-2 pt-1">
-                  <span className="w-3 h-3 rounded-full bg-[#10b981] inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-success inline-block" />
                   <span className="text-[12px] text-text-muted">Hours logged</span>
                 </div>
               </div>
 
               {/* Donut chart */}
-              <div className="rounded-lg p-5 flex flex-col gap-4" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+              <div className="rounded-lg p-5 flex flex-col gap-4" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
                 <div className="flex items-center justify-between">
                   <h2 className="text-[13px] font-semibold text-text-primary">
                     {sliceBy === "Clients" ? "Client" : "Project"} distribution
                   </h2>
                   <button
                     onClick={() => setSliceBy((s) => s === "Projects" ? "Clients" : "Projects")}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-[12px] text-text-secondary hover:bg-surface-raised transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border-subtle bg-surface-mid/40 text-[12px] text-text-secondary hover:text-text-primary hover:bg-surface-mid/60 transition-colors"
                   >
                     Slice by: {sliceBy}
                     <CaretDown size={12} />
@@ -625,12 +625,12 @@ export default function ReportPage() {
             </div>
 
             {/* Breakdown table */}
-            <div className="rounded-lg overflow-hidden" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
-              <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid #1e1f20" }}>
+            <div className="rounded-lg overflow-hidden" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
+              <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                 <h2 className="text-[13px] font-semibold text-text-primary">Project and task breakdown</h2>
               </div>
 
-              <div className="grid grid-cols-[1fr_140px_140px_100px] items-center px-5 py-2" style={{ borderBottom: "1px solid #1e1f20", background: "#161718" }}>
+              <div className="grid grid-cols-[1fr_140px_140px_100px] items-center px-5 py-2" style={{ borderBottom: "1px solid var(--border-subtle)", background: "var(--surface-mid)" }}>
                 <span className="text-[11px] uppercase tracking-[0.05em] text-text-faint font-medium">Project / Task</span>
                 <span className="text-[11px] uppercase tracking-[0.05em] text-text-faint font-medium">Duration</span>
                 <span className="text-[11px] uppercase tracking-[0.05em] text-text-faint font-medium">Duration %</span>
@@ -650,8 +650,8 @@ export default function ReportPage() {
                       <div key={proj.id}>
                         <button
                           onClick={() => toggleRow(proj.id)}
-                          className="grid grid-cols-[1fr_140px_140px_100px] items-center w-full px-5 py-3 hover:bg-[#161718] transition-colors text-left"
-                          style={{ borderBottom: "1px solid #1e1f20" }}
+                          className="grid grid-cols-[1fr_140px_140px_100px] items-center w-full px-5 py-3 hover:bg-surface-mid transition-colors text-left"
+                          style={{ borderBottom: "1px solid var(--border-subtle)" }}
                         >
                           <div className="flex items-center gap-3">
                             <CaretDown
@@ -673,11 +673,11 @@ export default function ReportPage() {
                           <div
                             key={tKey}
                             className="grid grid-cols-[1fr_140px_140px_100px] items-center px-5 py-2.5"
-                            style={{ borderBottom: "1px solid #1e1f20", background: "#0c0d0e" }}
+                            style={{ borderBottom: "1px solid var(--border-subtle)", background: "var(--canvas)" }}
                           >
                             <div className="flex items-center gap-3 pl-8">
                               {task.status === "done"
-                                ? <CheckCircle size={13} className="text-[#10b981] shrink-0" />
+                                ? <CheckCircle size={13} className="text-success shrink-0" />
                                 : <Circle size={13} className="text-text-faint shrink-0" />
                               }
                               <span className="text-[13px] text-text-secondary truncate">{task.title}</span>
@@ -693,7 +693,7 @@ export default function ReportPage() {
                     );
                   })}
 
-                  <div className="grid grid-cols-[1fr_140px_140px_100px] items-center px-5 py-3" style={{ borderTop: "1px solid #1e1f20" }}>
+                  <div className="grid grid-cols-[1fr_140px_140px_100px] items-center px-5 py-3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
                     <span className="text-[12px] uppercase tracking-[0.04em] font-semibold text-text-faint">Total</span>
                     <span className="text-[13px] tabular-nums font-semibold text-text-primary">{formatDuration(totalSeconds)}</span>
                     <span className="text-[13px] tabular-nums font-semibold text-text-primary">100%</span>
@@ -713,7 +713,7 @@ export default function ReportPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-4 gap-3">
               <KpiCard
-                icon={<TrendUp size={14} className="text-[#10b981]" />}
+                icon={<TrendUp size={14} className="text-success" />}
                 label="Billable %"
                 value={totalSeconds > 0 ? `${billablePct.toFixed(0)}%` : "–"}
                 sub="of total tracked time"
@@ -733,7 +733,7 @@ export default function ReportPage() {
                 sub={`${sessionCount} total session${sessionCount !== 1 ? "s" : ""}`}
               />
               <KpiCard
-                icon={<CurrencyDollar size={14} className="text-[#10b981]" />}
+                icon={<CurrencyDollar size={14} className="text-success" />}
                 label="Non-Billable"
                 value={nonBillableSeconds > 0 ? formatDuration(nonBillableSeconds) : "–"}
                 sub={totalSeconds > 0 ? `${((nonBillableSeconds / totalSeconds) * 100).toFixed(0)}% of total` : ""}
@@ -741,7 +741,7 @@ export default function ReportPage() {
             </div>
 
             {/* Billable vs Non-billable by project */}
-            <div className="rounded-lg p-5 flex flex-col gap-5" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+            <div className="rounded-lg p-5 flex flex-col gap-5" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
               <h2 className="text-[13px] font-semibold text-text-primary">Billable vs Non-billable by project</h2>
               {projectBreakdown.length === 0 ? (
                 <EmptyState message="No sessions logged for this period." />
@@ -762,7 +762,7 @@ export default function ReportPage() {
                         <div className="flex h-2.5 rounded-full overflow-hidden bg-surface-raised">
                           {proj.billableSeconds > 0 && (
                             <div
-                              className="h-full bg-[#10b981] transition-all duration-500"
+                              className="h-full bg-success transition-all duration-500"
                               style={{ width: `${bPct}%` }}
                               title={`Billable: ${formatDuration(proj.billableSeconds)}`}
                             />
@@ -777,7 +777,7 @@ export default function ReportPage() {
                         </div>
                         <div className="flex items-center gap-4 text-[11px] text-text-faint">
                           <span className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-[#10b981]" />
+                            <span className="w-2 h-2 rounded-full bg-success" />
                             Billable {bPct.toFixed(0)}%
                           </span>
                           <span className="flex items-center gap-1.5">
@@ -793,11 +793,11 @@ export default function ReportPage() {
             </div>
 
             {/* Client breakdown table */}
-            <div className="rounded-lg overflow-hidden" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
-              <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid #1e1f20" }}>
+            <div className="rounded-lg overflow-hidden" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
+              <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                 <h2 className="text-[13px] font-semibold text-text-primary">Hours by client</h2>
               </div>
-              <div className="grid grid-cols-[1fr_120px_120px_120px_100px] items-center px-5 py-2" style={{ borderBottom: "1px solid #1e1f20", background: "#161718" }}>
+              <div className="grid grid-cols-[1fr_120px_120px_120px_100px] items-center px-5 py-2" style={{ borderBottom: "1px solid var(--border-subtle)", background: "var(--surface-mid)" }}>
                 <span className="text-[11px] uppercase tracking-[0.05em] text-text-faint font-medium">Client</span>
                 <span className="text-[11px] uppercase tracking-[0.05em] text-text-faint font-medium">Total</span>
                 <span className="text-[11px] uppercase tracking-[0.05em] text-text-faint font-medium">Billable</span>
@@ -811,13 +811,13 @@ export default function ReportPage() {
                   {clientBreakdown.map((c) => {
                     const bPct = c.seconds > 0 ? ((c.billableSeconds / c.seconds) * 100).toFixed(0) : "0";
                     return (
-                      <div key={c.id} className="grid grid-cols-[1fr_120px_120px_120px_100px] items-center px-5 py-3 hover:bg-[#161718] transition-colors" style={{ borderBottom: "1px solid #1e1f20" }}>
+                      <div key={c.id} className="grid grid-cols-[1fr_120px_120px_120px_100px] items-center px-5 py-3 hover:bg-surface-mid transition-colors" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
                           <span className="text-[13px] text-text-primary">{c.name}</span>
                         </div>
                         <span className="text-[13px] tabular-nums text-text-secondary">{formatDuration(c.seconds)}</span>
-                        <span className="text-[13px] tabular-nums text-[#10b981]">{formatDuration(c.billableSeconds)}</span>
+                        <span className="text-[13px] tabular-nums text-success">{formatDuration(c.billableSeconds)}</span>
                         <span className="text-[13px] tabular-nums text-text-muted">{formatDuration(c.seconds - c.billableSeconds)}</span>
                         <span className="text-[13px] tabular-nums text-text-secondary">{bPct}%</span>
                       </div>
@@ -833,7 +833,7 @@ export default function ReportPage() {
         {activeTab === "workload" && (
           <>
             {/* KPI Cards */}
-            <div className="grid grid-cols-3 rounded-lg divide-x" style={{ background: "#0f1011", border: "1px solid #1e1f20", borderRight: "none", "--tw-divide-opacity": "1", "--tw-divide-color": "#1e1f20" } as React.CSSProperties}>
+            <div className="grid grid-cols-3 rounded-lg divide-x" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)", borderRight: "none", "--tw-divide-opacity": "1", "--tw-divide-color": "var(--border-subtle)" } as React.CSSProperties}>
               <div className="p-5 flex flex-col gap-1.5">
                 <span className="text-[12px] text-text-muted font-medium">Target hours / week</span>
                 <span className="text-[22px] font-semibold text-text-primary tracking-tight tabular-nums">
@@ -850,7 +850,7 @@ export default function ReportPage() {
                 <span className="text-[12px] text-text-muted font-medium">Remaining</span>
                 <span className={cn(
                   "text-[22px] font-semibold tracking-tight tabular-nums",
-                  weekRemainingSeconds === 0 ? "text-[#10b981]" : "text-text-primary"
+                  weekRemainingSeconds === 0 ? "text-success" : "text-text-primary"
                 )}>
                   {weekRemainingSeconds === 0 ? "Done ✓" : formatDuration(weekRemainingSeconds)}
                 </span>
@@ -858,7 +858,7 @@ export default function ReportPage() {
             </div>
 
             {/* Daily workload chart */}
-            <div className="rounded-lg p-5 flex flex-col gap-5" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+            <div className="rounded-lg p-5 flex flex-col gap-5" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
               <h2 className="text-[13px] font-semibold text-text-primary">Daily logged time — this week</h2>
               <WorkloadChart days={workDays} max={workloadMax} workPerDay={(WORK_HOURS_PER_WEEK / 5) * 3600} />
               <div className="flex items-center justify-center gap-6 text-[12px] text-text-primary">
@@ -867,23 +867,23 @@ export default function ReportPage() {
                   Target ({WORK_HOURS_PER_WEEK / 5}h/day)
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-[3px] bg-[#3b82f6] rounded-full" />
+                  <div className="w-3 h-[3px] bg-info rounded-full" />
                   Logged time
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-[3px] bg-[#ef4444] opacity-70 rounded-full" />
+                  <div className="w-3 h-[3px] bg-error opacity-70 rounded-full" />
                   Overtime (&gt;target)
                 </div>
               </div>
             </div>
 
             {/* Per-day table */}
-            <div className="rounded-lg overflow-hidden" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
-              <div className="px-5 py-3" style={{ borderBottom: "1px solid #1e1f20" }}>
+            <div className="rounded-lg overflow-hidden" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
+              <div className="px-5 py-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                 <h2 className="text-[13px] font-semibold text-text-primary">Week breakdown</h2>
               </div>
               <table className="w-full text-[12px]">
-                <thead style={{ borderBottom: "1px solid #1e1f20", background: "#161718" }}>
+                <thead style={{ borderBottom: "1px solid var(--border-subtle)", background: "var(--surface-mid)" }}>
                   <tr>
                     <th className="px-5 py-2.5 text-left font-medium text-text-muted uppercase tracking-wider">Day</th>
                     <th className="px-5 py-2.5 text-left font-medium text-text-muted uppercase tracking-wider">Date</th>
@@ -891,13 +891,13 @@ export default function ReportPage() {
                     <th className="px-5 py-2.5 text-left font-medium text-text-muted uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
-                <tbody style={{ "--tw-divide-opacity": "1", "--tw-divide-color": "#1e1f20" } as React.CSSProperties}>
+                <tbody style={{ "--tw-divide-opacity": "1", "--tw-divide-color": "var(--border-subtle)" } as React.CSSProperties}>
                   {workDays.map((d, i) => {
                     const isToday = d.date.toDateString() === new Date().toDateString();
                     const workPerDay = (WORK_HOURS_PER_WEEK / 5) * 3600;
                     const isWeekend = i === 0 || i === 6;
                     return (
-                      <tr key={i} className={cn("transition-colors", isToday && "bg-accent-dim")} style={!isToday ? { background: "transparent" } : undefined} onMouseEnter={(e) => !isToday && (e.currentTarget.style.background = "#161718")} onMouseLeave={(e) => !isToday && (e.currentTarget.style.background = "transparent")}>
+                      <tr key={i} className={cn("transition-colors", isToday && "bg-accent-dim")} style={!isToday ? { background: "transparent" } : undefined} onMouseEnter={(e) => !isToday && (e.currentTarget.style.background = "var(--surface-mid)")} onMouseLeave={(e) => !isToday && (e.currentTarget.style.background = "transparent")}>
                         <td className={cn("px-5 py-3 font-medium", isToday ? "text-accent" : "text-text-primary")}>
                           {d.label} {isToday && <span className="text-[10px] ml-1 text-accent">(today)</span>}
                         </td>
@@ -917,7 +917,7 @@ export default function ReportPage() {
                               Overtime
                             </span>
                           ) : d.seconds >= workPerDay * 0.8 ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgba(16,185,129,0.12)] text-[#10b981] text-[11px] font-medium">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[rgba(16,185,129,0.12)] text-success text-[11px] font-medium">
                               On track
                             </span>
                           ) : (
@@ -961,8 +961,8 @@ export default function ReportPage() {
               </div>
             </div>
 
-            <div className="rounded-lg overflow-hidden" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
-              <div className="grid grid-cols-[1fr_120px_140px_140px_80px] items-center px-5 py-2" style={{ borderBottom: "1px solid #1e1f20", background: "#161718" }}>
+            <div className="rounded-lg overflow-hidden" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
+              <div className="grid grid-cols-[1fr_120px_140px_140px_80px] items-center px-5 py-2" style={{ borderBottom: "1px solid var(--border-subtle)", background: "var(--surface-mid)" }}>
                 <span className="text-[11px] uppercase tracking-[0.05em] text-text-faint font-medium">Task</span>
                 <span className="text-[11px] uppercase tracking-[0.05em] text-text-faint font-medium">Project</span>
                 <span className="text-[11px] uppercase tracking-[0.05em] text-text-faint font-medium">Date</span>
@@ -973,21 +973,21 @@ export default function ReportPage() {
               {timeLogs.length === 0 ? (
                 <EmptyState message="No sessions logged for this period. Start a focus session to track time." />
               ) : (
-                <div className="flex flex-col" style={{ "--tw-divide-opacity": "1", "--tw-divide-color": "#1e1f20" } as React.CSSProperties}>
+                <div className="flex flex-col" style={{ "--tw-divide-opacity": "1", "--tw-divide-color": "var(--border-subtle)" } as React.CSSProperties}>
                   {timeLogs.map((log) => (
                     <div
                       key={log.id}
-                      className="grid grid-cols-[1fr_120px_140px_140px_80px] items-center px-5 py-3 hover:bg-[#161718] transition-colors"
-                      style={{ borderBottom: "1px solid #1e1f20" }}
+                      className="grid grid-cols-[1fr_120px_140px_140px_80px] items-center px-5 py-3 hover:bg-surface-mid transition-colors"
+                      style={{ borderBottom: "1px solid var(--border-subtle)" }}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         {log.status === "done"
-                          ? <CheckCircle size={13} className="text-[#10b981] shrink-0" />
+                          ? <CheckCircle size={13} className="text-success shrink-0" />
                           : <Circle size={13} className="text-text-faint shrink-0" />
                         }
                         <span className="text-[13px] text-text-primary truncate">{log.taskTitle}</span>
                         {log.billable && (
-                          <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[rgba(16,185,129,0.12)] text-[#10b981]">$</span>
+                          <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[rgba(16,185,129,0.12)] text-success">$</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -1002,7 +1002,7 @@ export default function ReportPage() {
                     </div>
                   ))}
 
-                  <div className="grid grid-cols-[1fr_120px_140px_140px_80px] items-center px-5 py-3" style={{ background: "#161718" }}>
+                  <div className="grid grid-cols-[1fr_120px_140px_140px_80px] items-center px-5 py-3" style={{ background: "var(--surface-mid)" }}>
                     <span className="text-[12px] font-semibold text-text-faint uppercase tracking-[0.04em]">Total</span>
                     <span />
                     <span />
@@ -1035,14 +1035,14 @@ function KpiCard({
   highlight?: boolean;
 }) {
   return (
-    <div className="rounded-lg p-5 flex flex-col gap-2" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+    <div className="rounded-lg p-5 flex flex-col gap-2" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
       <div className="flex items-center justify-between">
         <span className="text-[12px] text-text-muted font-medium">{label}</span>
         {icon}
       </div>
       <span className={cn(
         "text-[22px] font-semibold tabular-nums tracking-[-0.02em] leading-none",
-        highlight ? "text-[#10b981]" : "text-text-primary"
+        highlight ? "text-success" : "text-text-primary"
       )}>
         {value}
       </span>
@@ -1057,8 +1057,8 @@ function FilterChip({ icon, label, active }: { icon: React.ReactNode; label: str
       className={cn(
         "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] border transition-colors shrink-0",
         active
-          ? "border-accent bg-accent-dim text-text-primary"
-          : "border-border bg-surface-raised text-text-secondary hover:text-text-primary hover:border-border"
+          ? "border-accent/20 bg-accent/10 text-accent font-semibold"
+          : "border-border-subtle bg-surface-mid/40 text-text-secondary hover:text-text-primary hover:bg-surface-mid/60"
       )}
     >
       {icon}
@@ -1101,7 +1101,7 @@ function BarChart({ data, labels, max }: { data: number[]; labels: string[]; max
               return (
                 <div key={i} className="flex-1 flex items-end group/bar relative">
                   <div
-                    className="w-full rounded-t-sm bg-[#10b981] transition-all duration-300 hover:opacity-80 cursor-pointer"
+                    className="w-full rounded-t-sm bg-success transition-all duration-300 hover:opacity-80 cursor-pointer"
                     style={{ height: `${heightPct}%`, minHeight: sec > 0 ? 3 : 0 }}
                   />
                   {sec > 0 && (
@@ -1164,7 +1164,7 @@ function WorkloadChart({
               <div
                 className={cn(
                   "w-full rounded-t-sm transition-all duration-300",
-                  d.overtime ? "bg-[#ef4444] opacity-70" : isToday ? "bg-accent" : "bg-[#3b82f6]"
+                  d.overtime ? "bg-error opacity-70" : isToday ? "bg-accent" : "bg-info"
                 )}
                 style={{ height: `${Math.max(heightPct, d.seconds > 0 ? 2 : 0)}%` }}
               />

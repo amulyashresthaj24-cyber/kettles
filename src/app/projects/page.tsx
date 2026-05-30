@@ -21,16 +21,11 @@ import { AddProjectModal } from "@/components/AddProjectModal";
 import { EditProjectModal } from "@/components/EditProjectModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PageLayout, PageHeader, PageToolbar, PageContent } from "@/components/layout";
-import type { Project } from "@/lib/types";
+import type { Project, ProjectColor } from "@/lib/types";
+import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
 
 const colorDot = (color: string) => {
-  const colors: Record<string, string> = {
-    teal: "bg-teal-400",
-    amber: "bg-accent",
-    rose: "bg-rose-400",
-    indigo: "bg-indigo-400",
-  };
-  return colors[color] || "bg-slate-400";
+  return PROJECT_COLOR_CLASSES[color as ProjectColor] || "bg-slate-400";
 };
 
 export default function ProjectsPage() {
@@ -113,7 +108,7 @@ export default function ProjectsPage() {
       />
 
       <PageContent>
-        <section className="flex flex-col gap-md rounded-lg p-lg" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+        <section className="flex flex-col gap-md rounded-lg p-lg" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
         <div className="flex flex-col gap-md lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <MagnifyingGlass
@@ -167,10 +162,10 @@ export default function ProjectsPage() {
         </div>
       </section>
 
-      <section className="flex flex-col overflow-hidden rounded-lg" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+      <section className="flex flex-col overflow-hidden rounded-lg" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
         {filteredProjects.length === 0 ? (
           <div className="flex min-h-[240px] flex-col items-center justify-center gap-md px-6 py-10 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md text-text-muted" style={{ background: "#1e1f20" }}>
+            <div className="flex h-10 w-10 items-center justify-center rounded-md text-text-muted" style={{ background: "var(--border-subtle)" }}>
               <FolderOpen size={18} />
             </div>
             <div className="flex flex-col gap-xs">
@@ -240,7 +235,7 @@ export default function ProjectsPage() {
                           {project.name}
                         </h3>
                         {isArchived && (
-                          <Badge variant="raised" className="rounded-sm text-[11px]">
+                          <Badge variant="raised">
                             Archived
                           </Badge>
                         )}
@@ -249,7 +244,7 @@ export default function ProjectsPage() {
                         {client && (
                           <Badge 
                             variant="raised" 
-                            className="rounded-sm text-[11px] max-w-full transition-all duration-200 ease-out origin-left transform group-hover:opacity-100 group-hover:scale-100 opacity-0 scale-95 pointer-events-none"
+                            className="max-w-full transition-all duration-200 ease-out origin-left transform group-hover:opacity-100 group-hover:scale-100 opacity-0 scale-95 pointer-events-none"
                           >
                             <span className="truncate">{client.name}</span>
                           </Badge>
@@ -257,7 +252,7 @@ export default function ProjectsPage() {
                         {project.billable && (
                           <Badge 
                             variant="accent" 
-                            className="rounded-sm text-[11px] transition-all duration-200 ease-out origin-left transform group-hover:opacity-100 group-hover:scale-100 opacity-0 scale-95 pointer-events-none"
+                            className="transition-all duration-200 ease-out origin-left transform group-hover:opacity-100 group-hover:scale-100 opacity-0 scale-95 pointer-events-none"
                           >
                             <CurrencyDollar size={11} />
                             Billable

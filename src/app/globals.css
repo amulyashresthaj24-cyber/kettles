@@ -7,37 +7,38 @@
   --font-urbanist: 'Urbanist', sans-serif;
 
   /* Backgrounds */
-  --base: #08090a;
-  --canvas: #0c0d0e;
-  --surface: #0f1011;
-  --surface-raised: #191a1b;
-  --surface-mid: #161718;
-  --surface-glass: rgba(28, 29, 30, 0.7);
+  --base: #eef1f6;
+  --canvas: #ffffff;
+  --surface: #e4e9f0;
+  --surface-raised: #ffffff;
+  --surface-mid: #d9e0ea;
+  --surface-glass: rgba(255, 255, 255, 0.86);
 
   /* Borders */
-  --border: #2a2b2c;
-  --border-subtle: #1e1f20;
+  --border: #c3cdda;
+  --border-subtle: #dae0ea;
 
   /* Text */
-  --text-primary: #f7f8f8;
-  --text-secondary: #d0d6e0;
-  --text-muted: #8a8f98;
-  --text-faint: #62666d;
+  --text-primary: #0b1220;
+  --text-secondary: #2c3a4e;
+  --text-muted: #44546b;
+  --text-faint: #586577;
 
   /* Accents */
-  --accent: #0066ff;
-  --accent-hover: #3385ff;
-  --accent-dim: rgba(0, 102, 255, 0.15);
+  --accent: #1a74de;
+  --accent-hover: #135fc0;
+  --accent-dim: rgba(26, 116, 222, 0.12);
   --accent-border: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
-  --card-gradient-start: #05080d;
-  --card-gradient-mid: #061733;
-  --card-gradient-end: #072a63;
+  --card-gradient-start: #f3f9ff;
+  --card-gradient-mid: #e2f0ff;
+  --card-gradient-end: #cce3ff;
 
   /* Status */
   --success: #10b981;
   --warning: #3b82f6;
   --error: #ef4444;
   --info: #3b82f6;
+
 
   /* Motion */
   --motion-fast: 120ms;
@@ -88,6 +89,39 @@
   --label-size: 13px;
   --label-weight: 500;
   --label-line-height: 1.4;
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  /* Backgrounds */
+  --base: #08090a;
+  --canvas: #0c0d0e;
+  --surface: #0f1011;
+  --surface-raised: #191a1b;
+  --surface-mid: #161718;
+  --surface-glass: rgba(28, 29, 30, 0.7);
+
+  /* Borders */
+  --border: #2a2b2c;
+  --border-subtle: #1e1f20;
+
+  /* Text */
+  --text-primary: #f7f8f8;
+  --text-secondary: #d0d6e0;
+  --text-muted: #8a8f98;
+  --text-faint: #62666d;
+
+  /* Accents */
+  --accent: #0066ff;
+  --accent-hover: #3385ff;
+  --accent-dim: rgba(0, 102, 255, 0.15);
+  --accent-border: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  --card-gradient-start: #05080d;
+  --card-gradient-mid: #061733;
+  --card-gradient-end: #072a63;
+
+  color-scheme: dark;
 }
 
 * {
@@ -327,6 +361,24 @@ input[type="number"] {
   animation: slide-in-right var(--motion-base) var(--ease-out) both;
 }
 
+.animate-slide-out-right {
+  animation: slide-out-right 200ms var(--ease-in) both;
+}
+
+@keyframes toast-progress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.toast-progress-bar {
+  transform-origin: left;
+  animation: toast-progress var(--toast-duration, 3600ms) linear forwards;
+}
+
+.toast-item:hover .toast-progress-bar {
+  animation-play-state: paused;
+}
+
 .animate-skeleton {
   animation: skeleton-pulse 1.6s ease-in-out infinite;
   background: var(--surface-raised);
@@ -415,6 +467,57 @@ input[type="number"] {
     width var(--motion-base) var(--ease-out);
 }
 
+/* ─── Micro-Interactions & Custom Animations ───────────────── */
+
+@keyframes checkbox-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.animate-checkbox-pop {
+  animation: checkbox-pop 200ms var(--ease-out) both;
+}
+
+@keyframes active-nav-indicator {
+  from { opacity: 0; transform: translateY(-50%) scaleY(0.4); }
+  to { opacity: 1; transform: translateY(-50%) scaleY(1); }
+}
+.animate-nav-indicator {
+  animation: active-nav-indicator 200ms var(--ease-out) both;
+}
+
+@keyframes banner-glow-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 102, 255, 0.2); }
+  70% { box-shadow: 0 0 0 6px rgba(0, 102, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 102, 255, 0); }
+}
+.animate-banner-glow {
+  animation: banner-glow-pulse 2s infinite var(--ease-standard);
+}
+
+.sidebar-link-interactive {
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    background var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+.sidebar-link-interactive:hover {
+  transform: translateX(1.5px);
+}
+.sidebar-link-interactive:active {
+  transform: scale(0.98);
+}
+
+.task-row-completing {
+  opacity: 0.5;
+  transform: scale(0.985);
+  transition:
+    opacity 350ms var(--ease-out),
+    transform 350ms var(--ease-out),
+    background var(--motion-fast) var(--ease-out);
+}
+
+
 /* ─── Reduced motion ─────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -433,3 +536,111 @@ input[type="number"] {
     opacity: 1 !important;
   }
 }
+
+/* ─── Mini-Timer Widget (Desktop) ──────────────────────────── */
+
+.mini-timer-drag {
+  -webkit-app-region: drag;
+}
+.mini-timer-nodrag {
+  -webkit-app-region: no-drag;
+}
+
+.mini-timer-empty {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface, #1a1a2e);
+  color: var(--text-muted, #888);
+  font-family: 'Inter', 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px;
+  border-radius: 12px;
+  user-select: none;
+}
+
+.mini-timer-main {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface, #1a1a2e);
+  color: var(--text-primary, #fff);
+  font-family: 'Inter', 'Plus Jakarta Sans', sans-serif;
+  border-radius: 12px;
+  user-select: none;
+  overflow: hidden;
+}
+
+.mini-timer-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mini-timer-project-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted, #aaa);
+  flex-shrink: 0;
+}
+
+.mini-timer-task-name {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-timer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mini-timer-clock {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+
+.mini-timer-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.mini-timer-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: background 0.15s ease;
+}
+
+.mini-timer-btn-outline {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: var(--text-muted, #888);
+  font-size: 12px;
+}
+

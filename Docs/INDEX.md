@@ -10,6 +10,7 @@ Complete guide to all documentation files organized by purpose.
 - **[README.md](../README.md)** — Project overview and quick setup
 - **[CODEBASE_OVERVIEW.md](CODEBASE_OVERVIEW.md)** — High-level architecture and tech stack
 - **[CODEBASE_STRUCTURE.md](CODEBASE_STRUCTURE.md)** — Detailed folder structure and file organization
+- **[folder-guide.md](Docs/folder-guide.md)** — Current active folders, future app/package direction, and AI prompt guide
 
 ### 🛠️ Development & Backend
 - **[CLAUDE.md](CLAUDE.md)** — Development guide for FlowMast system

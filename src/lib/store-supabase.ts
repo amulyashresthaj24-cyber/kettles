@@ -5,6 +5,26 @@ import { persist } from "zustand/middleware";
 import { api } from "./supabase";
 import type { Client, Project, Task, Session, Urgency, TaskStatus } from "./types";
 import { uid } from "./format";
+import { getSyncEngine } from "./sync-engine";
+import { isOnline } from "./desktop";
+
+type SyncEntity = "clients" | "projects" | "tasks" | "sessions";
+type SyncAction = "create" | "update" | "delete";
+type TaskPatch = Omit<Partial<Task>, "completedAt" | "archivedAt" | "deletedAt"> & {
+  completedAt?: number | null;
+  archivedAt?: number | null;
+  deletedAt?: number | null;
+};
+
+/** Push a mutation onto the offline sync queue (replayed when back online). */
+function queueMutation(
+  entity: SyncEntity,
+  action: SyncAction,
+  entityId: string,
+  payload: Record<string, unknown>
+) {
+  getSyncEngine().enqueue({ entity, action, entityId, payload });
+}
 
 function normalizeSession(session: Session): Session {
   const state = session.state ?? (session.endedAt ? "confirmed" : session.paused ? "paused" : "running");
@@ -19,11 +39,53 @@ function normalizeSession(session: Session): Session {
   };
 }
 
+function isRemoteId(id: string): boolean {
+  return id.length >= 20;
+}
+
+function handleSessionApiError(
+  id: string,
+  error: unknown,
+  defaultMessage: string,
+  set: (patch: Partial<State>) => void,
+  get: () => State
+) {
+  const msg = error instanceof Error ? error.message : String(error);
+  const isNotFound = msg.includes('404') ||
+                     msg.toLowerCase().includes('not found') ||
+                     msg.includes('PGRST116') ||
+                     msg.includes('no rows returned') ||
+                     msg.includes('multiple or no rows');
+  if (isNotFound) {
+    set({
+      sessions: get().sessions.filter((s: Session) => s.id !== id),
+      activeSessionId: null,
+      error: "Session not found on server. Cleared locally.",
+    });
+  } else {
+    set({ error: msg || defaultMessage });
+  }
+}
+
 function elapsedFor(session: Session) {
   const normalized = normalizeSession(session);
   return normalized.durationSeconds + (normalized.state === "running"
     ? Math.floor((Date.now() - normalized.startedAt) / 1000)
     : 0);
+}
+
+// If a "running" session's startedAt is older than this, treat it as stale
+// (app was killed / machine slept) and freeze it instead of letting elapsed
+// balloon into hours or days on the next open.
+const STALE_RUNNING_THRESHOLD_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+function freezeStaleRunning(sessions: Session[]): Session[] {
+  const now = Date.now();
+  return sessions.map((s) => {
+    if (s.state !== "running" || s.endedAt) return s;
+    if (now - s.startedAt <= STALE_RUNNING_THRESHOLD_MS) return s;
+    return { ...s, state: "paused", paused: true, frozenAt: s.frozenAt ?? now };
+  });
 }
 
 function reportableSession(session: Session) {
@@ -32,7 +94,9 @@ function reportableSession(session: Session) {
 
 function mergeSessionLists(remoteSessions: Session[], localSessions: Session[]) {
   const remoteIds = new Set(remoteSessions.map((session) => session.id));
-  const localOnly = localSessions.filter((session) => !remoteIds.has(session.id) && !reportableSession(session));
+  const localOnly = localSessions.filter(
+    (session) => !remoteIds.has(session.id) && !isRemoteId(session.id) && !reportableSession(session)
+  );
   return [...remoteSessions, ...localOnly].map(normalizeSession);
 }
 
@@ -77,6 +141,10 @@ function reconcileSessionTasks(tasks: Task[], sessions: Session[]) {
   return missingTasks.length > 0 ? [...tasks, ...missingTasks] : tasks;
 }
 
+function taskUpdatePayload(current: Task | undefined, patch: TaskPatch) {
+  return current ? { ...current, ...patch } : patch;
+}
+
 interface State {
   user: { name: string; email?: string } | null;
   clients: Client[];
@@ -94,6 +162,8 @@ interface State {
   setUser: (user: { name: string; email?: string } | null) => void;
   
   addClient: (c: Omit<Client, "id">) => Promise<Client>;
+  updateClient: (id: string, updates: Partial<Omit<Client, "id">>) => Promise<Client>;
+  deleteClient: (id: string) => Promise<void>;
   addProject: (p: Omit<Project, "id">) => Promise<Project>;
   updateProject: (id: string, patch: Partial<Omit<Project, "id">>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
@@ -108,7 +178,7 @@ interface State {
   setTaskStatus: (id: string, status: TaskStatus) => Promise<void>;
 
   startSession: (taskId: string, billable?: boolean) => Promise<Session | null>;
-  startDraftSession: (billable?: boolean) => Promise<Session | null>;
+  startDraftSession: (projectId?: string, billable?: boolean) => Promise<Session | null>;
   pauseSession: () => Promise<void>;
   resumeSession: () => Promise<void>;
   finishSession: () => Promise<void>;
@@ -137,6 +207,38 @@ interface State {
   loadAll: () => Promise<void>;
   clearAll: () => void;
   performDailyArchive: () => Promise<void>;
+
+  preferences?: {
+    defaultFocusDuration: number;
+    whistleSoundEnabled: boolean;
+    autoBreakEnabled: boolean;
+    autoPauseOnIdleEnabled: boolean;
+    activeMascot?: "kettle" | "sprite2" | "custom";
+    customMascotSpritesheet?: string;
+    customMascotWidth?: number;
+    customMascotHeight?: number;
+    customMascotCols?: number;
+    customMascotRows?: number;
+    customMascotScale?: number;
+    mascotMappings?: {
+      idle: string;
+      hover: string;
+      dragLeft: string;
+      dragRight: string;
+      complete: string;
+      toggle: string;
+    };
+    mascotFps?: {
+      idle: number;
+      waving: number;
+      jumping: number;
+      waiting: number;
+      review: number;
+      running_left: number;
+      running_right: number;
+    };
+  };
+  setPreferences: (patch: Partial<NonNullable<State["preferences"]>>) => void;
 }
 
 export const useApp = create<State>()(
@@ -154,11 +256,83 @@ persist((set, get) => ({
   error: null,
   lastDailyArchiveDate: undefined,
 
+  preferences: {
+    defaultFocusDuration: 25,
+    whistleSoundEnabled: true,
+    autoBreakEnabled: false,
+    autoPauseOnIdleEnabled: true,
+    activeMascot: "kettle",
+    customMascotSpritesheet: "assets/spritesheet.orig.webp",
+    customMascotWidth: 192,
+    customMascotHeight: 208,
+    customMascotCols: 8,
+    customMascotRows: 9,
+    customMascotScale: 0.58,
+    mascotMappings: {
+      idle: "waiting",
+      hover: "waving",
+      dragLeft: "running_left",
+      dragRight: "running_right",
+      complete: "jumping",
+      toggle: "review",
+    },
+    mascotFps: {
+      idle: 5,
+      waving: 6,
+      jumping: 10,
+      waiting: 4,
+      review: 5,
+      running_left: 10,
+      running_right: 9,
+    },
+  },
+
+  setPreferences: (patch) => set({
+    preferences: {
+      defaultFocusDuration: 25,
+      whistleSoundEnabled: true,
+      autoBreakEnabled: false,
+      autoPauseOnIdleEnabled: true,
+      activeMascot: "kettle",
+      customMascotSpritesheet: "assets/spritesheet.orig.webp",
+      customMascotWidth: 192,
+      customMascotHeight: 208,
+      customMascotCols: 8,
+      customMascotRows: 9,
+      customMascotScale: 0.58,
+      mascotMappings: {
+        idle: "waiting",
+        hover: "waving",
+        dragLeft: "running_left",
+        dragRight: "running_right",
+        complete: "jumping",
+        toggle: "review",
+      },
+      mascotFps: {
+        idle: 5,
+        waving: 6,
+        jumping: 10,
+        waiting: 4,
+        review: 5,
+        running_left: 10,
+        running_right: 9,
+      },
+      ...(get().preferences ?? {}),
+      ...patch,
+    }
+  }),
+
   setUser: (user) => set({ user }),
 
   addClient: async (c) => {
     set({ isLoading: true, error: null });
     try {
+      if (!isOnline()) {
+        const local = { ...c, id: uid() } as Client;
+        set({ clients: [...get().clients, local] });
+        queueMutation("clients", "create", local.id, { ...c });
+        return local;
+      }
       const created = await api.clients.create(c);
       set({ clients: [...get().clients, created] });
       return created;
@@ -170,9 +344,52 @@ persist((set, get) => ({
     }
   },
 
+  updateClient: async (id, updates) => {
+    set({ isLoading: true, error: null });
+    try {
+      if (!isOnline()) {
+        set({ clients: get().clients.map((c) => c.id === id ? { ...c, ...updates } : c) });
+        queueMutation("clients", "update", id, { ...updates });
+        return get().clients.find((c) => c.id === id) as Client;
+      }
+      const updated = await api.clients.update(id, updates);
+      set({ clients: get().clients.map((c) => c.id === id ? { ...c, ...updated } : c) });
+      return updated;
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to update client' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  deleteClient: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      if (!isOnline()) {
+        set({ clients: get().clients.filter((c) => c.id !== id) });
+        queueMutation("clients", "delete", id, {});
+        return;
+      }
+      await api.clients.delete(id);
+      set({ clients: get().clients.filter((c) => c.id !== id) });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to delete client' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
   addProject: async (p) => {
     set({ isLoading: true, error: null });
     try {
+      if (!isOnline()) {
+        const local = { ...p, id: uid() } as Project;
+        set({ projects: [...get().projects, local] });
+        queueMutation("projects", "create", local.id, { ...p });
+        return local;
+      }
       const created = await api.projects.create(p);
       set({ projects: [...get().projects, created] });
       return created;
@@ -187,6 +404,11 @@ persist((set, get) => ({
   updateProject: async (id, patch) => {
     set({ isLoading: true, error: null });
     try {
+      if (!isOnline()) {
+        set({ projects: get().projects.map((p) => (p.id === id ? { ...p, ...patch } : p)) });
+        queueMutation("projects", "update", id, { ...patch });
+        return;
+      }
       const updated = await api.projects.update(id, patch);
       set({
         projects: get().projects.map((p) => (p.id === id ? { ...p, ...updated } : p)),
@@ -202,6 +424,11 @@ persist((set, get) => ({
   deleteProject: async (id) => {
     set({ isLoading: true, error: null });
     try {
+      if (!isOnline()) {
+        set({ projects: get().projects.filter((p) => p.id !== id) });
+        queueMutation("projects", "delete", id, {});
+        return;
+      }
       await api.projects.delete(id);
       set({ projects: get().projects.filter((p) => p.id !== id) });
     } catch (error) {
@@ -231,9 +458,16 @@ persist((set, get) => ({
   restoreProject: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await api.projects.update(id, { archived: false, archivedAt: undefined, status: "active" });
+      await api.projects.update(id, { archived: false, archivedAt: null, status: "active" });
       set({
-        projects: get().projects.map((p) => (p.id === id ? { ...p, archived: false, archivedAt: undefined, status: "active" } : p)),
+        projects: get().projects.map((p) => {
+          if (p.id === id) {
+            const nextProj = { ...p, archived: false, status: "active" as const };
+            delete nextProj.archivedAt;
+            return nextProj;
+          }
+          return p;
+        }),
       });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to restore project' });
@@ -246,6 +480,17 @@ persist((set, get) => ({
   addTask: async (t) => {
     set({ isLoading: true, error: null });
     try {
+      if (!isOnline()) {
+        const local = {
+          ...t,
+          id: uid(),
+          status: t.status ?? "todo",
+          createdAt: Date.now(),
+        } as Task;
+        set({ tasks: [...get().tasks, local] });
+        queueMutation("tasks", "create", local.id, { ...t, status: t.status ?? "todo" });
+        return local;
+      }
       const created = await api.tasks.create({
         ...t,
         status: t.status ?? "todo",
@@ -263,7 +508,13 @@ persist((set, get) => ({
   updateTask: async (id, patch) => {
     set({ isLoading: true, error: null });
     try {
-      const updated = await api.tasks.update(id, patch);
+      const current = get().tasks.find((t) => t.id === id);
+      if (!isOnline()) {
+        set({ tasks: get().tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) });
+        queueMutation("tasks", "update", id, taskUpdatePayload(current, patch));
+        return;
+      }
+      const updated = await api.tasks.update(id, taskUpdatePayload(current, patch));
       set({
         tasks: get().tasks.map((t) => (t.id === id ? { ...t, ...updated } : t)),
       });
@@ -278,6 +529,11 @@ persist((set, get) => ({
   deleteTask: async (id) => {
     set({ isLoading: true, error: null });
     try {
+      if (!isOnline()) {
+        set({ tasks: get().tasks.filter((t) => t.id !== id) });
+        queueMutation("tasks", "delete", id, {});
+        return;
+      }
       await api.tasks.delete(id);
       set({ tasks: get().tasks.filter((t) => t.id !== id) });
     } catch (error) {
@@ -292,7 +548,8 @@ persist((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const now = Date.now();
-      await api.tasks.update(id, { archived: true, archivedAt: now });
+      const task = get().tasks.find((t) => t.id === id);
+      await api.tasks.update(id, taskUpdatePayload(task, { archived: true, archivedAt: now }));
       set({
         tasks: get().tasks.map((t) => (t.id === id ? { ...t, archived: true, archivedAt: now } : t)),
       });
@@ -307,9 +564,17 @@ persist((set, get) => ({
   restoreTask: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await api.tasks.update(id, { archived: false, archivedAt: undefined });
+      const task = get().tasks.find((t) => t.id === id);
+      await api.tasks.update(id, taskUpdatePayload(task, { archived: false, archivedAt: null }));
       set({
-        tasks: get().tasks.map((t) => (t.id === id ? { ...t, archived: false, archivedAt: undefined } : t)),
+        tasks: get().tasks.map((t) => {
+          if (t.id === id) {
+            const nextTask = { ...t, archived: false };
+            delete nextTask.archivedAt;
+            return nextTask;
+          }
+          return t;
+        }),
       });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to restore task' });
@@ -325,15 +590,24 @@ persist((set, get) => ({
       const task = get().tasks.find((t) => t.id === id);
       // Include the full task payload so the edge function merge never loses the title,
       // even if the DB JSONB is incomplete or stale.
-      const patch: any = { ...(task ?? {}), status };
+      const patch: TaskPatch = { ...(task ?? {}), status };
       if (status === "done") {
         patch.completedAt = Date.now();
       } else {
-        delete patch.completedAt;
+        patch.completedAt = null;
       }
       const updated = await api.tasks.update(id, patch);
       set({
-        tasks: get().tasks.map((t) => (t.id === id ? { ...t, ...updated } : t)),
+        tasks: get().tasks.map((t) => {
+          if (t.id === id) {
+            const nextTask = { ...t, ...updated };
+            if (status !== "done") {
+              delete nextTask.completedAt;
+            }
+            return nextTask;
+          }
+          return t;
+        }),
       });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to update task status' });
@@ -383,12 +657,12 @@ persist((set, get) => ({
     }
   },
 
-  startDraftSession: async (billable = false) => {
+  startDraftSession: async (projectId = "", billable = false) => {
     if (get().activeSessionId) return null;
     const session: Session = {
       id: uid(),
       taskId: "",
-      projectId: "",
+      projectId,
       billable,
       startedAt: Date.now(),
       durationSeconds: 0,
@@ -416,14 +690,14 @@ persist((set, get) => ({
     
     set({ isLoading: true, error: null });
     try {
-      if (!normalized.isDraft) await api.sessions.update(id, { paused: true, state: "paused", durationSeconds: duration });
+      if (isRemoteId(id)) await api.sessions.update(id, { paused: true, state: "paused", durationSeconds: duration });
       set({
         sessions: get().sessions.map((s) =>
           s.id === id ? { ...s, paused: true, state: "paused", durationSeconds: duration } : s
         ),
       });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to pause session' });
+      handleSessionApiError(id, error, 'Failed to pause session', set, get);
     } finally {
       set({ isLoading: false });
     }
@@ -440,14 +714,14 @@ persist((set, get) => ({
     const startedAt = Date.now();
     set({ isLoading: true, error: null });
     try {
-      if (!normalized.isDraft) await api.sessions.update(id, { paused: false, state: "running", startedAt });
+      if (isRemoteId(id)) await api.sessions.update(id, { paused: false, state: "running", startedAt });
       set({
         sessions: get().sessions.map((s) =>
           s.id === id ? { ...s, paused: false, state: "running", startedAt } : s
         ),
       });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to resume session' });
+      handleSessionApiError(id, error, 'Failed to resume session', set, get);
     } finally {
       set({ isLoading: false });
     }
@@ -471,10 +745,10 @@ persist((set, get) => ({
 
     set({ isLoading: true, error: null });
     try {
-      if (!normalized.isDraft) await api.sessions.update(id, patch);
+      if (isRemoteId(id)) await api.sessions.update(id, patch);
       set({ sessions: get().sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : "Failed to finish session" });
+      handleSessionApiError(id, error, 'Failed to finish session', set, get);
     } finally {
       set({ isLoading: false });
     }
@@ -496,10 +770,10 @@ persist((set, get) => ({
 
     set({ isLoading: true, error: null });
     try {
-      if (!normalized.isDraft) await api.sessions.update(id, patch);
+      if (isRemoteId(id)) await api.sessions.update(id, patch);
       set({ sessions: get().sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : "Failed to resume session" });
+      handleSessionApiError(id, error, 'Failed to resume session', set, get);
     } finally {
       set({ isLoading: false });
     }
@@ -539,7 +813,7 @@ persist((set, get) => ({
       });
       return updated;
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : "Failed to confirm session" });
+      handleSessionApiError(id, error, "Failed to confirm session", set, get);
       return null;
     } finally {
       set({ isLoading: false });
@@ -559,10 +833,20 @@ persist((set, get) => ({
       durationSeconds: elapsedFor(normalized),
       frozenAt: normalized.frozenAt ?? Date.now(),
     };
-    set({
-      sessions: get().sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)),
-      activeSessionId: null,
-    });
+    set({ isLoading: true, error: null });
+    try {
+      if (isRemoteId(id)) {
+        await api.sessions.update(id, patch);
+      }
+      set({
+        sessions: get().sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+        activeSessionId: null,
+      });
+    } catch (error) {
+      handleSessionApiError(id, error, "Failed to save session as draft", set, get);
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   reviewDraftSession: (id) => {
@@ -583,7 +867,7 @@ persist((set, get) => ({
     if (!id) return;
     const session = get().sessions.find((s) => s.id === id);
     set({ sessions: get().sessions.filter((s) => s.id !== id), activeSessionId: null });
-    if (session && !normalizeSession(session).isDraft && id.length >= 20) {
+    if (session && isRemoteId(id)) {
       try {
         await api.sessions.delete(id);
       } catch (error) {
@@ -611,7 +895,7 @@ persist((set, get) => ({
     const note = { id: uid(), timestamp: elapsedFor(session), text: trimmed };
     const notes = [...(session.notes ?? []), note];
     set({ sessions: get().sessions.map((s) => (s.id === id ? { ...s, notes } : s)) });
-    if (!normalizeSession(session).isDraft) {
+    if (isRemoteId(id)) {
       api.sessions.update(id, { notes }).catch(() => undefined);
     }
   },
@@ -624,7 +908,7 @@ persist((set, get) => ({
     if (!session) return;
     const notes = (session.notes ?? []).map((note) => (note.id === noteId ? { ...note, text: trimmed } : note));
     set({ sessions: get().sessions.map((s) => (s.id === id ? { ...s, notes } : s)) });
-    if (!normalizeSession(session).isDraft) {
+    if (isRemoteId(id)) {
       api.sessions.update(id, { notes }).catch(() => undefined);
     }
   },
@@ -636,7 +920,7 @@ persist((set, get) => ({
     if (!session) return;
     const notes = (session.notes ?? []).filter((note) => note.id !== noteId);
     set({ sessions: get().sessions.map((s) => (s.id === id ? { ...s, notes } : s)) });
-    if (!normalizeSession(session).isDraft) {
+    if (isRemoteId(id)) {
       api.sessions.update(id, { notes }).catch(() => undefined);
     }
   },
@@ -652,13 +936,16 @@ persist((set, get) => ({
 
     set({ isLoading: true, error: null });
     try {
-      const updated = await api.sessions.update(id, {
-        durationSeconds: final,
-        endedAt: Date.now(),
-        paused: true,
-        state: "confirmed",
-        isDraft: false,
-      });
+      let updated = session;
+      if (isRemoteId(id)) {
+        updated = await api.sessions.update(id, {
+          durationSeconds: final,
+          endedAt: Date.now(),
+          paused: true,
+          state: "confirmed",
+          isDraft: false,
+        });
+      }
 
       set({
         sessions: get().sessions.map((s) => (s.id === id ? normalizeSession(updated) : s)),
@@ -723,14 +1010,13 @@ persist((set, get) => ({
   loadSessions: async () => {
     try {
       const { sessions } = await api.sessions.list();
-      const mergedSessions = mergeSessionLists((sessions || []).map(normalizeSession), get().sessions);
+      const merged = mergeSessionLists((sessions || []).map(normalizeSession), get().sessions);
+      const mergedSessions = freezeStaleRunning(merged);
       set({ sessions: mergedSessions });
-      
+
       // Check for active session (not ended)
       const activeSession = mergedSessions.find((s: Session) => !s.endedAt && ["running", "paused", "finishing"].includes(normalizeSession(s).state));
-      if (activeSession) {
-        set({ activeSessionId: activeSession.id });
-      }
+      set({ activeSessionId: activeSession?.id ?? null });
     } catch (error) {
       console.error('Failed to load sessions:', error);
     }
@@ -746,7 +1032,9 @@ persist((set, get) => ({
         api.sessions.list(),
       ]);
 
-      const sessions = mergeSessionLists((sessionsResult.sessions || []).map(normalizeSession), get().sessions);
+      const sessions = freezeStaleRunning(
+        mergeSessionLists((sessionsResult.sessions || []).map(normalizeSession), get().sessions)
+      );
       const tasks = reconcileSessionTasks(withTaskDisplayFallbacks(tasksResult.tasks || []), sessions);
       const activeSession = sessions.find((s: Session) => !s.endedAt && ["running", "paused", "finishing"].includes(normalizeSession(s).state));
 
@@ -783,32 +1071,33 @@ persist((set, get) => ({
       (p) => p.status === "completed" && p.completedAt && p.completedAt < todayStart && !p.archived && !p.archivedAt
     );
 
-    for (const task of tasksToArchive) {
-      try {
-        const now = Date.now();
-        await api.tasks.update(task.id, { archived: true, archivedAt: now });
-      } catch (error) {
-        console.error(`Failed to archive task ${task.id}:`, error);
-      }
+    if (tasksToArchive.length === 0 && projectsToArchive.length === 0) {
+      set({ lastDailyArchiveDate: today });
+      return;
     }
 
-    for (const project of projectsToArchive) {
-      try {
-        const now = Date.now();
-        await api.projects.update(project.id, { archived: true, archivedAt: now, status: "archived" });
-      } catch (error) {
-        console.error(`Failed to archive project ${project.id}:`, error);
-      }
-    }
+    const now = Date.now();
+    await Promise.all([
+      ...tasksToArchive.map((task) =>
+        api.tasks.update(task.id, taskUpdatePayload(task, { archived: true, archivedAt: now })).catch((error) => {
+          console.error(`Failed to archive task ${task.id}:`, error);
+        })
+      ),
+      ...projectsToArchive.map((project) =>
+        api.projects.update(project.id, { archived: true, archivedAt: now, status: "archived" }).catch((error) => {
+          console.error(`Failed to archive project ${project.id}:`, error);
+        })
+      )
+    ]);
 
     set({
       tasks: get().tasks.map((t) => {
         const shouldArchive = tasksToArchive.some((ta) => ta.id === t.id);
-        return shouldArchive ? { ...t, archived: true, archivedAt: Date.now() } : t;
+        return shouldArchive ? { ...t, archived: true, archivedAt: now } : t;
       }),
       projects: get().projects.map((p) => {
         const shouldArchive = projectsToArchive.some((pa) => pa.id === p.id);
-        return shouldArchive ? { ...p, archived: true, archivedAt: Date.now(), status: "archived" } : p;
+        return shouldArchive ? { ...p, archived: true, archivedAt: now, status: "archived" } : p;
       }),
       lastDailyArchiveDate: today,
     });
@@ -829,6 +1118,16 @@ persist((set, get) => ({
   partialize: (state) => ({
     sessions: state.sessions.filter((session) => !reportableSession(session)),
     activeSessionId: state.activeSessionId,
+    preferences: state.preferences,
   }),
+  onRehydrateStorage: () => (state) => {
+    if (!state) return;
+    const sessions = freezeStaleRunning(state.sessions);
+    state.sessions = sessions;
+    const active = sessions.find((s) => s.id === state.activeSessionId);
+    if (!active || normalizeSession(active).state === "confirmed") {
+      state.activeSessionId = null;
+    }
+  },
 })
 );

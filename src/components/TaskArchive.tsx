@@ -66,8 +66,8 @@ export function TaskArchive({ tasks }: { tasks: Task[] }) {
 
   if (tasks.length === 0) {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 rounded-lg p-2xl text-center" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
-        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#1e1f20" }}>
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 rounded-lg p-2xl text-center" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
+        <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "var(--border-subtle)" }}>
           <CalendarBlank size={22} className="text-text-faint" />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -84,7 +84,7 @@ export function TaskArchive({ tasks }: { tasks: Task[] }) {
     <>
       <div className="flex flex-col gap-xl">
       {/* Archive Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
             <CheckCircle size={17} className="text-accent" />
@@ -126,9 +126,9 @@ export function TaskArchive({ tasks }: { tasks: Task[] }) {
       </div>
 
       {/* Archive Table */}
-      <div className="rounded-lg overflow-hidden" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+      <div className="rounded-lg overflow-hidden" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
         {/* Table Header */}
-        <div className="grid grid-cols-[1fr_120px_100px_140px_120px_100px] gap-4 px-4 py-3 border-b text-xs font-medium text-text-faint uppercase tracking-wider" style={{ borderColor: "#1e1f20", background: "#161718" }}>
+        <div className="grid grid-cols-[1fr_120px_100px_140px_120px_100px] gap-4 px-4 py-3 border-b text-xs font-medium text-text-faint uppercase tracking-wider" style={{ borderColor: "var(--border-subtle)", background: "var(--surface-mid)" }}>
           <span>Task</span>
           <span>Project</span>
           <span>Status</span>

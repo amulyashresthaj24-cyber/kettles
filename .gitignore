@@ -5,6 +5,9 @@ venv/
 
 # Build artifacts
 .next/
+out/
+src-tauri/target/
+releases/
 dist/
 build/
 *.tsbuildinfo
@@ -27,6 +30,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 dev.log
+tauri-*.log
 
 # Analysis artifacts
 .graphify_python

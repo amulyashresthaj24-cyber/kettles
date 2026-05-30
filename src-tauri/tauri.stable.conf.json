@@ -1,0 +1,5 @@
+{
+  "build": {
+    "beforeBuildCommand": "cmd /c echo Web export already built"
+  }
+}

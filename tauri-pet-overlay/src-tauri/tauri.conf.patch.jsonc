@@ -1,0 +1,30 @@
+// PATCH for src-tauri/tauri.conf.json (Tauri v2).
+// Merge these keys into your existing config — do NOT replace the whole file.
+
+{
+  "app": {
+    // Required: exposes window.__TAURI__ so the vanilla pet.js works
+    // without a bundler / npm packages.
+    "withGlobalTauri": true,
+
+    // macOS ONLY — needed for transparent windows. Omit on Windows/Linux.
+    // "macOSPrivateApi": true,
+
+    "security": {
+      // Capabilities are auto-loaded from src-tauri/capabilities/*.json,
+      // so capabilities/pet.json is picked up with no extra config.
+      // If you pin capabilities explicitly, add "pet" to the list.
+    }
+  },
+
+  "bundle": {
+    // Make sure the pet's assets ship in the app bundle. If pet.html /
+    // pet.css / pet.js / pet.config.json / assets/ live inside your
+    // frontend dist (recommended — see README step 2), nothing to add:
+    // the frontendDist folder is bundled wholesale.
+  }
+}
+
+// NOTE: the pet window is created at runtime by `pet_open`, so you do NOT
+// need to declare it under "app.windows". Leave your existing "main"
+// window entry untouched.

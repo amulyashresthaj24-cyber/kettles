@@ -1,6 +1,6 @@
 export type Urgency = "urgent" | "high" | "normal" | "low";
 export type TaskStatus = "todo" | "doing" | "done";
-export type ProjectColor = "teal" | "amber" | "rose" | "indigo";
+export type ProjectColor = string;
 export type ProjectStatus = "active" | "paused" | "completed" | "archived";
 export type SessionState = "running" | "paused" | "finishing" | "confirmed" | "draft" | "discarded";
 
@@ -28,6 +28,7 @@ export interface Project {
   description?: string;
   clientId?: string;
   color: ProjectColor;
+  icon?: string;
   billable: boolean;
   status?: ProjectStatus;
   startDate?: number;

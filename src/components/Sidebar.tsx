@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -14,12 +14,21 @@ import {
   MagnifyingGlass,
   SignOut,
   User,
+  Sun,
+  Moon,
+  Gear,
+  Lightning,
 } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { AddProjectModal } from "./AddProjectModal";
 import { BrandMark } from "./BrandMark";
+import { getProjectColor, resolveProjectIcon } from "@/lib/constants";
+import { AppIcon, type IconName } from "@/components/ui/icon";
+import { isDesktop, invoke } from "@/lib/desktop";
+import { useNotification } from "@/components/ui/notification";
+import type { Project } from "@/lib/types";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", Icon: SquaresFour },
@@ -28,25 +37,40 @@ const NAV = [
   { href: "/timer",     label: "Timer",     Icon: Timer },
   { href: "/report",    label: "Report",    Icon: ChartBar },
   { href: "/projects",  label: "Projects",  Icon: FolderOpen },
+  { href: "/settings",  label: "Settings",  Icon: Gear },
 ];
 
-export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void }) {
+export default function Sidebar({
+  onSearchClick,
+  theme = "dark",
+  onToggleTheme,
+}: {
+  onSearchClick?: () => void;
+  theme?: "light" | "dark";
+  onToggleTheme?: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const projects = useApp((s) => s.projects);
-  const clients = useApp((s) => s.clients);
   const user = useApp((s) => s.user);
   const selectedProjectId = useApp((s) => s.selectedProjectId);
   const setSelectedProject = useApp((s) => s.setSelectedProject);
   const [openNewProject, setOpenNewProject] = useState(false);
+  const [desktopReady, setDesktopReady] = useState(false);
   const { signOut } = useAuth();
+  const { notify } = useNotification();
+
+  useEffect(() => {
+    setDesktopReady(isDesktop());
+  }, []);
 
   return (
     <aside className="flex h-screen w-[240px] shrink-0 flex-col bg-surface py-5 px-3">
       <div className="flex flex-col gap-6 flex-1 overflow-y-auto scrollbar-hide">
         <div className="px-1">
-          <BrandMark size="sm" className="px-0" />
+          <BrandMark size="sm" className="px-0" theme={theme} />
         </div>
+
 
         {/* Search */}
         <div className="relative flex items-center px-1">
@@ -56,19 +80,17 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
             className="absolute left-[15px] text-text-faint pointer-events-none"
             aria-hidden
           />
-          <div
+          <button
+            type="button"
             onClick={onSearchClick}
-            role="button"
             aria-label="Quick search"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === "Enter" && onSearchClick?.()}
             className="w-full h-[34px] bg-canvas rounded-[8px] flex items-center justify-between px-2 pl-[30px] cursor-pointer hover:bg-base transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
             <span className="text-[12px] text-text-faint">Search...</span>
             <div className="flex items-center justify-center border border-border rounded-[4px] px-1.5 py-px bg-surface-raised">
               <span className="text-[10px] text-text-faint font-medium tracking-wide">⌘K</span>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Primary Nav */}
@@ -81,7 +103,7 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "nav-interactive relative flex items-center gap-2.5 rounded-[8px] px-2.5 py-[7px] text-[13px] font-medium",
+                  "sidebar-link-interactive relative flex items-center gap-2.5 rounded-[8px] px-2.5 py-[7px] text-[13px] font-medium",
                   active
                     ? "bg-accent/10 text-accent"
                     : "text-text-muted hover:bg-surface-raised hover:text-text-secondary"
@@ -95,7 +117,7 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
                 />
                 {label}
                 {active && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-r-full bg-accent" />
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-r-full bg-accent animate-nav-indicator" />
                 )}
               </Link>
             );
@@ -107,7 +129,6 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
         {/* Projects */}
         <ProjectsSection
           projects={projects.filter((p) => !p.archived)}
-          clients={clients}
           selectedProjectId={selectedProjectId}
           onSelectProject={setSelectedProject}
           onNavigateProject={(projectId) => router.push(`/projects/${projectId}`)}
@@ -116,7 +137,61 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
       </div>
 
       {/* Profile at bottom */}
-      <div className="pt-3 mt-3 px-1">
+      <div className="pt-3 mt-3 px-1 space-y-2">
+        {desktopReady && (
+          <div className="flex items-center gap-1.5 w-full">
+            <button
+              onClick={async () => {
+                try {
+                  await invoke("enter_mini_mode");
+                } catch (e) {
+                  notify({
+                    title: "Could not enter pet mode",
+                    description: e instanceof Error ? e.message : "The desktop shell did not accept the pet-mode request.",
+                    tone: "warning",
+                  });
+                }
+              }}
+              className="flex-1 flex h-9 items-center justify-between rounded-[8px] px-2 text-[12px] font-medium text-text-muted transition-colors hover:bg-surface-raised hover:text-text-primary focus-ring"
+              aria-label="Toggle pet mini-mode"
+              title="Shrink to mini-timer + pet overlay (Alt+Shift+T)"
+            >
+              <span className="flex items-center gap-2.5">
+                <Lightning size={15} weight="regular" aria-hidden />
+                Pet mode
+              </span>
+              <span className="rounded-full bg-surface-mid px-2 py-0.5 text-[10px] text-text-faint">
+                Mini
+              </span>
+            </button>
+            <button
+              onClick={() => router.push("/settings?tab=pet")}
+              className="flex h-9 w-9 items-center justify-center rounded-[8px] text-text-muted transition-colors hover:bg-surface-raised hover:text-text-primary focus-ring shrink-0"
+              aria-label="Pet Mascot Settings"
+              title="Mascot & Pet Settings"
+            >
+              <Gear size={15} weight="regular" />
+            </button>
+          </div>
+        )}
+        <button
+          onClick={onToggleTheme}
+          className="flex h-9 w-full items-center justify-between rounded-[8px] px-2 text-[12px] font-medium text-text-muted transition-colors hover:bg-surface-raised hover:text-text-primary focus-ring"
+          aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+          title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+        >
+          <span className="flex items-center gap-2.5">
+            {theme === "light" ? (
+              <Sun size={15} weight="regular" aria-hidden />
+            ) : (
+              <Moon size={15} weight="regular" aria-hidden />
+            )}
+            {theme === "light" ? "Light mode" : "Dark mode"}
+          </span>
+          <span className="rounded-full bg-surface-mid px-2 py-0.5 text-[10px] text-text-faint">
+            Toggle
+          </span>
+        </button>
         <div className="flex items-center justify-between rounded-[8px] px-2 py-2 hover:bg-surface-raised transition-colors group">
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
             <div className="relative shrink-0">
@@ -164,8 +239,7 @@ export default function Sidebar({ onSearchClick }: { onSearchClick?: () => void 
 }
 
 interface ProjectsSectionProps {
-  projects: any[];
-  clients: any[];
+  projects: Project[];
   selectedProjectId: string | null;
   onSelectProject: (id: string | null) => void;
   onNavigateProject: (id: string) => void;
@@ -174,7 +248,6 @@ interface ProjectsSectionProps {
 
 function ProjectsSection({
   projects,
-  clients,
   selectedProjectId,
   onSelectProject,
   onNavigateProject,
@@ -207,13 +280,24 @@ function ProjectsSection({
               key={p.id}
               onClick={() => onNavigateProject(p.id)}
               className={cn(
-                "nav-interactive flex items-center gap-2 rounded-[7px] px-2 py-[6px] text-left text-[12px] w-full",
+                "sidebar-link-interactive flex items-center gap-2 rounded-[7px] px-2 py-[6px] text-left text-[12px] w-full",
                 active
-                  ? "bg-accent/10 text-accent font-medium"
+                  ? "font-medium"
                   : "text-text-muted hover:bg-surface-raised hover:text-text-secondary font-normal"
               )}
+              style={active ? { color: getProjectColor(p.color).hex } : {}}
             >
-              <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", colorDot(p.color))} />
+              <span
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
+                style={{ background: getProjectColor(p.color).hex + "20" }}
+              >
+                <AppIcon
+                  name={resolveProjectIcon(p.icon) as IconName}
+                  size={12}
+                  weight={active ? "bold" : "regular"}
+                  style={{ color: getProjectColor(p.color).hex } as React.CSSProperties}
+                />
+              </span>
               <span className="truncate">{p.name}</span>
             </button>
           );
@@ -223,21 +307,11 @@ function ProjectsSection({
       {hasMore && (
         <button
           onClick={() => onSelectProject(null)}
-          className="nav-interactive flex items-center justify-center rounded-[6px] px-2 py-1.5 text-[12px] font-normal w-full text-text-muted hover:bg-surface-raised hover:text-text-secondary"
+          className="sidebar-link-interactive flex items-center justify-center rounded-[6px] px-2 py-1.5 text-[12px] font-normal w-full text-text-muted hover:bg-surface-raised hover:text-text-secondary"
         >
           View all {projects.length} projects
         </button>
       )}
     </div>
   );
-}
-
-function colorDot(c: string) {
-  switch (c) {
-    case "teal":   return "bg-teal-400";
-    case "amber":  return "bg-accent";
-    case "rose":   return "bg-rose-400";
-    case "indigo": return "bg-indigo-400";
-    default:       return "bg-text-muted";
-  }
 }

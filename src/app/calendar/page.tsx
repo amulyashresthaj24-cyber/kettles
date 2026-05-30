@@ -16,7 +16,8 @@ import { taskDateTimestamp } from "@/lib/task-dates";
 import { AddTaskModal } from "@/components/AddTaskModal";
 import { TaskDetailSidebar } from "@/components/TaskDetailSidebar";
 import { Button } from "@/components/ui/button";
-import type { Task } from "@/lib/types";
+import type { Task, ProjectColor } from "@/lib/types";
+import { PROJECT_COLOR_HEX } from "@/lib/constants";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -31,15 +32,8 @@ interface CalendarEvent {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const PROJECT_COLORS: Record<string, string> = {
-  teal: "#14b8a6",
-  amber: "#0066ff",
-  rose: "#f43f5e",
-  indigo: "#6366f1",
-};
-
 function getProjectColor(color: string) {
-  return PROJECT_COLORS[color] ?? "#8a8f98";
+  return PROJECT_COLOR_HEX[color as ProjectColor] ?? "var(--text-muted)";
 }
 
 const URGENCY_RING: Record<string, string | null> = {
@@ -99,6 +93,8 @@ export default function CalendarPage() {
   });
   const [cursor, setCursor] = useState(new Date());
   const [openAddTask, setOpenAddTask] = useState(false);
+  const [selectedDateRange, setSelectedDateRange] = useState<string>("");
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [filterProject, setFilterProject] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "todo" | "doing" | "done">("all");
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
@@ -111,6 +107,19 @@ export default function CalendarPage() {
   const selectedTaskId = useApp((s) => s.selectedTaskId);
   const setSelectedTaskId = useApp((s) => s.setSelectedTaskId);
   const activeTaskId = sessions.find((s) => s.id === activeSessionId)?.taskId ?? null;
+
+  const handleOpenAddTask = (date?: Date) => {
+    if (date) {
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      setSelectedDateRange(`${yyyy}-${mm}-${dd}`);
+    } else {
+      setSelectedDateRange("");
+    }
+    setEditingTask(null);
+    setOpenAddTask(true);
+  };
 
   useEffect(() => {
     if (!projectDropdownOpen) return;
@@ -217,7 +226,7 @@ export default function CalendarPage() {
               {headerLabel()}
             </p>
           </div>
-          <Button variant="primary" size="default" onClick={() => setOpenAddTask(true)}>
+          <Button variant="primary" size="default" onClick={() => handleOpenAddTask()}>
             <Plus size={14} />
             Add Task
           </Button>
@@ -357,7 +366,7 @@ export default function CalendarPage() {
             cursor={cursor}
             eventsForDay={eventsForDay}
             onTaskClick={(id) => setSelectedTaskId(id)}
-            onSlotClick={() => setOpenAddTask(true)}
+            onSlotClick={(day) => handleOpenAddTask(day)}
             activeTaskId={activeTaskId}
           />
         )}
@@ -366,7 +375,7 @@ export default function CalendarPage() {
             cursor={cursor}
             eventsForDay={eventsForDay}
             onTaskClick={(id) => setSelectedTaskId(id)}
-            onDayClick={() => setOpenAddTask(true)}
+            onDayClick={(day) => handleOpenAddTask(day)}
             activeTaskId={activeTaskId}
           />
         )}
@@ -382,7 +391,7 @@ export default function CalendarPage() {
           <ListView
             cursor={cursor}
             events={events}
-            onAddTask={() => setOpenAddTask(true)}
+            onAddTask={(day) => handleOpenAddTask(day)}
             onTaskClick={(id) => setSelectedTaskId(id)}
             activeTaskId={activeTaskId}
           />
@@ -393,10 +402,21 @@ export default function CalendarPage() {
       <TaskDetailSidebar
         taskId={selectedTaskId}
         onClose={() => setSelectedTaskId(null)}
-        onOpenAddTask={() => setOpenAddTask(true)}
+        onEditTask={(task) => {
+          setEditingTask(task);
+          setOpenAddTask(true);
+        }}
       />
 
-      <AddTaskModal open={openAddTask} onClose={() => setOpenAddTask(false)} />
+      <AddTaskModal
+        open={openAddTask}
+        onClose={() => {
+          setOpenAddTask(false);
+          setEditingTask(null);
+        }}
+        editingTask={editingTask}
+        defaultDateRange={selectedDateRange}
+      />
     </div>
   );
 }
@@ -847,7 +867,7 @@ function ListView({
 }: {
   cursor: Date;
   events: CalendarEvent[];
-  onAddTask: () => void;
+  onAddTask: (day: Date) => void;
   onTaskClick: (taskId: string) => void;
   activeTaskId: string | null;
 }) {
@@ -956,7 +976,7 @@ function ListView({
               events={dayEvents}
               showTime
               showAddTask
-              onAddTask={onAddTask}
+              onAddTask={() => onAddTask(day)}
               onTaskClick={onTaskClick}
               activeTaskId={activeTaskId}
             />

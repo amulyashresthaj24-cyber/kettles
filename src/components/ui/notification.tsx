@@ -1,15 +1,22 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useMemo, useState, useEffect, useRef } from "react";
 import { CheckCircle, Info, Warning, X } from "./icon";
 
-type NotificationTone = "info" | "success" | "warning";
+type NotificationTone = "info" | "success" | "warning" | "error";
+
+interface NotificationAction {
+  label: string;
+  onClick: () => void;
+}
 
 interface Notification {
   id: string;
   title: string;
   description?: string;
   tone: NotificationTone;
+  action?: NotificationAction;
+  durationMs?: number;
 }
 
 interface NotificationContextValue {
@@ -22,7 +29,190 @@ const toneIcon = {
   info: Info,
   success: CheckCircle,
   warning: Warning,
+  error: Warning,
 };
+
+// A helper pauseable timer class to handle pausing and resuming toast auto-dismiss
+class PauseableTimer {
+  private timerId: any = null;
+  private startTime: number = 0;
+  private remaining: number;
+  private callback: () => void;
+
+  constructor(callback: () => void, delay: number) {
+    this.callback = callback;
+    this.remaining = delay;
+    this.resume();
+  }
+
+  pause() {
+    if (this.timerId) {
+      window.clearTimeout(this.timerId);
+      this.timerId = null;
+      this.remaining -= Date.now() - this.startTime;
+    }
+  }
+
+  resume() {
+    if (!this.timerId && this.remaining > 0) {
+      this.startTime = Date.now();
+      this.timerId = window.setTimeout(this.callback, this.remaining);
+    }
+  }
+
+  clear() {
+    if (this.timerId) {
+      window.clearTimeout(this.timerId);
+      this.timerId = null;
+    }
+    this.remaining = 0;
+  }
+}
+
+function ToastItem({
+  notification,
+  onDismiss,
+}: {
+  notification: Notification;
+  onDismiss: (id: string) => void;
+}) {
+  const [isExiting, setIsExiting] = useState(false);
+  const timerRef = useRef<PauseableTimer | null>(null);
+  const durationMs = notification.durationMs ?? 3600;
+
+  const triggerDismiss = useCallback(() => {
+    if (timerRef.current) {
+      timerRef.current.clear();
+    }
+    setIsExiting(true);
+  }, []);
+
+  // When isExiting transitions to true, wait for the slide-out animation to finish
+  useEffect(() => {
+    if (isExiting) {
+      const exitTimeout = window.setTimeout(() => {
+        onDismiss(notification.id);
+      }, 200); // matches the slide-out duration
+      return () => window.clearTimeout(exitTimeout);
+    }
+  }, [isExiting, onDismiss, notification.id]);
+
+  // Set up the auto-dismiss timer on mount
+  useEffect(() => {
+    timerRef.current = new PauseableTimer(triggerDismiss, durationMs);
+    return () => {
+      if (timerRef.current) {
+        timerRef.current.clear();
+      }
+    };
+  }, [triggerDismiss, durationMs]);
+
+  const handleMouseEnter = () => {
+    if (timerRef.current) {
+      timerRef.current.pause();
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (timerRef.current) {
+      timerRef.current.resume();
+    }
+  };
+
+  const Icon = toneIcon[notification.tone];
+
+  // Map tone to specific colors, borders, and glows
+  const toneStyles = {
+    success: {
+      borderLeft: "4px solid var(--success)",
+      iconClass: "text-success",
+      iconColor: "var(--success)",
+      glowColor: "rgba(16, 185, 129, 0.12)",
+    },
+    warning: {
+      borderLeft: "4px solid var(--warning)",
+      iconClass: "text-warning",
+      iconColor: "var(--warning)",
+      glowColor: "rgba(59, 130, 246, 0.12)", // Warning maps to blue family accent in this codebase
+    },
+    info: {
+      borderLeft: "4px solid var(--info)",
+      iconClass: "text-text-muted",
+      iconColor: "var(--info)",
+      glowColor: "rgba(59, 130, 246, 0.08)",
+    },
+    error: {
+      borderLeft: "4px solid var(--error)",
+      iconClass: "text-error",
+      iconColor: "var(--error)",
+      glowColor: "rgba(239, 68, 68, 0.12)",
+    },
+  }[notification.tone];
+
+  return (
+    <div
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={`toast-item pointer-events-auto rounded-xl p-3.5 shadow-2xl relative overflow-hidden transition-all duration-200 ${
+        isExiting ? "animate-slide-out-right" : "animate-slide-in-right"
+      }`}
+      style={{
+        background: "var(--surface-glass)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        border: "1px solid var(--border-subtle)",
+        borderLeft: toneStyles.borderLeft,
+        boxShadow: `0 12px 30px -10px ${toneStyles.glowColor}, 0 4px 12px -2px rgba(0, 0, 0, 0.05)`,
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 shrink-0">
+          <Icon
+            size={16}
+            className={toneStyles.iconClass}
+            style={{ color: toneStyles.iconColor }}
+            aria-hidden
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-semibold text-text-primary tracking-tight leading-none">{notification.title}</p>
+          {notification.description && (
+            <p className="mt-1 text-[12px] leading-snug text-text-muted">{notification.description}</p>
+          )}
+          {notification.action && (
+            <button
+              onClick={() => {
+                notification.action?.onClick();
+                triggerDismiss();
+              }}
+              className="mt-2 text-[11px] font-semibold text-accent hover:text-accent-hover transition-colors px-2 py-0.5 rounded bg-accent/8 hover:bg-accent/15 w-fit block"
+            >
+              {notification.action.label}
+            </button>
+          )}
+        </div>
+        <button
+          className="text-text-muted hover:text-text-primary hover:bg-text-primary/5 p-1 rounded-full transition-all duration-150 shrink-0"
+          onClick={triggerDismiss}
+          aria-label="Dismiss notification"
+        >
+          <X size={14} aria-hidden />
+        </button>
+      </div>
+
+      {/* Shrinking progress bar */}
+      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-border-subtle/20 overflow-hidden">
+        <div
+          className="toast-progress-bar w-full h-full"
+          style={{
+            "--toast-duration": `${durationMs}ms`,
+            backgroundColor: toneStyles.iconColor,
+          } as React.CSSProperties}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -31,43 +221,28 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setNotifications((items) => items.filter((item) => item.id !== id));
   }, []);
 
-  const notify = useCallback((notification: Omit<Notification, "id"> & { durationMs?: number }) => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    setNotifications((items) => [...items.slice(-2), { ...notification, id }]);
-    window.setTimeout(() => dismiss(id), notification.durationMs ?? 3600);
-  }, [dismiss]);
+  const notify = useCallback(
+    (notification: Omit<Notification, "id"> & { durationMs?: number }) => {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      // Limit to showing the 3 most recent notifications at once
+      setNotifications((items) => [...items.slice(-2), { ...notification, id }]);
+    },
+    []
+  );
 
   const value = useMemo(() => ({ notify }), [notify]);
 
   return (
     <NotificationContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed right-6 top-6 z-[200] flex w-[360px] max-w-[calc(100vw-48px)] flex-col gap-2">
-        {notifications.map((notification) => {
-          const Icon = toneIcon[notification.tone];
-          return (
-            <div
-              key={notification.id}
-              className="pointer-events-auto animate-slide-in-right rounded-lg p-3 shadow-2xl"
-              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
-            >
-              <div className="flex items-start gap-3">
-                <Icon
-                  size={16}
-                  className={notification.tone === "success" ? "text-status-success" : notification.tone === "warning" ? "text-warning" : "text-text-muted"}
-                  aria-hidden
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-semibold text-text-primary">{notification.title}</p>
-                  {notification.description && <p className="mt-0.5 text-[12px] leading-snug text-text-muted">{notification.description}</p>}
-                </div>
-                <button className="text-text-muted hover:text-text-primary" onClick={() => dismiss(notification.id)} aria-label="Dismiss notification">
-                  <X size={14} aria-hidden />
-                </button>
-              </div>
-            </div>
-          );
-        })}
+      <div className="pointer-events-none fixed right-6 top-6 z-[200] flex w-[360px] max-w-[calc(100vw-48px)] flex-col gap-2.5">
+        {notifications.map((notification) => (
+          <ToastItem
+            key={notification.id}
+            notification={notification}
+            onDismiss={dismiss}
+          />
+        ))}
       </div>
     </NotificationContext.Provider>
   );

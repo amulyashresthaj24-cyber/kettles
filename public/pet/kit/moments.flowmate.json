@@ -1,0 +1,26 @@
+{
+  "events": {
+    "hover": { "play": "waving", "reason": "Acknowledge attention without interrupting work." },
+    "click": { "play": "waving", "reason": "Friendly tap response." },
+    "doubleClick": { "play": "jumping", "reason": "Expressive manual interaction." },
+    "timerStart": { "play": "working_still", "phase": "running", "reason": "Timer starts focused work." },
+    "timerResume": { "play": "working_still", "phase": "running", "reason": "Resume the focused state without a big flourish." },
+    "timerPause": { "play": "waiting", "phase": "paused", "reason": "Hold a calm waiting loop." },
+    "timerBreak": { "play": "idle", "phase": "idle", "reason": "Return to a low-distraction loop." },
+    "timerFinish": { "play": "jumping", "then": "idle", "phase": "finished", "notify": true, "reason": "Celebrate completion, then settle." },
+    "timerAbandon": { "play": "failed", "then": "idle", "phase": "idle", "reason": "Brief interruption reaction, then recover." }
+  },
+  "phaseStates": {
+    "idle": "idle",
+    "running": "working_still",
+    "paused": "waiting",
+    "finished": "idle"
+  },
+  "bubbleCopy": {
+    "idle": "Focus",
+    "running": "Focusing",
+    "paused": "Paused",
+    "finished": "Complete"
+  }
+}
+

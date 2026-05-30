@@ -1,23 +1,35 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CaretDown,
+  Archive,
+  Briefcase,
+  CalendarBlank,
   CaretLeft,
-  Eye,
+  CheckCircle,
+  Clock,
+  CurrencyDollar,
+  DotsThreeVertical,
+  FolderOpen,
   Lock,
   LockOpen,
-  DotsThreeVertical,
+  PencilSimple,
   Plus,
+  Tag,
+  Target,
+  User,
 } from "@/components/ui/icon";
-import type { Project, Task } from "@/lib/types";
+import type { Client, Project, ProjectStatus, ProjectColor, Task, TaskStatus } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
+import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { AddTaskModal } from "@/components/AddTaskModal";
 import { EditProjectModal } from "@/components/EditProjectModal";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { TaskList } from "@/components/TaskList";
-import { ProjectDetailsCard } from "@/components/ProjectDetailsCard";
+import { cn } from "@/lib/utils";
+import { formatDuration } from "@/lib/format";
 
 type TabId = "overview" | "tasks" | "board";
 
@@ -27,54 +39,90 @@ interface ProjectWorkspaceProps {
   onBack: () => void;
 }
 
-export function ProjectWorkspace({
-  project,
-  tasks,
-  onBack,
-}: ProjectWorkspaceProps) {
-  const { updateProject, clients } = useApp();
+const STATUS_LABELS: Record<ProjectStatus, string> = {
+  active: "Active",
+  paused: "Paused",
+  completed: "Completed",
+  archived: "Archived",
+};
+
+const STATUS_BADGE_VARIANT: Record<ProjectStatus, "success" | "warning" | "accent" | "raised"> = {
+  active: "success",
+  paused: "warning",
+  completed: "accent",
+  archived: "raised",
+};
+
+const TASK_STATUS_BADGE_VARIANT: Record<TaskStatus, "raised" | "accent" | "success"> = {
+  todo: "raised",
+  doing: "accent",
+  done: "success",
+};
+
+const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  todo: "To do",
+  doing: "Doing",
+  done: "Done",
+};
+
+export function ProjectWorkspace({ project, tasks, onBack }: ProjectWorkspaceProps) {
+  const { updateProject, clients, user } = useApp();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
-  const [showProjectInfo, setShowProjectInfo] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<
-    Record<string, boolean>
-  >({
-    members: true,
-  });
   const [addTaskOpen, setAddTaskOpen] = useState(false);
   const [editProjectOpen, setEditProjectOpen] = useState(false);
-  const [isPrivate, setIsPrivate] = useState(!project.tags?.includes("public"));
   const [newTag, setNewTag] = useState("");
 
-  const projectTasks = useMemo(
-    () => tasks.filter((t) => !t.archived),
-    [tasks]
+  const projectTasks = useMemo(() => tasks.filter((t) => !t.archived), [tasks]);
+  const client = useMemo(
+    () => clients.find((c) => c.id === project.clientId),
+    [clients, project.clientId]
   );
+  const isPrivate = !project.tags?.includes("public");
+  const status = project.status ?? "active";
 
-  const getClientName = () => {
-    const client = clients.find((c) => c.id === project.clientId);
-    return client?.name || "";
-  };
+  const tabRefs = useRef<Record<TabId, HTMLButtonElement | null>>({
+    overview: null,
+    tasks: null,
+    board: null,
+  });
+  const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
 
-  const handlePrivacyChange = (isPrivate: boolean) => {
-    setIsPrivate(isPrivate);
-    const newTags = isPrivate 
-      ? (project.tags || []).filter(t => t !== "public")
-      : [...(project.tags || []), "public"];
-    updateProject(project.id, { tags: newTags });
+  useEffect(() => {
+    const updateIndicator = () => {
+      const activeEl = tabRefs.current[activeTab];
+      if (activeEl) {
+        setIndicatorStyle({
+          left: activeEl.offsetLeft,
+          width: activeEl.clientWidth,
+        });
+      }
+    };
+
+    updateIndicator();
+    // Use window resize + setTimeout to make sure layouts have settled
+    const handleResize = () => {
+      requestAnimationFrame(updateIndicator);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [activeTab]);
+
+  const handlePrivacyChange = async (nextPrivate: boolean) => {
+    const currentTags = project.tags ?? [];
+    const nextTags = nextPrivate
+      ? currentTags.filter((tag) => tag !== "public")
+      : Array.from(new Set([...currentTags, "public"]));
+    await updateProject(project.id, { tags: nextTags });
   };
 
   const handleAddTag = async () => {
-    if (newTag.trim()) {
-      const currentTags = project.tags || [];
-      if (!currentTags.includes(newTag)) {
-        await updateProject(project.id, { tags: [...currentTags, newTag] });
-        setNewTag("");
-      }
+    const trimmed = newTag.trim();
+    if (!trimmed) return;
+    const currentTags = project.tags ?? [];
+    if (!currentTags.includes(trimmed)) {
+      await updateProject(project.id, { tags: [...currentTags, trimmed] });
     }
-  };
-
-  const handleDateChange = async (startDate?: number, endDate?: number) => {
-    await updateProject(project.id, { startDate, endDate });
+    setNewTag("");
   };
 
   const tabs: { id: TabId; label: string }[] = [
@@ -83,193 +131,94 @@ export function ProjectWorkspace({
     { id: "board", label: "Board" },
   ];
 
-  const toggleSection = (section: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
-  };
-
   return (
-    <div className="flex flex-col h-screen bg-base overflow-hidden">
-      {/* Top Navigation Bar */}
-      <div className="flex items-center justify-between px-lg py-sm">
-        <div className="flex items-center gap-sm">
+    <div className="flex h-screen flex-col overflow-hidden bg-base">
+      <header className="flex items-center justify-between border-b border-border-subtle bg-base px-lg py-sm">
+        <div className="flex min-w-0 items-center gap-sm">
           <button
             onClick={onBack}
-            className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-surface-raised transition-colors text-text-secondary hover:text-text-primary"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-surface-raised hover:text-text-primary focus-ring"
+            aria-label="Back to projects"
           >
             <CaretLeft size={18} />
           </button>
 
-          <div 
-            className="flex items-center gap-md"
-            onMouseEnter={() => setShowProjectInfo(true)}
-            onMouseLeave={() => setShowProjectInfo(false)}
-          >
-            <div className="flex items-center gap-sm">
-              <Lock size={16} className="text-text-secondary" />
-              <h1 className="text-sm font-semibold text-text-primary">
-                {project.name}
-              </h1>
-            </div>
-
-            {/* Client and Billable Tags - Appear on Hover */}
-            <div className="flex items-center gap-sm">
-              {getClientName() && (
-                <div 
-                  className="px-sm py-xs rounded-md bg-surface-raised text-text-secondary text-xs whitespace-nowrap transition-all duration-200 ease-out origin-left transform"
-                  style={{
-                    opacity: showProjectInfo ? 1 : 0,
-                    transform: showProjectInfo ? "scale(1)" : "scale(0.95)",
-                    pointerEvents: showProjectInfo ? "auto" : "none",
-                  }}
-                >
-                  {getClientName()}
-                </div>
-              )}
-              {project.billable && (
-                <div 
-                  className="px-sm py-xs rounded-md bg-surface-raised text-accent text-xs font-medium flex items-center gap-xs whitespace-nowrap transition-all duration-200 ease-out origin-left transform"
-                  style={{
-                    opacity: showProjectInfo ? 1 : 0,
-                    transform: showProjectInfo ? "scale(1)" : "scale(0.95)",
-                    pointerEvents: showProjectInfo ? "auto" : "none",
-                  }}
-                >
-                  <span>$</span>
-                  <span>Billable</span>
-                </div>
-              )}
+          <div className="flex min-w-0 items-center gap-md">
+            <span className={cn("h-3 w-3 rounded-full", getColorClass(project.color))} />
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-semibold text-text-primary">{project.name}</h1>
+              <p className="truncate text-xs text-text-muted">
+                {client?.name ?? "No client"} · {project.billable ? "Billable" : "Internal"} · {STATUS_LABELS[status]}
+              </p>
             </div>
           </div>
 
-          <button className="flex items-center gap-xs text-text-secondary hover:text-text-primary transition-colors text-sm ml-sm">
-            <span>Rochak</span>
-            <CaretDown size={14} />
-          </button>
+          <Badge className="ml-sm" variant={STATUS_BADGE_VARIANT[status]}>{STATUS_LABELS[status]}</Badge>
+        </div>
 
-          <button className="flex items-center gap-xs text-text-secondary hover:text-text-primary transition-colors">
+        <div className="flex items-center gap-sm">
+          <span className="hidden items-center gap-xs rounded-md bg-surface-raised px-sm py-xs text-xs text-text-secondary md:flex">
+            <User size={13} />
+            {user?.name ?? "Owner"}
+          </span>
+          <Button variant="secondary" size="sm" onClick={() => setEditProjectOpen(true)}>
+            <PencilSimple size={14} />
+            Edit
+          </Button>
+          <button
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-surface-raised hover:text-text-primary focus-ring"
+            aria-label="Project actions"
+          >
             <DotsThreeVertical size={16} />
           </button>
         </div>
+      </header>
 
-        <div className="flex items-center gap-sm">
-          <button className="text-sm text-text-secondary hover:text-text-primary transition-colors flex items-center gap-xs">
-            Saved views
-            <CaretDown size={14} />
-          </button>
-          <Button className="flex items-center gap-xs" variant="secondary" size="sm">
-            <Plus size={14} />
-            Share
-          </Button>
-        </div>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="flex items-center gap-2xl px-lg py-0 border-b border-border-subtle bg-base overflow-x-auto">
+      <nav className="relative flex items-center gap-2xl border-b border-border-subtle bg-base px-lg" aria-label="Project sections">
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            ref={(el) => {
+              tabRefs.current[tab.id] = el;
+            }}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-0 py-md text-sm font-medium transition-colors relative whitespace-nowrap ${
-              activeTab === tab.id
-                ? "text-text-primary"
-                : "text-text-secondary hover:text-text-primary"
-            }`}
+            className={cn(
+              "px-0 py-md text-sm font-medium transition-colors focus-ring",
+              activeTab === tab.id ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
+            )}
           >
             {tab.label}
-            {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-accent" />
-            )}
           </button>
         ))}
-      </div>
-
-      {/* Main Content Area - Full Width */}
-      <div className="flex-1 overflow-hidden bg-base pt-lg">
-        <div className="w-full h-full flex flex-col overflow-y-auto">
-          <TabContent
-            activeTab={activeTab}
-            project={project}
-            tasks={projectTasks}
-            expandedSections={expandedSections}
-            onToggleSection={toggleSection}
-            onAddTask={() => setAddTaskOpen(true)}
-            onEditProject={() => setEditProjectOpen(true)}
-            isPrivate={isPrivate}
-            onPrivacyChange={handlePrivacyChange}
-            onAddTag={handleAddTag}
-            onDateChange={handleDateChange}
-            newTag={newTag}
-            onNewTagChange={setNewTag}
-            clientName={getClientName()}
-            clients={clients}
-            onUpdateProject={updateProject}
-          />
-        </div>
-      </div>
-
-      {/* Modals */}
-      <AddTaskModal
-        open={addTaskOpen}
-        onClose={() => setAddTaskOpen(false)}
-        defaultProjectId={project.id}
-      />
-
-      <EditProjectModal
-        open={editProjectOpen}
-        onClose={() => setEditProjectOpen(false)}
-        project={project}
-      />
-    </div>
-  );
-}
-
-interface CollapsibleSectionProps {
-  title: string;
-  isOpen: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-  hasIcons?: boolean;
-}
-
-function CollapsibleSection({
-  title,
-  isOpen,
-  onToggle,
-  children,
-  hasIcons = false,
-}: CollapsibleSectionProps) {
-  return (
-    <div className="border-b border-border-subtle pb-lg">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between py-md hover:bg-surface-raised rounded-md px-sm transition-colors group"
-      >
-        <div className="flex items-center gap-sm">
-          <span className="text-sm font-medium text-text-primary group-hover:text-accent">
-            {title}
-          </span>
-          {hasIcons && (
-            <div className="flex items-center gap-xs ml-auto">
-              <button className="text-text-secondary hover:text-accent transition-colors">
-                <Eye size={14} />
-              </button>
-              <button className="text-text-secondary hover:text-accent transition-colors">
-                <Plus size={14} />
-              </button>
-            </div>
-          )}
-        </div>
-        <CaretDown
-          size={16}
-          className={`text-text-secondary transition-transform ${
-            isOpen ? "rotate-180" : ""
-          }`}
+        <span
+          className="absolute bottom-0 h-0.5 bg-accent transition-all duration-300 ease-out"
+          style={{
+            left: `${indicatorStyle.left}px`,
+            width: `${indicatorStyle.width}px`,
+          }}
         />
-      </button>
-      {isOpen && <div className="pt-md text-sm">{children}</div>}
+      </nav>
+
+      <main className="flex-1 overflow-hidden bg-base">
+        <TabContent
+          activeTab={activeTab}
+          project={project}
+          client={client}
+          tasks={projectTasks}
+          ownerName={user?.name ?? "Owner"}
+          isPrivate={isPrivate}
+          newTag={newTag}
+          onNewTagChange={setNewTag}
+          onAddTag={handleAddTag}
+          onAddTask={() => setAddTaskOpen(true)}
+          onEditProject={() => setEditProjectOpen(true)}
+          onPrivacyChange={handlePrivacyChange}
+          onUpdateProject={updateProject}
+        />
+      </main>
+
+      <AddTaskModal open={addTaskOpen} onClose={() => setAddTaskOpen(false)} defaultProjectId={project.id} />
+      <EditProjectModal open={editProjectOpen} onClose={() => setEditProjectOpen(false)} project={project} />
     </div>
   );
 }
@@ -277,180 +226,50 @@ function CollapsibleSection({
 interface TabContentProps {
   activeTab: TabId;
   project: Project;
+  client?: Client;
   tasks: Task[];
-  expandedSections: Record<string, boolean>;
-  onToggleSection: (section: string) => void;
-  onAddTask: () => void;
-  onEditProject: () => void;
+  ownerName: string;
   isPrivate: boolean;
-  onPrivacyChange: (isPrivate: boolean) => void;
-  onAddTag: () => void;
-  onDateChange: (startDate?: number, endDate?: number) => Promise<void>;
   newTag: string;
   onNewTagChange: (tag: string) => void;
-  clientName: string;
-  clients: any[];
-  onUpdateProject: (id: string, patch: any) => Promise<void>;
+  onAddTag: () => void;
+  onAddTask: () => void;
+  onEditProject: () => void;
+  onPrivacyChange: (isPrivate: boolean) => void;
+  onUpdateProject: (id: string, patch: Partial<Omit<Project, "id">>) => Promise<void>;
 }
 
-function TabContent({
-  activeTab,
-  project,
-  tasks,
-  expandedSections,
-  onToggleSection,
-  onAddTask,
-  onEditProject,
-  isPrivate,
-  onPrivacyChange,
-  onAddTag,
-  onDateChange,
-  newTag,
-  onNewTagChange,
-  clientName,
-  clients,
-  onUpdateProject,
-}: TabContentProps) {
-  if (activeTab === "overview") {
-    return (
-      <div className="overflow-y-auto h-full">
-        <div className="flex gap-lg h-full">
-          {/* Left Sidebar */}
-          <div className="w-72 border-r border-border-subtle bg-base overflow-y-auto px-lg py-lg space-y-lg flex-shrink-0">
-            {/* Project Header */}
-            <div className="space-y-md">
-              <div className="flex items-center gap-md">
-                <div
-                  className={`w-6 h-6 rounded-md ${getColorClass(
-                    project.color
-                  )}`}
-                />
-                <h2 className="text-sm font-semibold text-text-primary">
-                  {project.name}
-                </h2>
-              </div>
-            </div>
-
-            {/* Project Controls */}
-            <div className="space-y-sm">
-              <button className="w-full flex items-center justify-between px-sm py-xs rounded-md bg-surface-raised hover:bg-surface-mid transition-colors text-text-secondary hover:text-text-primary border border-border-subtle text-sm">
-                <span className="font-medium">
-                  {project.startDate || project.endDate 
-                    ? `${project.startDate ? new Date(project.startDate).toLocaleDateString() : ''} – ${project.endDate ? new Date(project.endDate).toLocaleDateString() : ''}`.trim()
-                    : "Set start date – End date"}
-                </span>
-                <CaretDown size={14} />
-              </button>
-            </div>
-
-            {/* Privacy Toggle */}
-            <div className="flex gap-sm">
-              <button
-                onClick={() => onPrivacyChange(true)}
-                className={`flex-1 flex items-center justify-center gap-xs px-sm py-xs rounded-md transition-colors text-xs font-medium border ${
-                  isPrivate
-                    ? "bg-accent text-white border-accent"
-                    : "bg-transparent text-text-secondary hover:text-text-primary border-border-subtle"
-                }`}
-              >
-                <Lock size={12} />
-                Private
-              </button>
-              <button
-                onClick={() => onPrivacyChange(false)}
-                className={`flex-1 flex items-center justify-center gap-xs px-sm py-xs rounded-md transition-colors text-xs font-medium border ${
-                  !isPrivate
-                    ? "bg-surface-raised text-text-primary border-border-subtle"
-                    : "bg-transparent text-text-secondary hover:text-text-primary border-border-subtle"
-                }`}
-              >
-                <LockOpen size={12} />
-                Shared
-              </button>
-            </div>
-
-
-            {/* Divider */}
-            <div className="h-px bg-border-subtle" />
-
-            {/* Project Description */}
-            <div className="space-y-sm">
-              <p className="text-sm text-text-secondary">Project description</p>
-              <textarea
-                placeholder="Add description..."
-                className="w-full px-sm py-xs rounded-md bg-surface-raised border border-border-subtle text-text-primary text-base placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 resize-none"
-                rows={3}
-                defaultValue={project.description || ""}
-                onBlur={(e) => onUpdateProject(project.id, { description: e.currentTarget.value })}
-              />
-            </div>
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="flex-1 overflow-y-auto px-lg py-lg space-y-lg pr-lg">
-            {/* Project Members Section */}
-            <CollapsibleSection
-              title="Project members"
-              isOpen={expandedSections.members}
-              onToggle={() => onToggleSection("members")}
-              hasIcons={true}
-            >
-              <div className="space-y-md">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-sm">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600" />
-                    <div>
-                      <p className="text-sm font-medium text-text-primary">
-                        Amulyamars
-                      </p>
-                      <p className="text-xs text-text-muted">
-                        Project manager
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CollapsibleSection>
-          </div>
-        </div>
-      </div>
-    );
+function TabContent(props: TabContentProps) {
+  if (props.activeTab === "overview") {
+    return <ProjectOverview {...props} />;
   }
 
-  if (activeTab === "tasks") {
+  if (props.activeTab === "tasks") {
     return (
-      <div className="p-lg space-y-lg">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text-primary">
-            Tasks ({tasks.length})
-          </h2>
-          <Button onClick={onAddTask} className="flex items-center gap-md">
+      <div className="h-full overflow-y-auto p-lg">
+        <div className="mb-lg flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text-primary">Tasks ({props.tasks.length})</h2>
+          <Button onClick={props.onAddTask}>
             <Plus size={16} />
             Add Task
           </Button>
         </div>
-        <TaskList
-          tasks={tasks}
-          onAddTask={() => onAddTask()}
-          onEditTask={() => {}}
-        />
+        <TaskList tasks={props.tasks} onAddTask={() => props.onAddTask()} onEditTask={() => {}} />
       </div>
     );
   }
 
-  if (activeTab === "board") {
+  if (props.activeTab === "board") {
     return (
-      <div className="p-lg space-y-lg">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text-primary">
-            Board ({tasks.length})
-          </h2>
-          <Button onClick={onAddTask} className="flex items-center gap-md">
+      <div className="h-full overflow-y-auto p-lg">
+        <div className="mb-lg flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text-primary">Board ({props.tasks.length})</h2>
+          <Button onClick={props.onAddTask}>
             <Plus size={16} />
             Add Task
           </Button>
         </div>
-        <KanbanBoard tasks={tasks} onAddTask={onAddTask} />
+        <KanbanBoard tasks={props.tasks} onAddTask={props.onAddTask} />
       </div>
     );
   }
@@ -458,12 +277,326 @@ function TabContent({
   return null;
 }
 
+function ProjectOverview({
+  project,
+  client,
+  tasks,
+  ownerName,
+  isPrivate,
+  newTag,
+  onNewTagChange,
+  onAddTag,
+  onAddTask,
+  onEditProject,
+  onPrivacyChange,
+  onUpdateProject,
+}: TabContentProps) {
+  const sessions = useApp((s) => s.sessions);
+  const status = project.status ?? "active";
+  const doneCount = tasks.filter((task) => task.status === "done").length;
+  const doingCount = tasks.filter((task) => task.status === "doing").length;
+  const todoCount = tasks.filter((task) => task.status === "todo").length;
+  const totalEstimate = tasks.reduce((sum, task) => sum + (task.estimateMinutes ?? 0), 0);
+  const completion = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
+  const projectConfirmedSessions = sessions.filter((session) => session.projectId === project.id && (session.state ?? "confirmed") === "confirmed");
+  const projectDraftSessions = sessions.filter((session) => session.projectId === project.id && session.state === "draft");
+  const projectLoggedSeconds = projectConfirmedSessions.reduce((sum, session) => sum + session.durationSeconds, 0);
+  const workLogStatus = projectDraftSessions.length > 0
+    ? "Needs review"
+    : projectConfirmedSessions.length > 0
+      ? "Report-ready"
+      : "No work yet";
+  const workLogDetail = projectDraftSessions.length > 0
+    ? `${projectDraftSessions.length} draft${projectDraftSessions.length === 1 ? "" : "s"} not in reports`
+    : projectConfirmedSessions.length > 0
+      ? "all sessions confirmed"
+      : "start a focus session";
+  const nextTasks = [...tasks]
+    .filter((task) => task.status !== "done")
+    .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
+    .slice(0, 5);
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="grid gap-lg p-lg xl:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="flex flex-col gap-lg">
+          <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-raised">
+            <div className="flex items-start justify-between gap-lg border-b border-border-subtle p-xl">
+              <div className="min-w-0 space-y-md">
+                <div className="flex flex-wrap items-center gap-sm">
+                  <span className={cn("h-4 w-4 rounded-md", getColorClass(project.color))} />
+                  <Badge variant={STATUS_BADGE_VARIANT[status]}>{STATUS_LABELS[status]}</Badge>
+                  <Badge variant={project.billable ? "success" : "raised"}>
+                    {project.billable ? "Billable" : "Internal"}
+                  </Badge>
+                  <Badge variant="raised">{isPrivate ? "Private" : "Shared"}</Badge>
+                </div>
+                <div>
+                  <h2 className="text-[28px] font-semibold leading-tight text-text-primary">{project.name}</h2>
+                  <p className="mt-sm max-w-3xl text-sm leading-relaxed text-text-secondary">
+                    {project.description || "No description yet. Add context, scope, or handoff notes for this project."}
+                  </p>
+                </div>
+              </div>
+              <Button variant="secondary" size="sm" onClick={onEditProject}>
+                <PencilSimple size={14} />
+                Edit details
+              </Button>
+            </div>
+
+            <div className="grid gap-px bg-border-subtle md:grid-cols-5">
+              <Metric icon={<CheckCircle size={17} />} label="Progress" value={`${completion}%`} detail={`${doneCount} of ${tasks.length} done`} />
+              <Metric icon={<Clock size={17} />} label="Active work" value={`${doingCount}`} detail={`${todoCount} waiting`} />
+              <Metric icon={<Target size={17} />} label="Estimate" value={formatMinutes(totalEstimate)} detail={totalEstimate ? "planned effort" : "not estimated"} />
+              <Metric icon={<FolderOpen size={17} />} label="Work log" value={workLogStatus} detail={workLogDetail} />
+              <Metric icon={<CalendarBlank size={17} />} label="Timeline" value={formatDateRange(project.startDate, project.endDate)} detail={project.endDate ? "target date set" : "no end date"} />
+            </div>
+          </div>
+
+          <div className="grid gap-lg lg:grid-cols-[minmax(0,1fr)_300px]">
+            <Panel title="Workload">
+              <div className="space-y-lg">
+                <ProgressRow label="To do" count={todoCount} total={tasks.length} tone="bg-text-faint" />
+                <ProgressRow label="Doing" count={doingCount} total={tasks.length} tone="bg-accent" />
+                <ProgressRow label="Done" count={doneCount} total={tasks.length} tone="bg-success" />
+              </div>
+            </Panel>
+
+            <Panel title="Billing">
+              <div className="grid gap-md">
+                <DetailRow icon={<Briefcase size={15} />} label="Client" value={client?.name ?? "No client assigned"} />
+                <DetailRow icon={<Clock size={15} />} label="Logged time" value={formatDuration(projectLoggedSeconds)} />
+                <DetailRow icon={<CurrencyDollar size={15} />} label="Budget" value={project.budget ? formatCurrency(project.budget) : "Not set"} />
+                <DetailRow icon={<Clock size={15} />} label="Hourly rate" value={client?.hourlyRate ? formatCurrency(client.hourlyRate) : "Not set"} />
+              </div>
+            </Panel>
+          </div>
+
+          <Panel
+            title="Next tasks"
+            action={
+              <Button variant="secondary" size="sm" onClick={onAddTask}>
+                <Plus size={14} />
+                Add task
+              </Button>
+            }
+          >
+            {nextTasks.length ? (
+              <div className="divide-y divide-border-subtle">
+                {nextTasks.map((task) => (
+                  <div key={task.id} className="grid grid-cols-[1fr_96px_86px] items-center gap-md py-md first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-text-primary">{task.title}</p>
+                      <p className="text-xs text-text-muted">{task.estimateMinutes ? `${task.estimateMinutes}m estimate` : "No estimate"}</p>
+                    </div>
+                    <Badge variant={TASK_STATUS_BADGE_VARIANT[task.status]}>{TASK_STATUS_LABELS[task.status]}</Badge>
+                    <span className="text-right text-xs capitalize text-text-muted">{task.urgency}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border bg-canvas p-xl text-center">
+                <p className="text-sm font-medium text-text-primary">No open tasks</p>
+                <p className="mt-xs text-xs text-text-muted">Create the first task for this project.</p>
+              </div>
+            )}
+          </Panel>
+        </section>
+
+        <aside className="flex flex-col gap-lg">
+          <Panel title="Project details">
+            <div className="grid gap-md">
+              <DetailRow icon={<User size={15} />} label="Owner" value={ownerName} />
+              <DetailRow icon={<FolderOpen size={15} />} label="Project ID" value={project.id.slice(0, 8)} />
+              <DetailRow icon={<CalendarBlank size={15} />} label="Created" value={formatDate(project.createdAt)} />
+              <DetailRow icon={<Archive size={15} />} label="Archived" value={project.archivedAt ? formatDate(project.archivedAt) : "No"} />
+            </div>
+          </Panel>
+
+          <Panel title="Visibility">
+            <div className="grid grid-cols-2 gap-sm">
+              <button
+                onClick={() => onPrivacyChange(true)}
+                className={cn(
+                  "flex items-center justify-center gap-xs rounded-md border px-sm py-sm text-xs font-medium transition-colors",
+                  isPrivate
+                    ? "border-accent bg-accent text-white"
+                    : "border-border-subtle text-text-secondary hover:bg-surface-mid hover:text-text-primary"
+                )}
+              >
+                <Lock size={12} />
+                Private
+              </button>
+              <button
+                onClick={() => onPrivacyChange(false)}
+                className={cn(
+                  "flex items-center justify-center gap-xs rounded-md border px-sm py-sm text-xs font-medium transition-colors",
+                  !isPrivate
+                    ? "border-accent bg-accent text-white"
+                    : "border-border-subtle text-text-secondary hover:bg-surface-mid hover:text-text-primary"
+                )}
+              >
+                <LockOpen size={12} />
+                Shared
+              </button>
+            </div>
+          </Panel>
+
+          <Panel title="Tags">
+            <div className="flex flex-wrap gap-sm">
+              {(project.tags ?? []).filter((tag) => tag !== "public").length ? (
+                (project.tags ?? [])
+                  .filter((tag) => tag !== "public")
+                  .map((tag) => (
+                    <Badge key={tag} variant="raised">
+                      <Tag size={11} />
+                      {tag}
+                    </Badge>
+                  ))
+              ) : (
+                <p className="text-sm text-text-muted">No tags yet.</p>
+              )}
+            </div>
+            <div className="mt-md flex gap-sm">
+              <input
+                value={newTag}
+                onChange={(event) => onNewTagChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") onAddTag();
+                }}
+                placeholder="Add tag"
+                className="h-9 min-w-0 flex-1 rounded-md border border-border-subtle bg-canvas px-sm text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+              />
+              <Button variant="secondary" size="sm" onClick={onAddTag}>
+                Add
+              </Button>
+            </div>
+          </Panel>
+
+          <Panel title="Description">
+            <textarea
+              placeholder="Add description..."
+              className="min-h-[112px] w-full resize-none rounded-md border border-border-subtle bg-canvas px-sm py-sm text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+              defaultValue={project.description || ""}
+              onBlur={(event) => onUpdateProject(project.id, { description: event.currentTarget.value })}
+            />
+          </Panel>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function Panel({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-border-subtle bg-surface-raised p-lg">
+      <div className="mb-lg flex items-center justify-between gap-md">
+        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Metric({
+  icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="bg-surface-raised p-lg">
+      <div className="mb-md flex h-8 w-8 items-center justify-center rounded-md bg-accent/10 text-accent">{icon}</div>
+      <p className="text-xs font-medium text-text-muted">{label}</p>
+      <p className="mt-xs text-xl font-semibold text-text-primary">{value}</p>
+      <p className="mt-xs text-xs text-text-muted">{detail}</p>
+    </div>
+  );
+}
+
+function ProgressRow({
+  label,
+  count,
+  total,
+  tone,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  tone: string;
+}) {
+  const width = total ? Math.max(4, Math.round((count / total) * 100)) : 0;
+  return (
+    <div className="space-y-sm">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium text-text-primary">{label}</span>
+        <span className="text-text-muted">{count}</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-surface-mid">
+        <div className={cn("h-full rounded-full transition-all", tone)} style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-sm">
+      <span className="mt-0.5 text-text-muted">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-xs text-text-muted">{label}</p>
+        <p className="truncate text-sm font-medium text-text-primary" title={value}>
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function formatDate(timestamp?: number) {
+  if (!timestamp) return "Not set";
+  return new Date(timestamp).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatDateRange(startDate?: number, endDate?: number) {
+  if (!startDate && !endDate) return "Not set";
+  if (startDate && endDate) return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  return startDate ? `Starts ${formatDate(startDate)}` : `Due ${formatDate(endDate)}`;
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatMinutes(minutes: number) {
+  if (!minutes) return "0m";
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return hours ? `${hours}h${mins ? ` ${mins}m` : ""}` : `${mins}m`;
+}
+
 function getColorClass(color: string): string {
-  const colors: Record<string, string> = {
-    teal: "bg-teal-400",
-    amber: "bg-accent",
-    rose: "bg-rose-400",
-    indigo: "bg-indigo-400",
-  };
-  return colors[color] || "bg-slate-400";
+  return PROJECT_COLOR_CLASSES[color as ProjectColor] || "bg-slate-400";
 }

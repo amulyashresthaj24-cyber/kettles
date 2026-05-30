@@ -5,14 +5,15 @@ import { useApp } from "@/lib/store-supabase";
 import { PencilSimple, Archive, Trash, CalendarBlank, CurrencyDollar } from "@/components/ui/icon";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import type { Project, ProjectStatus } from "@/lib/types";
+import type { Project, ProjectStatus, ProjectColor } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
 
-const STATUS_COLORS: Record<ProjectStatus, string> = {
-  active: "bg-emerald-500 text-white",
-  paused: "bg-amber-500 text-white",
-  completed: "bg-blue-500 text-white",
-  archived: "bg-gray-600 text-white",
+const STATUS_BADGE_VARIANT: Record<ProjectStatus, "success" | "warning" | "accent" | "raised"> = {
+  active: "success",
+  paused: "warning",
+  completed: "accent",
+  archived: "raised",
 };
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
@@ -66,7 +67,7 @@ export function ProjectDetailsCard({
   };
 
   return (
-    <div className="rounded-lg p-4xl space-y-3xl" style={{ background: "#0f1011", border: "1px solid #1e1f20" }}>
+    <div className="rounded-lg p-4xl space-y-3xl" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
       {/* Header with title and actions */}
       <div className="flex items-start justify-between">
         <div className="flex-1 space-y-lg">
@@ -78,8 +79,8 @@ export function ProjectDetailsCard({
               {project.name}
             </h2>
             <Badge
-              className={cn("ml-2xl", STATUS_COLORS[status])}
-              variant="default"
+              className="ml-2xl"
+              variant={STATUS_BADGE_VARIANT[status]}
             >
               {STATUS_LABELS[status]}
             </Badge>
@@ -204,11 +205,5 @@ export function ProjectDetailsCard({
 }
 
 function getColorClass(color: string): string {
-  const colors: Record<string, string> = {
-    teal: "bg-teal-400",
-    amber: "bg-accent",
-    rose: "bg-rose-400",
-    indigo: "bg-indigo-400",
-  };
-  return colors[color] || "bg-slate-400";
+  return PROJECT_COLOR_CLASSES[color as ProjectColor] || "bg-slate-400";
 }

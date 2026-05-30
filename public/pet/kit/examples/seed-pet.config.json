@@ -1,0 +1,39 @@
+{
+  "_comment": "Seed config for previewing a mascot scaffold. Copy into public/pet/pet.config.json only after review.",
+  "spritesheet": "kit/examples/user-sprite/seed-atlas.png",
+  "cell": { "width": 192, "height": 208 },
+  "sheet": { "cols": 8, "rows": 9 },
+  "scale": 0.58,
+  "states": {
+    "idle": { "row": 0, "frames": 6, "fps": 5, "loop": true },
+    "working": { "row": 1, "frames": 8, "fps": 8, "loop": true },
+    "working_still": { "row": 1, "frames": 1, "fps": 1, "loop": true },
+    "drag_running": { "row": 2, "frames": 8, "fps": 10, "loop": true },
+    "waving": { "row": 3, "frames": 4, "fps": 6, "loop": false },
+    "jumping": { "row": 4, "frames": 5, "fps": 10, "loop": false },
+    "failed": { "row": 5, "frames": 8, "fps": 6, "loop": false },
+    "waiting": { "row": 6, "frames": 6, "fps": 4, "loop": true },
+    "review": { "row": 7, "frames": 6, "fps": 5, "loop": true },
+    "sitting": { "row": 5, "col": 6, "frames": 2, "fps": 2, "loop": true, "scale": 0.75 },
+    "running": { "row": 8, "frames": 6, "fps": 9, "loop": true }
+  },
+  "events": {
+    "hover": "waving",
+    "click": "waving",
+    "doubleClick": "jumping",
+    "timerStart": "working_still",
+    "timerResume": "working_still",
+    "timerPause": "waiting",
+    "timerBreak": "idle",
+    "timerFinish": { "play": "jumping", "then": "idle" },
+    "timerAbandon": { "play": "failed", "then": "idle" }
+  },
+  "phaseStates": {
+    "idle": "idle",
+    "running": "working_still",
+    "paused": "waiting",
+    "finished": "idle"
+  },
+  "flashOn": ["timerFinish"]
+}
+

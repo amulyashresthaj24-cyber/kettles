@@ -130,6 +130,12 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+        if (!validateUUID(id)) {
+          return new Response(JSON.stringify({ error: 'Invalid session ID' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
 
         const body = await req.json();
         
@@ -141,7 +147,15 @@ serve(async (req) => {
           .eq('user_id', user.id)
           .single();
         
-        if (fetchError) throw fetchError;
+        if (fetchError) {
+          if (fetchError.code === 'PGRST116') {
+            return new Response(JSON.stringify({ error: 'Session not found' }), {
+              status: 404,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          throw fetchError;
+        }
         
         // Merge new data with existing data instead of replacing
         const mergedData = {
@@ -198,6 +212,12 @@ serve(async (req) => {
       case 'DELETE': {
         if (!id) {
           return new Response(JSON.stringify({ error: 'Session ID required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        if (!validateUUID(id)) {
+          return new Response(JSON.stringify({ error: 'Invalid session ID' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });

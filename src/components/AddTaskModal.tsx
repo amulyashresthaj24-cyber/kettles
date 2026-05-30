@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useApp } from "@/lib/store-supabase";
-import type { TaskStatus, Urgency } from "@/lib/types";
+import type { Task, TaskStatus, Urgency } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +20,8 @@ const URGENCY_OPTIONS: { label: string; value: Urgency; dot: string }[] = [
   { label: "Normal",  value: "normal", dot: "bg-emerald-500" },
   { label: "Low",     value: "low",    dot: "bg-text-faint" },
 ];
+
+type LegacyDateRange = string | { dueDate?: string | number; startDate?: string | number } | null | undefined;
 
 function PillSelect<T extends string>({
   value,
@@ -90,12 +92,14 @@ export function AddTaskModal({
   defaultStatus = "todo",
   defaultProjectId,
   editingTask,
+  defaultDateRange,
 }: {
   open: boolean;
   onClose: () => void;
   defaultStatus?: TaskStatus;
   defaultProjectId?: string;
-  editingTask?: any;
+  editingTask?: Task | null;
+  defaultDateRange?: string;
 }) {
   const projects = useApp((s) => s.projects);
   const addTask = useApp((s) => s.addTask);
@@ -117,7 +121,7 @@ export function AddTaskModal({
         setUrgency(editingTask.urgency || "normal");
         setEstimate(editingTask.estimateMinutes?.toString() || "");
         // Safely normalize dateRange: object legacy data -> string, string stays string
-        const rawDate = editingTask.dateRange;
+        const rawDate = editingTask.dateRange as LegacyDateRange;
         if (rawDate && typeof rawDate === "object") {
           if (rawDate.dueDate) {
             const d = new Date(rawDate.dueDate);
@@ -137,10 +141,10 @@ export function AddTaskModal({
         setProjectId(defaultProjectId ?? "");
         setUrgency("normal");
         setEstimate("");
-        setDateRange("");
+        setDateRange(defaultDateRange ?? "");
       }
     }
-  }, [open, defaultProjectId, editingTask]);
+  }, [open, defaultProjectId, editingTask, defaultDateRange]);
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

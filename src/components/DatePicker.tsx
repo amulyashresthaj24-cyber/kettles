@@ -23,13 +23,19 @@ export function DatePicker({ value, onChange, placeholder = "Due date" }: DatePi
   );
   const ref = useRef<HTMLDivElement>(null);
 
-  const selectedDate = value ? new Date(value) : null;
+  const selectedDate = value
+    ? (() => {
+        const [yyyy, mm, dd] = value.split("-").map(Number);
+        return new Date(yyyy, mm - 1, dd);
+      })()
+    : null;
 
   // Sync current month when modal opens or value changes
   useEffect(() => {
     if (open) {
       if (value) {
-        const d = new Date(value);
+        const [yyyy, mm, dd] = value.split("-").map(Number);
+        const d = new Date(yyyy, mm - 1, dd);
         setCurrentMonth(new Date(d.getFullYear(), d.getMonth(), 1));
       } else {
         const today = new Date();

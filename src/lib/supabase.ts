@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Client, Project, Session, Task } from './types';
 
 let supabase: SupabaseClient | null = null;
 
@@ -93,7 +94,7 @@ export function getFriendlySupabaseErrorMessage(error: unknown) {
 }
 
 // Helper for Edge Function calls
-async function edgeFunction(path: string, options: RequestInit = {}) {
+async function edgeFunction<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
   const supabase = getSupabaseClient();
   const session = await supabase.auth.getSession();
   const token = session.data.session?.access_token;
@@ -124,24 +125,24 @@ async function edgeFunction(path: string, options: RequestInit = {}) {
     throw new Error(message);
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
 // API Clients for all entities
 export const api = {
   clients: {
-    list: () => edgeFunction('clients'),
-    get: (id: string) => edgeFunction(`clients/${id}`),
-    create: (data: any) => edgeFunction('clients', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: any) => edgeFunction(`clients/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) => edgeFunction(`clients/${id}`, { method: 'DELETE' }),
+    list: () => edgeFunction<{ clients: Client[] }>('clients'),
+    get: (id: string) => edgeFunction<Client>(`clients/${id}`),
+    create: (data: unknown) => edgeFunction<Client>('clients', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: unknown) => edgeFunction<Client>(`clients/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => edgeFunction<{ success: boolean }>(`clients/${id}`, { method: 'DELETE' }),
   },
   projects: {
-    list: () => edgeFunction('projects'),
-    get: (id: string) => edgeFunction(`projects/${id}`),
-    create: (data: any) => edgeFunction('projects', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: any) => edgeFunction(`projects/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) => edgeFunction(`projects/${id}`, { method: 'DELETE' }),
+    list: () => edgeFunction<{ projects: Project[] }>('projects'),
+    get: (id: string) => edgeFunction<Project>(`projects/${id}`),
+    create: (data: unknown) => edgeFunction<Project>('projects', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: unknown) => edgeFunction<Project>(`projects/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => edgeFunction<{ success: boolean }>(`projects/${id}`, { method: 'DELETE' }),
   },
   tasks: {
     list: (filters?: { projectId?: string; status?: string }) => {
@@ -149,12 +150,12 @@ export const api = {
       if (filters?.projectId) params.append('projectId', filters.projectId);
       if (filters?.status) params.append('status', filters.status);
       const query = params.toString() ? `?${params.toString()}` : '';
-      return edgeFunction(`tasks${query}`);
+      return edgeFunction<{ tasks: Task[] }>(`tasks${query}`);
     },
-    get: (id: string) => edgeFunction(`tasks/${id}`),
-    create: (data: any) => edgeFunction('tasks', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: any) => edgeFunction(`tasks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) => edgeFunction(`tasks/${id}`, { method: 'DELETE' }),
+    get: (id: string) => edgeFunction<Task>(`tasks/${id}`),
+    create: (data: unknown) => edgeFunction<Task>('tasks', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: unknown) => edgeFunction<Task>(`tasks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => edgeFunction<{ success: boolean }>(`tasks/${id}`, { method: 'DELETE' }),
   },
   sessions: {
     list: (filters?: { taskId?: string; projectId?: string; active?: boolean }) => {
@@ -163,12 +164,12 @@ export const api = {
       if (filters?.projectId) params.append('projectId', filters.projectId);
       if (filters?.active) params.append('active', 'true');
       const query = params.toString() ? `?${params.toString()}` : '';
-      return edgeFunction(`sessions${query}`);
+      return edgeFunction<{ sessions: Session[] }>(`sessions${query}`);
     },
-    get: (id: string) => edgeFunction(`sessions/${id}`),
-    create: (data: any) => edgeFunction('sessions', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: any) => edgeFunction(`sessions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: string) => edgeFunction(`sessions/${id}`, { method: 'DELETE' }),
+    get: (id: string) => edgeFunction<Session>(`sessions/${id}`),
+    create: (data: unknown) => edgeFunction<Session>('sessions', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: unknown) => edgeFunction<Session>(`sessions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => edgeFunction<{ success: boolean }>(`sessions/${id}`, { method: 'DELETE' }),
   },
   analytics: {
     dashboard: () => edgeFunction('analytics?type=dashboard'),

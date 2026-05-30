@@ -69,7 +69,7 @@ export default function NotFound() {
             fontFamily: "var(--font-urbanist, sans-serif)",
             letterSpacing: "-0.06em",
             lineHeight: 1,
-            color: "#3385ff",
+            color: "var(--accent-hover)",
             pointerEvents: "none",
             userSelect: "none",
             whiteSpace: "nowrap",

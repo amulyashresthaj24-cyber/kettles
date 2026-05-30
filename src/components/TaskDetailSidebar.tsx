@@ -4,14 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
 import { TagEditor } from "./TagEditor";
+import type { Task, ProjectColor } from "@/lib/types";
+import { PROJECT_COLOR_HEX } from "@/lib/constants";
 
-const PROJECT_COLORS: Record<string, string> = {
-  teal: "#14b8a6",
-  amber: "#0066ff",
-  rose: "#f43f5e",
-  indigo: "#6366f1",
-};
-function getProjectColor(c: string) { return PROJECT_COLORS[c] ?? "#8a8f98"; }
+function getProjectColor(c: string) { return PROJECT_COLOR_HEX[c as ProjectColor] ?? "var(--text-muted)"; }
 
 const URGENCY_COLOR: Record<string, string> = {
   urgent: "var(--error)",
@@ -23,10 +19,10 @@ const URGENCY_COLOR: Record<string, string> = {
 interface TaskDetailSidebarProps {
   taskId: string | null;
   onClose: () => void;
-  onOpenAddTask: () => void;
+  onEditTask?: (task: Task) => void;
 }
 
-export function TaskDetailSidebar({ taskId, onClose, onOpenAddTask }: TaskDetailSidebarProps) {
+export function TaskDetailSidebar({ taskId, onClose, onEditTask }: TaskDetailSidebarProps) {
   const tasks = useApp((s) => s.tasks);
   const projects = useApp((s) => s.projects);
   const sessions = useApp((s) => s.sessions);
@@ -274,7 +270,12 @@ export function TaskDetailSidebar({ taskId, onClose, onOpenAddTask }: TaskDetail
             Close
           </button>
           <button
-            onClick={() => { onClose(); onOpenAddTask(); }}
+            onClick={() => {
+              if (task && onEditTask) {
+                onClose();
+                onEditTask(task);
+              }
+            }}
             className="flex-1 h-9 rounded-[8px] text-[13px] font-medium text-white transition-opacity hover:opacity-85"
             style={{ background: "var(--accent)" }}
           >

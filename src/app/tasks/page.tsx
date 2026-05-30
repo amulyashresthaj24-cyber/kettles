@@ -10,7 +10,7 @@ import { AddTaskModal } from "@/components/AddTaskModal";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { PageLayout, PageHeader, PageToolbar, PageContent } from "@/components/layout";
-import type { TaskStatus, Urgency } from "@/lib/types";
+import type { Task, TaskStatus, Urgency } from "@/lib/types";
 
 export default function TasksPage() {
   const tasks = useApp((s) => s.tasks);
@@ -24,10 +24,10 @@ export default function TasksPage() {
   const [defaultStatus, setDefaultStatus] = useState<TaskStatus>("todo");
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [showArchived, setShowArchived] = useState(false);
-  const [editingTask, setEditingTask] = useState<any>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const filteredTasks = useMemo(() => {
-    return tasks.filter((t: any) => {
+    return tasks.filter((t) => {
       if (showArchived) {
         return t.archived === true;
       }
@@ -45,13 +45,13 @@ export default function TasksPage() {
     setOpenAdd(true);
   };
 
-  const openEditTask = (task: any) => {
+  const openEditTask = (task: Task) => {
     setEditingTask(task);
     setOpenAdd(true);
   };
 
   const activeProject = projects.find((p) => p.id === selectedProjectId);
-  const archivedCount = tasks.filter((t: any) => t.archived).length;
+  const archivedCount = tasks.filter((t) => t.archived).length;
 
   return (
     <PageLayout>

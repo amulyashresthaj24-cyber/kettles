@@ -1,0 +1,35 @@
+{
+  "name": "flowmate-mascot-pet-kit",
+  "purpose": "Reusable setup for turning a mascot sprite sheet or reference image into Flowmate desktop pet assets.",
+  "doesNot": [
+    "hatch or install a Codex pet",
+    "replace the live Flowmate pet config",
+    "generate new mascot identity without a user-provided mascot source"
+  ],
+  "atlas": {
+    "cell": { "width": 192, "height": 208 },
+    "sheet": { "cols": 8, "rows": 9 },
+    "pixelSize": { "width": 1536, "height": 1872 },
+    "background": "transparent",
+    "unusedCells": "transparent"
+  },
+  "files": {
+    "animationRows": "public/pet/kit/animation-rows.json",
+    "moments": "public/pet/kit/moments.flowmate.json",
+    "agentInstructions": "public/pet/kit/prompts/AGENT_INSTRUCTIONS.md",
+    "rowPrompts": "public/pet/kit/prompts/ROW_PROMPTS.md",
+    "seedConfig": "public/pet/kit/examples/seed-pet.config.json",
+    "seedAtlas": "public/pet/kit/examples/user-sprite/seed-atlas.png",
+    "seedSource": "public/pet/kit/examples/user-sprite/source.png"
+  },
+  "validation": {
+    "command": "node scripts/pet/validate-pet-atlas.mjs --atlas <atlas-path> --config <config-path>",
+    "required": [
+      "atlas dimensions are 1536x1872",
+      "config cell is 192x208",
+      "config sheet is 8x9",
+      "every configured state stays within the atlas bounds"
+    ]
+  }
+}
+

@@ -19,7 +19,6 @@ import { formatDuration, formatHMS, formatMinSec, formatMSS, formatWallTime } fr
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useNotification } from "@/components/ui/notification";
 import { UrgencyDot } from "@/components/UrgencyDot";
 import { AddTaskModal } from "@/components/AddTaskModal";
 import { AddProjectModal } from "@/components/AddProjectModal";
@@ -27,8 +26,8 @@ import { TaskFinishedState } from "@/components/TaskFinishedState";
 import type { Project, Session, Task } from "@/lib/types";
 
 const URGENCY_ORDER = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
-const FOCUS_RING_SIZE = 280;
-const FOCUS_RING_R = 130;
+const FOCUS_RING_SIZE = 320;
+const FOCUS_RING_R = 150;
 const FOCUS_RING_CIRC = 2 * Math.PI * FOCUS_RING_R;
 
 function toTimeInput(ms: number) {
@@ -49,14 +48,82 @@ function elapsedForSession(session: Session) {
     : 0);
 }
 
+function dayBoundsFor(timestamp: number) {
+  const day = new Date(timestamp);
+  const start = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime();
+  return { start, end: start + 86_400_000 };
+}
+
+function sessionReferenceTime(session: Session) {
+  return session.endedAt ?? session.frozenAt ?? session.startedAt;
+}
+
+function projectProgressLabel(projectId: string | undefined, allTasks: Task[]) {
+  if (!projectId) return undefined;
+  const projectTasks = allTasks.filter((task) => task.projectId === projectId && !task.archived && !task.deletedAt);
+  if (projectTasks.length === 0) return undefined;
+  const done = projectTasks.filter((task) => task.status === "done").length;
+  return `${done} of ${projectTasks.length} tasks complete`;
+}
+
+function buildSessionReflection({
+  logged,
+  sessions,
+  task,
+  project,
+  notesCount,
+  includeCleanDraftReflection = false,
+}: {
+  logged: Session;
+  sessions: Session[];
+  task: Task;
+  project?: Project;
+  notesCount: number;
+  includeCleanDraftReflection?: boolean;
+}) {
+  const { start, end } = dayBoundsFor(logged.endedAt ?? Date.now());
+  const todaySessions = sessions.filter((item) => {
+    const ref = sessionReferenceTime(item);
+    return ref >= start && ref < end;
+  });
+  const todayDrafts = todaySessions.filter((item) => item.state === "draft");
+  if (includeCleanDraftReflection && todayDrafts.length === 0) return "No drafts left today.";
+
+  if (notesCount > 0) {
+    return `You captured ${notesCount} note${notesCount === 1 ? "" : "s"} for your report.`;
+  }
+
+  const confirmedToday = todaySessions.filter((item) => (item.state ?? "confirmed") === "confirmed");
+  const longestToday = Math.max(...confirmedToday.map((item) => item.durationSeconds), 0);
+  if (logged.durationSeconds >= longestToday && confirmedToday.length > 1) {
+    return "This was your longest session today.";
+  }
+
+  if (project) {
+    const projectSeconds = sessions
+      .filter((item) => item.projectId === project.id && (item.state ?? "confirmed") === "confirmed")
+      .reduce((total, item) => total + item.durationSeconds, 0);
+    if (projectSeconds >= 10 * 3600 && projectSeconds - logged.durationSeconds < 10 * 3600) {
+      return `${project.name} crossed 10 logged hours.`;
+    }
+  }
+
+  const taskSessions = sessions.filter((item) => item.taskId === task.id && (item.state ?? "confirmed") === "confirmed");
+  if (taskSessions.length > 1) {
+    return `This task was completed after ${taskSessions.length} sessions.`;
+  }
+
+  return undefined;
+}
+
 export default function TimerPage() {
   const router = useRouter();
-  const { notify } = useNotification();
   const user = useApp((s) => s.user);
   const tasks = useApp((s) => s.tasks);
   const projects = useApp((s) => s.projects);
   const clients = useApp((s) => s.clients);
   const sessions = useApp((s) => s.sessions);
+  const preferences = useApp((s) => s.preferences);
   const activeSessionId = useApp((s) => s.activeSessionId);
   const session = useApp((s) =>
     activeSessionId ? s.sessions.find((x) => x.id === activeSessionId) : undefined
@@ -77,6 +144,7 @@ export default function TimerPage() {
   const updateSessionNote = useApp((s) => s.updateSessionNote);
   const deleteSessionNote = useApp((s) => s.deleteSessionNote);
   const addTask = useApp((s) => s.addTask);
+  const setTaskStatus = useApp((s) => s.setTaskStatus);
 
   const [taskId, setTaskId] = useState("");
   const [projectId, setProjectId] = useState("");
@@ -103,16 +171,22 @@ export default function TimerPage() {
     clientName?: string;
     totalLoggedSeconds: number;
     notesCount: number;
+    sessionCount: number;
+    projectProgressLabel?: string;
+    reflection?: string;
+    isCompleted?: boolean;
   } | null>(null);
   const [draftTaskTitle, setDraftTaskTitle] = useState("");
   const [draftProjectId, setDraftProjectId] = useState("");
   const [draftBillable, setDraftBillable] = useState<boolean | null>(null);
   const [draftErrors, setDraftErrors] = useState<string[]>([]);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [, setTick] = useState(0);
   const audioReady = useRef(false);
   const kettleAudio = useRef<HTMLAudioElement | null>(null);
   const estimateCompletedRef = useRef(false);
   const idleWarningShown = useRef(false);
+  const processedFinishParam = useRef(false);
 
   const activeTask = session ? tasks.find((t) => t.id === session.taskId) : tasks.find((t) => t.id === taskId);
   const activeProject = session ? projects.find((p) => p.id === session.projectId) : projects.find((p) => p.id === projectId);
@@ -121,11 +195,20 @@ export default function TimerPage() {
   const sessionStartedAt = session?.startedAt;
 
   useEffect(() => {
-    if (!taskId) return;
+    if (!taskId) {
+      if (preferences?.defaultFocusDuration && !estimateMin) {
+        setEstimateMin(String(preferences.defaultFocusDuration));
+      }
+      return;
+    }
     const t = tasks.find((x) => x.id === taskId);
     if (t && !projectId) setProjectId(t.projectId);
-    if (t?.estimateMinutes && !estimateMin) setEstimateMin(String(t.estimateMinutes));
-  }, [taskId, tasks, projectId, estimateMin]);
+    if (t?.estimateMinutes) {
+      if (!estimateMin) setEstimateMin(String(t.estimateMinutes));
+    } else if (!estimateMin && preferences?.defaultFocusDuration) {
+      setEstimateMin(String(preferences.defaultFocusDuration));
+    }
+  }, [taskId, tasks, projectId, estimateMin, preferences?.defaultFocusDuration]);
 
   useEffect(() => {
     if (!session || session.state !== "running") return;
@@ -134,18 +217,14 @@ export default function TimerPage() {
   }, [session]);
 
   useEffect(() => {
-    if (!sessionId || !sessionStartedAt) return;
-    notify({
-      title: "Timer restored",
-      description: `You started this session at ${formatWallTime(sessionStartedAt)}.`,
-      tone: "info",
-    });
-  }, [notify, sessionId, sessionStartedAt]);
-
-  useEffect(() => {
-    if (!session || typeof window === "undefined" || !window.location.search.includes("finish=1") || session.state === "finishing") return;
-    finishSession();
-    window.history.replaceState(null, "", "/timer");
+    if (!session || typeof window === "undefined" || processedFinishParam.current) return;
+    if (window.location.search.includes("finish=1") && session.state !== "finishing") {
+      processedFinishParam.current = true;
+      finishSession();
+      const url = new URL(window.location.href);
+      url.searchParams.delete("finish");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
   }, [finishSession, session]);
 
   const elapsed = session ? elapsedForSession(session) : 0;
@@ -161,7 +240,7 @@ export default function TimerPage() {
   const draftSessions = sessions.filter((item) => item.state === "draft");
 
   const playKettleWhistle = () => {
-    if (!audioReady.current) return;
+    if (!audioReady.current || preferences?.whistleSoundEnabled === false) return;
     try {
       const audio = kettleAudio.current ?? new Audio("/sounds/kettle-whistle.ogg");
       kettleAudio.current = audio;
@@ -182,27 +261,18 @@ export default function TimerPage() {
     if (remaining === 0 && session.state === "running") {
       estimateCompletedRef.current = true;
       setEstimateJustComplete(true);
-      notify({
-        title: "Estimate complete",
-        description: `${Math.round(estimateSec / 60)}m planned time is done.`,
-        tone: "success",
-      });
       playKettleWhistle();
     }
-  }, [estimateSec, notify, remaining, session]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estimateSec, remaining, session]);
 
   useEffect(() => {
     if (!session || session.state !== "running") return;
     if (elapsed > 3600 && !idleWarningShown.current) {
       idleWarningShown.current = true;
       setIdleVisible(true);
-      notify({
-        title: "Still working?",
-        description: `This timer has been running for ${formatDuration(elapsed)}.`,
-        tone: "warning",
-      });
     }
-  }, [elapsed, notify, session]);
+  }, [elapsed, session]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -240,7 +310,7 @@ export default function TimerPage() {
 
   const handleStartDraft = async () => {
     audioReady.current = true;
-    await startDraftSession(false);
+    await startDraftSession(projectId, billable);
   };
 
   const handleQuickStart = async (t: Task) => {
@@ -259,14 +329,13 @@ export default function TimerPage() {
     }
     setEstimateJustComplete(false);
     finishSession();
-    notify({
-      title: "Session paused for review",
-      description: "Confirm the ledger entry or continue the timer.",
-      tone: "info",
-    });
   };
 
-  const handleKnownLog = async (seconds = elapsed) => {
+  const handleKnownLog = async ({
+    seconds = elapsed,
+    completed = false,
+    celebrate = true,
+  }: { seconds?: number; completed?: boolean; celebrate?: boolean } = {}) => {
     if (!activeTask) return;
     const taskSnapshot = activeTask;
     const projectSnapshot = activeProject;
@@ -274,15 +343,23 @@ export default function TimerPage() {
     const notesCountSnapshot = session?.notes?.length ?? 0;
     const logged = await confirmSession(seconds);
     if (logged) {
-      const totalLoggedSeconds = useApp
-        .getState()
-        .sessions
-        .filter((item) => item.taskId === taskSnapshot.id && (item.state ?? "confirmed") === "confirmed")
+      if (completed) {
+        await setTaskStatus(taskSnapshot.id, "done");
+      }
+      if (!celebrate) {
+        router.push("/timer");
+        return;
+      }
+      const updatedSessions = useApp.getState().sessions;
+      const taskSessions = updatedSessions.filter((item) => item.taskId === taskSnapshot.id && (item.state ?? "confirmed") === "confirmed");
+      const totalLoggedSeconds = taskSessions
         .reduce((total, item) => total + item.durationSeconds, 0);
-      notify({
-        title: "Session logged",
-        description: `${formatDuration(logged.durationSeconds)} for ${taskSnapshot.title}.`,
-        tone: "success",
+      const reflection = buildSessionReflection({
+        logged,
+        sessions: updatedSessions,
+        task: taskSnapshot,
+        project: projectSnapshot,
+        notesCount: notesCountSnapshot,
       });
       setLoggedSession({
         seconds: logged.durationSeconds,
@@ -292,14 +369,21 @@ export default function TimerPage() {
         clientName: clientSnapshot?.name,
         totalLoggedSeconds,
         notesCount: notesCountSnapshot,
+        sessionCount: taskSessions.length,
+        projectProgressLabel: projectProgressLabel(taskSnapshot.projectId, useApp.getState().tasks),
+        reflection,
+        isCompleted: completed,
       });
     }
   };
 
-  const handleDraftConfirm = async () => {
+  const handleDraftConfirm = async ({
+    completed = false,
+    celebrate = true,
+  }: { completed?: boolean; celebrate?: boolean } = {}) => {
     const errors: string[] = [];
     if (!draftProjectId) errors.push("Choose a client before confirming.");
-    if (!draftTaskTitle.trim()) errors.push("Add a task name before this counts in your ledger.");
+    if (!draftTaskTitle.trim()) errors.push("Add a task name before this counts in your work log.");
     if (draftBillable === null) errors.push("Choose billable or non-billable.");
     setDraftErrors(errors);
     if (errors.length > 0) return;
@@ -315,11 +399,25 @@ export default function TimerPage() {
     const notesCountSnapshot = session?.notes?.length ?? 0;
     const logged = await confirmSession(elapsed);
     if (logged) {
-      const totalLoggedSeconds = useApp
-        .getState()
-        .sessions
-        .filter((item) => item.taskId === task.id && (item.state ?? "confirmed") === "confirmed")
+      if (completed) {
+        await setTaskStatus(task.id, "done");
+      }
+      if (!celebrate) {
+        router.push("/timer");
+        return;
+      }
+      const updatedSessions = useApp.getState().sessions;
+      const taskSessions = updatedSessions.filter((item) => item.taskId === task.id && (item.state ?? "confirmed") === "confirmed");
+      const totalLoggedSeconds = taskSessions
         .reduce((total, item) => total + item.durationSeconds, 0);
+      const reflection = buildSessionReflection({
+        logged,
+        sessions: updatedSessions,
+        task,
+        project: projectSnapshot,
+        notesCount: notesCountSnapshot,
+        includeCleanDraftReflection: true,
+      });
       setLoggedSession({
         seconds: logged.durationSeconds,
         taskTitle: task.title,
@@ -328,6 +426,10 @@ export default function TimerPage() {
         clientName: clientSnapshot?.name,
         totalLoggedSeconds,
         notesCount: notesCountSnapshot,
+        sessionCount: taskSessions.length,
+        projectProgressLabel: projectProgressLabel(task.projectId, useApp.getState().tasks),
+        reflection,
+        isCompleted: completed,
       });
     }
   };
@@ -346,7 +448,7 @@ export default function TimerPage() {
     const start = timeInputToToday(adjustStart);
     const end = timeInputToToday(adjustEnd);
     const computed = Math.max(0, Math.round((end - start) / 1000));
-    await handleKnownLog(Number(adjustDuration) > 0 ? Number(adjustDuration) * 60 : computed);
+    await handleKnownLog({ seconds: Number(adjustDuration) > 0 ? Number(adjustDuration) * 60 : computed });
     setAdjustEditing(false);
   };
 
@@ -359,6 +461,10 @@ export default function TimerPage() {
         sessionDurationSeconds={loggedSession.seconds}
         totalLoggedSeconds={loggedSession.totalLoggedSeconds}
         notesCount={loggedSession.notesCount}
+        sessionCount={loggedSession.sessionCount}
+        projectProgressLabel={loggedSession.projectProgressLabel}
+        reflection={loggedSession.reflection}
+        isCompleted={loggedSession.isCompleted}
         onStartAnother={() => {
           setLoggedSession(null);
           setTaskId("");
@@ -367,7 +473,7 @@ export default function TimerPage() {
           estimateCompletedRef.current = false;
           router.push("/timer");
         }}
-        onViewLedger={() => router.push("/report")}
+        onViewWorkLog={() => router.push("/report")}
         onBackToDashboard={() => router.push("/")}
       />
     );
@@ -451,7 +557,7 @@ export default function TimerPage() {
               <div className="flex gap-2">
                 <Button size="sm" variant="secondary" onClick={() => setIdleVisible(false)}>Yes, keep tracking</Button>
                 <Button size="sm" variant="secondary" onClick={openAdjust}>I stopped earlier</Button>
-                <Button size="sm" variant="ghost" onClick={() => { saveSessionAsDraft(); setSavedDraft(true); notify({ title: "Saved to Draft Ledger", description: "Confirm it later before it counts in reports.", tone: "success" }); }}>Save as draft</Button>
+                <Button size="sm" variant="ghost" onClick={() => { saveSessionAsDraft(); setSavedDraft(true); }}>Save as draft</Button>
               </div>
             </div>
           )}
@@ -468,7 +574,7 @@ export default function TimerPage() {
             onClassify={classifyDraftSession}
           />
 
-          <div className={`relative flex items-center justify-center ${isFinishing ? "opacity-45" : ""}`} style={{ width: FOCUS_RING_SIZE, height: FOCUS_RING_SIZE }}>
+          <div className={`relative flex items-center justify-center transition-all duration-300 hover:scale-[1.02] ${isFinishing ? "opacity-45" : ""}`} style={{ width: FOCUS_RING_SIZE, height: FOCUS_RING_SIZE }}>
             <svg width={FOCUS_RING_SIZE} height={FOCUS_RING_SIZE} className="absolute inset-0 -rotate-90">
               <circle cx={FOCUS_RING_SIZE / 2} cy={FOCUS_RING_SIZE / 2} r={FOCUS_RING_R} fill="none" strokeWidth="3" stroke="var(--surface-raised)" className={estimateSec === 0 && session.state === "running" ? "animate-slow-pulse" : ""} />
               {estimateSec > 0 && (
@@ -489,10 +595,10 @@ export default function TimerPage() {
             </svg>
 
             {estimateJustComplete ? (
-              <div className="z-10 flex max-w-[220px] flex-col items-center gap-3 text-center animate-modal-in">
+              <div className="z-10 flex max-w-[260px] flex-col items-center gap-3 text-center animate-modal-in">
                 <div>
-                  <p className="text-[16px] font-semibold text-text-primary">Nice work — {Math.round(estimateSec / 60)}m complete</p>
-                  <p className="mt-1 text-[12px] text-text-muted">You can finish this session or keep going.</p>
+                  <p className="text-[18px] font-semibold text-text-primary">Nice work — {Math.round(estimateSec / 60)}m complete</p>
+                  <p className="mt-1 text-[13px] text-text-muted">You can finish this session or keep going.</p>
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button size="sm" variant="secondary" onClick={() => setEstimateJustComplete(false)}>Continue timer</Button>
@@ -507,14 +613,27 @@ export default function TimerPage() {
 
           {!isFinishing && (
             <div className="flex flex-col items-center gap-3">
-              <div className="flex gap-2">
-                {session.state === "running" ? (
-                  <Button variant="secondary" onClick={pauseSession}><Pause size={14} />Pause</Button>
-                ) : (
-                  <Button variant="primary" onClick={resumeSession}><Play size={14} />Resume</Button>
-                )}
-                <Button variant="secondary" onClick={handleFinish}><CheckCircle size={14} />Finish</Button>
-              </div>
+              {isPaused && confirmDiscard ? (
+                <div className="flex flex-col items-center gap-2 rounded-lg px-4 py-3" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+                  <p className="text-[13px] font-medium text-text-primary">Discard this session? Time worked won&apos;t be logged.</p>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setConfirmDiscard(false)}>Cancel</Button>
+                    <Button size="sm" variant="primary" className="text-error" onClick={async () => { await discardSession(); router.push("/timer"); }}><Trash size={14} />Discard</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  {session.state === "running" ? (
+                    <Button variant="secondary" onClick={pauseSession}><Pause size={14} />Pause</Button>
+                  ) : (
+                    <Button variant="primary" onClick={() => { setConfirmDiscard(false); resumeSession(); }}><Play size={14} />Resume</Button>
+                  )}
+                  <Button variant="secondary" onClick={handleFinish}><CheckCircle size={14} />Finish</Button>
+                  {isPaused && (
+                    <Button variant="ghost" className="text-error" onClick={() => setConfirmDiscard(true)}><Trash size={14} />Discard</Button>
+                  )}
+                </div>
+              )}
               <p className="text-[11px] text-text-faint">Space pause · F finish · N note</p>
             </div>
           )}
@@ -545,14 +664,21 @@ export default function TimerPage() {
           )}
 
           <button
-            aria-label={noteCount > 0 ? `${noteCount} notes` : "Add note"}
-            title={noteCount > 0 ? `${noteCount} notes` : "Add note"}
+            aria-label={noteCount > 0 ? `${noteCount} session notes` : "Add note"}
+            title={noteCount > 0 ? `${noteCount} session notes` : "Add note"}
             onClick={() => setShowNotes(true)}
-            className="fixed bottom-6 right-6 z-[70] flex h-10 w-10 items-center justify-center rounded-full shadow-2xl"
+            className="fixed bottom-6 right-6 z-[70] flex h-12 max-w-[300px] items-center gap-2.5 rounded-full px-4 shadow-2xl transition-all hover:scale-[1.03]"
             style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
           >
-            <PencilSimple size={16} />
-            {noteCount > 0 && <span className="absolute -right-1 -top-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: "var(--accent)", color: "var(--text-primary)" }}>{noteCount}</span>}
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: "var(--accent-dim)" }}>
+              <PencilSimple size={15} />
+            </span>
+            <span className="flex min-w-0 flex-col items-start">
+              <span className="text-[12px] font-semibold text-text-primary">Notes{noteCount > 0 ? ` · ${noteCount}` : ""}</span>
+              <span className="max-w-[200px] truncate text-[11px] text-text-muted">
+                {noteCount > 0 ? session.notes![noteCount - 1].text : "Add a note while you work"}
+              </span>
+            </span>
           </button>
 
           <SessionNotesPanel
@@ -585,17 +711,23 @@ export default function TimerPage() {
             setDraftBillable={setDraftBillable}
             draftErrors={draftErrors}
             savedDraft={savedDraft}
-            onKnownLog={() => handleKnownLog()}
-            onDraftConfirm={handleDraftConfirm}
+            onFinished={() =>
+              isDraft
+                ? handleDraftConfirm({ completed: true, celebrate: true })
+                : handleKnownLog({ completed: true, celebrate: true })
+            }
+            onContinueLater={() =>
+              isDraft
+                ? handleDraftConfirm({ completed: false, celebrate: false })
+                : handleKnownLog({ completed: false, celebrate: false })
+            }
             onSaveDraft={async () => {
               await saveSessionAsDraft();
               setSavedDraft(true);
-              notify({ title: "Saved to Draft Ledger", description: "Confirm it later before it counts in reports.", tone: "success" });
             }}
-            onDiscard={async () => { if (window.confirm("Discard this session?")) { await discardSession(); router.push("/timer"); } }}
+            onDiscard={async () => { await discardSession(); router.push("/timer"); }}
             onContinue={() => { setSavedDraft(false); resumeFromFinishing(); }}
             onAdjust={openAdjust}
-            onToggleBillable={() => classifyDraftSession(session.taskId, session.projectId, !session.billable)}
           />
         </ModalShell>
         </>
@@ -617,27 +749,27 @@ function TimerCenter({ elapsed, estimateSec, remaining, isOvertime, isPaused }: 
   if (isPaused) {
     return (
       <div className="z-10 flex flex-col items-center gap-2 text-center">
-        <span className="font-mono text-[42px] font-semibold tabular-nums text-text-primary">Paused</span>
-        <span className="text-[11px] text-text-muted">Paused at {formatHMS(elapsed)}</span>
-        <span className="text-[11px] text-text-faint">Paused time is not counted.</span>
+        <span className="font-mono text-[56px] font-semibold tabular-nums leading-none text-text-primary">Paused</span>
+        <span className="text-[14px] font-medium text-text-secondary">Paused at {formatHMS(elapsed)}</span>
+        <span className="text-[13px] text-text-faint">Paused time is not counted</span>
       </div>
     );
   }
   if (estimateSec === 0) {
     return (
-      <div className="z-10 flex flex-col items-center gap-1.5">
-        <span className="font-mono text-[52px] font-semibold tabular-nums leading-none text-text-primary">{formatHMS(elapsed)}</span>
-        <span className="text-[12px] text-text-muted">Counting up · No estimate set</span>
+      <div className="z-10 flex flex-col items-center gap-2">
+        <span className="font-mono text-[68px] font-semibold tabular-nums leading-none text-text-primary">{formatHMS(elapsed)}</span>
+        <span className="text-[14px] text-text-muted">Counting up · No estimate set</span>
       </div>
     );
   }
   return (
-    <div className="z-10 flex flex-col items-center gap-1.5">
-      <span className="font-mono text-[52px] font-semibold tabular-nums leading-none" style={{ color: isOvertime ? "var(--error)" : "var(--text-primary)" }}>
+    <div className="z-10 flex flex-col items-center gap-2">
+      <span className="font-mono text-[68px] font-semibold tabular-nums leading-none" style={{ color: isOvertime ? "var(--error)" : "var(--text-primary)" }}>
         {isOvertime ? `+${formatMSS(elapsed - estimateSec)}` : `${formatMSS(remaining ?? 0)}`}
       </span>
-      <span className="text-[12px] text-text-muted">{isOvertime ? "overtime" : "left"}</span>
-      <span className="text-[11px] text-text-faint">{isOvertime ? `${formatMinSec(elapsed)} total` : `${formatMinSec(elapsed)} worked`} · {Math.round(estimateSec / 60)}m planned</span>
+      <span className="text-[14px] font-medium text-text-muted">{isOvertime ? "overtime" : "left"}</span>
+      <span className="text-[13px] text-text-faint">{isOvertime ? `${formatMinSec(elapsed)} total` : `${formatMinSec(elapsed)} worked`} · {Math.round(estimateSec / 60)}m planned</span>
     </div>
   );
 }
@@ -701,68 +833,75 @@ function FinishOverlay(props: {
   setDraftBillable: (v: boolean | null) => void;
   draftErrors: string[];
   savedDraft: boolean;
-  onKnownLog: () => void;
-  onDraftConfirm: () => void;
+  onFinished: () => void;
+  onContinueLater: () => void;
   onSaveDraft: () => void;
   onDiscard: () => void;
   onContinue: () => void;
   onAdjust: () => void;
-  onToggleBillable: () => void;
 }) {
   if (props.savedDraft) {
     return (
-      <div className="animate-modal-in flex w-full max-w-[520px] flex-col items-center gap-4 rounded-lg p-5 text-center" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
-        <h3 className="text-[18px] font-semibold text-text-primary">Saved to Draft Ledger</h3>
+      <div className="animate-modal-in mx-auto flex w-full max-w-[480px] flex-col items-center gap-4 rounded-2xl p-6 text-center shadow-2xl" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+        <h3 className="text-[18px] font-semibold text-text-primary">Saved to Draft Work Log</h3>
         <p className="text-[13px] text-text-muted">Confirm it later before it counts in reports.</p>
-        <div className="flex gap-2"><Button variant="secondary">Review drafts</Button><Button variant="primary" onClick={() => window.location.reload()}>Start another session</Button></div>
+        <Button variant="primary" onClick={() => window.location.reload()}>Start another session</Button>
       </div>
     );
   }
-  return (
-    <div className="animate-modal-in flex w-full max-w-[560px] flex-col gap-4 rounded-lg p-5" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
-      <div>
-        <p className="text-[13px] font-semibold text-text-primary">Session paused for review</p>
-        <p className="text-[12px] text-text-muted">Continue timer if you are still working.</p>
+
+  const finishButtons = (
+    <>
+      <div className="flex flex-col gap-2.5 sm:flex-row">
+        <Button variant="primary" className="flex-1 justify-center" onClick={props.onFinished}>
+          <CheckCircle size={16} />Yes, I finished
+        </Button>
+        <Button variant="secondary" className="flex-1 justify-center" onClick={props.onContinueLater}>
+          I&apos;ll continue later
+        </Button>
       </div>
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-1">
+        <button className="text-[12px] text-text-muted transition-colors hover:text-text-primary" onClick={props.onAdjust}>Adjust time</button>
+        <button className="text-[12px] text-text-muted transition-colors hover:text-text-primary" onClick={props.onContinue}>Back to timer</button>
+        {props.isDraft && (
+          <button className="text-[12px] text-text-muted transition-colors hover:text-text-primary" onClick={props.onSaveDraft}>Save as draft</button>
+        )}
+        <button className="text-[12px] text-error/80 transition-colors hover:text-error" onClick={props.onDiscard}>Discard</button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="animate-modal-in mx-auto flex w-full max-w-[480px] flex-col gap-5 rounded-2xl p-6 shadow-2xl" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+      <div className="flex flex-col gap-1.5 text-center">
+        <h3 className="text-[22px] font-semibold text-text-primary">Did you finish this task?</h3>
+        <p className="text-[13px] text-text-muted">
+          You worked {formatDuration(props.elapsed)}
+          {!props.isDraft && props.task?.title ? ` on ${props.task.title}` : ""}.
+        </p>
+      </div>
+
       {!props.isDraft ? (
         <>
-          <div>
-            <h3 className="text-[18px] font-semibold text-text-primary">Session ready</h3>
-            <p className="text-[13px] text-text-muted">You worked for {formatDuration(props.elapsed)}.</p>
+          <div className="rounded-lg p-4 text-center" style={{ background: "var(--surface-mid)", border: "1px solid var(--border-subtle)" }}>
+            <p className="text-[14px] font-semibold text-text-primary">{props.task?.title ?? "Untitled task"}</p>
+            <p className="mt-1 text-[12px] text-text-muted">{props.project?.name ?? "No project"} · {props.billable ? "Billable" : "Non-billable"}</p>
+            <p className="mt-1 text-[12px] text-text-faint">Today, {formatWallTime(props.sessionStartedAt)} – {formatWallTime(props.sessionEndedAt)}</p>
           </div>
-          <div className="rounded-lg p-4" style={{ background: "var(--surface-mid)", border: "1px solid var(--border-subtle)" }}>
-            <p className="text-[14px] font-semibold text-text-primary">{props.task?.title ?? "Untitled task"} · {props.project?.name ?? "No project"}</p>
-            <p className="mt-1 text-[12px] text-text-muted">Today, {formatWallTime(props.sessionStartedAt)} – {formatWallTime(props.sessionEndedAt)}</p>
-            <p className="mt-1 text-[12px] text-text-faint">{props.billable ? "Billable" : "Non-billable"} · {formatDuration(props.elapsed)}</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="primary" onClick={props.onKnownLog}>Log {formatDuration(props.elapsed)}</Button>
-            <Button variant="secondary" onClick={props.onAdjust}>Adjust time</Button>
-            <Button variant="ghost" onClick={props.onToggleBillable}>{props.billable ? "Mark non-billable" : "Mark billable"}</Button>
-            <Button variant="ghost" onClick={props.onContinue}>Continue timer</Button>
-          </div>
+          {finishButtons}
         </>
       ) : (
         <>
-          <div>
-            <h3 className="text-[18px] font-semibold text-text-primary">Finish your ledger entry</h3>
-            <p className="text-[13px] text-text-muted">You worked for {formatDuration(props.elapsed)}. Add the details before this counts in reports.</p>
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1.5"><span className="text-[11px] uppercase tracking-[0.08em] text-text-muted">Client</span><select className="h-10 rounded-md border border-border bg-surface px-3 text-[13px] text-text-primary" value={props.draftProjectId} onChange={(e) => props.setDraftProjectId(e.target.value)}><option value="">Choose client</option>{props.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
             <LabelInput label="Task name" value={props.draftTaskTitle} onChange={props.setDraftTaskTitle} />
           </div>
           <div className="flex gap-2">
-            <Button variant={props.draftBillable === true ? "primary" : "secondary"} onClick={() => props.setDraftBillable(true)}>Billable</Button>
-            <Button variant={props.draftBillable === false ? "primary" : "secondary"} onClick={() => props.setDraftBillable(false)}>Non-billable</Button>
+            <Button variant={props.draftBillable === true ? "primary" : "secondary"} className="flex-1 justify-center" onClick={() => props.setDraftBillable(true)}>Billable</Button>
+            <Button variant={props.draftBillable === false ? "primary" : "secondary"} className="flex-1 justify-center" onClick={() => props.setDraftBillable(false)}>Non-billable</Button>
           </div>
-          {props.draftErrors.length > 0 && <div className="flex flex-col gap-1 text-[12px] text-text-muted">{props.draftErrors.map((e) => <p key={e}>{e}</p>)}</div>}
-          <div className="flex flex-wrap gap-2">
-            <Button variant="primary" onClick={props.onDraftConfirm}>Confirm session</Button>
-            <Button variant="secondary" onClick={props.onSaveDraft}>Save as draft</Button>
-            <Button variant="ghost" onClick={props.onContinue}>Continue timer</Button>
-            <Button variant="ghost" className="text-error" onClick={props.onDiscard}>Discard</Button>
-          </div>
+          {props.draftErrors.length > 0 && <div className="flex flex-col gap-1 text-[12px] text-error">{props.draftErrors.map((e) => <p key={e}>{e}</p>)}</div>}
+          {finishButtons}
         </>
       )}
     </div>
@@ -801,10 +940,30 @@ function SessionNotesPanel({ open, notes, noteInput, noteWarning, onChangeNote, 
 }
 
 function DraftLedger({ drafts, projects, tasks, onReview }: { drafts: Session[]; projects: Project[]; tasks: Task[]; onReview: (id: string) => void }) {
-  if (drafts.length === 0) return null;
+  if (drafts.length === 0) {
+    return (
+      <section className="flex flex-col gap-3">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted">Draft Work Log</h2>
+        <div className="flex items-center justify-between rounded-xl px-5 py-4" style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}>
+          <div>
+            <p className="text-[14px] font-medium text-text-primary">All drafts cleared.</p>
+            <p className="mt-1 text-[12px] text-text-muted">Your work log is clean.</p>
+          </div>
+          <CheckCircle size={18} className="text-success" aria-hidden />
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted">Draft Ledger</h2>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted">Draft Work Log</h2>
+          <p className="mt-1 text-[12px] text-text-faint">
+            {drafts.length} session{drafts.length === 1 ? "" : "s"} need confirmation before they count.
+          </p>
+        </div>
+      </div>
       <div className="flex flex-col overflow-hidden rounded-xl" style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)" }}>
         {drafts.map((draft, index) => {
           const task = tasks.find((t) => t.id === draft.taskId);
@@ -816,7 +975,7 @@ function DraftLedger({ drafts, projects, tasks, onReview }: { drafts: Session[];
                   <p className="truncate text-[14px] font-medium text-text-primary">{task?.title ?? "Needs confirmation"}</p>
                   <p className="text-[12px] text-text-muted">{project?.name ?? "Add client"} · {formatDuration(draft.durationSeconds)} · Not in reports</p>
                 </div>
-                <Button size="sm" variant="secondary" onClick={() => onReview(draft.id)}>Confirm later</Button>
+                <Button size="sm" variant="secondary" onClick={() => onReview(draft.id)}>Confirm session</Button>
               </div>
               {index < drafts.length - 1 && <div className="mx-5 h-px" style={{ background: "var(--border-subtle)" }} />}
             </div>
@@ -895,7 +1054,7 @@ function EntitySelectPill({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="inline-flex h-9 min-w-[180px] items-center justify-between gap-2 rounded-full border border-border-subtle bg-surface-raised px-3 text-[13px] font-medium text-text-primary transition-colors hover:bg-surface-mid"
+        className="inline-flex h-9 min-w-[180px] items-center justify-between gap-2 rounded-full border border-border-subtle bg-surface-raised px-3 text-[13px] font-medium text-text-primary transition-all duration-150 hover:bg-surface-mid active:scale-[0.98] btn-interactive focus-ring"
       >
         <span className="truncate">{selected?.label ?? placeholder}</span>
         <CaretDown
@@ -951,7 +1110,7 @@ function EntitySelectPill({
 }
 
 function BillingToggle({ billable, onToggle }: { billable: boolean; onToggle: () => void }) {
-  return <button type="button" onClick={onToggle} className="rounded-full px-3 py-1 text-[12px] font-medium transition-colors" style={{ background: billable ? "var(--accent-dim)" : "var(--surface-mid)", color: billable ? "var(--accent-hover)" : "var(--text-muted)" }}>{billable ? "$ billable" : "internal"}</button>;
+  return <button type="button" onClick={onToggle} className="rounded-full px-3 py-1 text-[12px] font-medium transition-all duration-150 active:scale-[0.98] btn-interactive focus-ring border border-border-subtle hover:border-text-secondary" style={{ background: billable ? "var(--accent-dim)" : "var(--surface-mid)", color: billable ? "var(--accent-hover)" : "var(--text-muted)" }}>{billable ? "$ billable" : "internal"}</button>;
 }
 
 function LabelInput({ label, value, onChange, type = "text", suffix }: { label: string; value: string; onChange: (v: string) => void; type?: string; suffix?: string }) {

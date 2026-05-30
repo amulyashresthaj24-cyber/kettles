@@ -11,8 +11,12 @@ interface TaskFinishedStateProps {
   sessionDurationSeconds: number;
   totalLoggedSeconds: number;
   notesCount?: number;
+  sessionCount?: number;
+  projectProgressLabel?: string;
+  reflection?: string;
+  isCompleted?: boolean;
   onStartAnother: () => void;
-  onViewLedger: () => void;
+  onViewWorkLog: () => void;
   onBackToDashboard: () => void;
 }
 
@@ -23,72 +27,92 @@ export function TaskFinishedState({
   sessionDurationSeconds,
   totalLoggedSeconds,
   notesCount = 0,
+  sessionCount = 1,
+  projectProgressLabel,
+  reflection,
+  isCompleted = false,
   onStartAnother,
-  onViewLedger,
+  onViewWorkLog,
   onBackToDashboard,
 }: TaskFinishedStateProps) {
   const projectClient = [projectName, clientName].filter(Boolean).join(" / ") || "No project";
+  const headline = isCompleted ? "Task completed" : "Session logged";
+  const subline = isCompleted
+    ? (projectName ? `${taskName} is done for ${projectName}. Nice work.` : `${taskName} is done. Nice work.`)
+    : (projectName ? `Progress logged on ${taskName} for ${projectName}.` : `Progress logged on ${taskName}.`);
 
   return (
     <section
-      className="task-finished-state mx-auto flex min-h-[520px] w-full max-w-[760px] items-center justify-center px-4 py-10"
+      className="task-finished-state mx-auto flex min-h-[560px] w-full max-w-[640px] items-center justify-center px-4 py-10"
       aria-labelledby="task-finished-title"
       role="status"
       aria-live="polite"
     >
       <div
-        className="task-finished-card relative flex w-full flex-col items-center gap-6 overflow-hidden rounded-lg px-5 py-8 text-center sm:px-8"
+        className="task-finished-card relative flex w-full flex-col items-center gap-7 overflow-hidden rounded-2xl px-6 py-12 text-center sm:px-12"
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
-        <div className="task-finished-glow absolute left-1/2 top-12 h-24 w-24 -translate-x-1/2 rounded-full" aria-hidden />
+        <div className="task-finished-glow absolute left-1/2 top-6 h-44 w-44 -translate-x-1/2 rounded-full" aria-hidden />
 
-        <div className="task-finished-seal relative flex h-14 w-14 items-center justify-center" aria-hidden>
-          <svg className="h-14 w-14" viewBox="0 0 56 56" fill="none">
+        <div className="task-finished-seal relative flex h-20 w-20 items-center justify-center" aria-hidden>
+          <span
+            className="absolute inset-0 rounded-full"
+            style={{ background: "var(--accent-dim)" }}
+          />
+          <svg className="relative h-20 w-20" viewBox="0 0 56 56" fill="none">
             <circle
               className="task-finished-ring"
               cx="28"
               cy="28"
               r="21"
               stroke="var(--accent)"
-              strokeWidth="1.5"
+              strokeWidth="2"
             />
             <path
               className="task-finished-check"
               d="M19.5 28.5L25.5 34.5L37 22.5"
               stroke="var(--accent-hover)"
-              strokeWidth="2.25"
+              strokeWidth="2.75"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </svg>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <h1 id="task-finished-title" className="text-[26px] font-semibold leading-tight text-text-primary">
-            Task completed.
+        <div className="relative flex flex-col gap-2">
+          <h1 id="task-finished-title" className="text-[32px] font-semibold leading-tight text-text-primary">
+            {headline}
           </h1>
-          <p className="text-[14px] text-text-muted">
-            Your work has been saved to the ledger.
-          </p>
+          <p className="text-[15px] text-text-secondary">{subline}</p>
         </div>
 
         <dl
-          className="task-finished-summary grid w-full max-w-[560px] grid-cols-1 gap-2 rounded-lg p-3 text-left sm:grid-cols-2"
-          style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}
+          className="task-finished-summary relative grid w-full max-w-[440px] grid-cols-2 gap-2.5"
         >
-          <SummaryItem label="Task" value={taskName} />
-          <SummaryItem label="Project / client" value={projectClient} />
-          <SummaryItem label="Session duration" value={formatHMS(sessionDurationSeconds)} mono />
-          <SummaryItem label="Total logged time" value={formatDuration(totalLoggedSeconds)} mono />
-          {notesCount > 0 && <SummaryItem label="Notes" value={`${notesCount} note${notesCount === 1 ? "" : "s"}`} />}
+          <SummaryItem label="This session" value={formatHMS(sessionDurationSeconds)} mono />
+          <SummaryItem label="Total logged" value={formatDuration(totalLoggedSeconds)} mono />
+          <SummaryItem label="Sessions" value={`${sessionCount}`} mono />
+          <SummaryItem
+            label={notesCount > 0 ? "Notes captured" : "Project / client"}
+            value={notesCount > 0 ? `${notesCount} note${notesCount === 1 ? "" : "s"}` : projectClient}
+          />
+          {projectProgressLabel && (
+            <div className="col-span-2">
+              <SummaryItem label="Project progress" value={projectProgressLabel} />
+            </div>
+          )}
         </dl>
 
-        <div className="flex w-full flex-col-reverse items-stretch justify-center gap-2 sm:w-auto sm:flex-row sm:items-center">
+        {reflection && (
+          <p className="relative max-w-[440px] text-[13px] italic text-text-muted">{reflection}</p>
+        )}
+
+        <div className="relative flex w-full flex-col-reverse items-stretch justify-center gap-2 sm:w-auto sm:flex-row sm:items-center">
           <Button variant="ghost" onClick={onBackToDashboard}>
             Back to dashboard
           </Button>
-          <Button variant="secondary" onClick={onViewLedger}>
-            View ledger entry
+          <Button variant="secondary" onClick={onViewWorkLog}>
+            View work log
           </Button>
           <Button variant="primary" onClick={onStartAnother}>
             Start another session <ArrowRight size={14} aria-hidden />
@@ -101,9 +125,12 @@ export function TaskFinishedState({
 
 function SummaryItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="min-w-0 rounded-md px-3 py-2" style={{ background: "var(--surface-mid)" }}>
+    <div
+      className="min-w-0 rounded-lg px-4 py-3 text-left"
+      style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}
+    >
       <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-faint">{label}</dt>
-      <dd className={`mt-1 truncate text-[13px] font-medium text-text-primary ${mono ? "font-mono tabular-nums" : ""}`}>
+      <dd className={`mt-1 truncate text-[15px] font-semibold text-text-primary ${mono ? "font-mono tabular-nums" : ""}`}>
         {value}
       </dd>
     </div>

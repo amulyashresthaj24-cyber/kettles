@@ -208,7 +208,7 @@ export default function AuthPage() {
 
               <button
                 onClick={toggleMode}
-                className="w-full rounded-lg bg-accent px-lg py-md font-sans text-[14px] font-semibold text-text-primary transition-all duration-150 hover:bg-accent-hover active:scale-95"
+                className="w-full rounded-lg bg-accent px-lg py-md font-sans text-[14px] font-semibold text-white transition-all duration-150 hover:bg-accent-hover active:scale-95"
               >
                 Sign in with your email
               </button>
@@ -313,7 +313,7 @@ export default function AuthPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-xl h-12 w-full rounded-lg bg-accent font-sans text-[15px] font-semibold text-text-primary transition-all duration-150 hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-xl h-12 w-full rounded-lg bg-accent font-sans text-[15px] font-semibold text-white transition-all duration-150 hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <span className="flex items-center justify-center gap-2">

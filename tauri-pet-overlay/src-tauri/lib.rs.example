@@ -1,0 +1,43 @@
+// EXAMPLE — how to wire the pet module into your existing src-tauri/src/lib.rs.
+// This is a reference, not a drop-in file. Merge the marked lines into yours.
+
+mod pet; // <-- ADD: pulls in src-tauri/src/pet.rs
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        // ADD: notification plugin (used by pet_signal on timer finish)
+        .plugin(tauri_plugin_notification::init())
+        // ...any plugins you already have stay here...
+        .invoke_handler(tauri::generate_handler![
+            // ...your existing commands...
+            // ADD the five pet commands:
+            pet::pet_open,
+            pet::pet_close,
+            pet::pet_signal,
+            pet::pet_set_position,
+            pet::pet_set_clickthrough,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+
+// ---------------------------------------------------------------------------
+// OPTIONAL: open the pet automatically whenever the app enters Mini-Widget
+// mode, and close it when restoring. If your mini-mode toggle is a command,
+// call pet::pet_open / pet::pet_close from inside it:
+//
+//   #[tauri::command]
+//   fn enter_mini_mode(app: tauri::AppHandle, window: tauri::WebviewWindow) {
+//       // ...resize `main` to 300x120, set always-on-top, frameless...
+//       let pos = window.outer_position().unwrap();
+//       // dock the pet just above the mini-widget:
+//       let _ = pet::pet_open(app, Some(pos.x as f64 + 90.0), Some(pos.y as f64 - 210.0));
+//   }
+//
+//   #[tauri::command]
+//   fn exit_mini_mode(app: tauri::AppHandle) {
+//       let _ = pet::pet_close(app);
+//       // ...restore `main` to full size...
+//   }
+// ---------------------------------------------------------------------------

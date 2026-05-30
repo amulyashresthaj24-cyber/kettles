@@ -5,8 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "check:stable-version": "node scripts/check-stable-version.mjs",
+    "release:stable-desktop": "powershell -ExecutionPolicy Bypass -File scripts/build-stable-desktop.ps1",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "set TAURI_ENV_PLATFORM=windows && tauri build"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -15,6 +20,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "@radix-ui/react-slot": "^1.2.4",
     "@supabase/supabase-js": "^2.105.1",
+    "@tauri-apps/api": "^2.11.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "jspdf": "^4.2.1",
@@ -26,6 +32,7 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.2",
     "@types/node": "^20.19.39",
     "@types/react": "^18",
     "@types/react-dom": "^18",

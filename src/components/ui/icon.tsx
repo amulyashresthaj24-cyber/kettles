@@ -77,6 +77,9 @@ import {
   // Misc
   User,
   At,
+  Sun,
+  Moon,
+  Gear,
   // Empty state / decorative
   Checks,
   ClockCounterClockwise,
@@ -169,6 +172,9 @@ export const Icons = {
   // People / auth
   user:         User,
   at:           At,
+  sun:          Sun,
+  moon:         Moon,
+  settings:     Gear,
 
   // Decorative / empty
   checks:       Checks,
@@ -184,6 +190,7 @@ export interface AppIconProps {
   size?: IconSize | number;
   weight?: IconWeight;
   className?: string;
+  style?: React.CSSProperties;
   /** aria-hidden defaults true — set false only if icon conveys meaning without adjacent label */
   "aria-hidden"?: boolean;
   "aria-label"?: string;
@@ -194,6 +201,7 @@ export function AppIcon({
   size = "base",
   weight = "regular",
   className,
+  style,
   "aria-hidden": ariaHidden = true,
   "aria-label": ariaLabel,
 }: AppIconProps) {
@@ -205,6 +213,7 @@ export function AppIcon({
       size={px}
       weight={weight}
       className={className}
+      style={style}
       aria-hidden={ariaHidden}
       aria-label={ariaLabel}
     />
@@ -264,6 +273,9 @@ export {
   Palette,
   User,
   At,
+  Sun,
+  Moon,
+  Gear,
   Checks,
   ClockCounterClockwise,
 };

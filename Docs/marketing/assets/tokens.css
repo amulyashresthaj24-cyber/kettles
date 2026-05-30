@@ -1,0 +1,64 @@
+/* Kettles — design tokens (marketing). Mirrors the product: src/app/globals.css + Docs/design.md.
+   HARD RULE: blue/neutral only. No orange, no amber — anywhere, including the mascot. */
+
+:root {
+  /* ── Surfaces (dark) ── */
+  --base:            #08090a;  /* page canvas / dark sections / hero */
+  --surface:         #0f1011;  /* cards */
+  --surface-raised:  #191a1b;  /* nested cards, inputs */
+  --surface-mid:     #161718;
+  --border:          #2a2b2c;
+  --border-subtle:   #1e1f20;
+
+  /* ── Text ── */
+  --text-primary:    #f7f8f8;
+  --text-secondary:  #d0d6e0;
+  --text-muted:      #8a8f98;
+  --text-faint:      #62666d;
+
+  /* ── Accent (all CTAs, links, focus, active) ── */
+  --accent:          #0066ff;
+  --accent-hover:    #3385ff;
+  --accent-dim:      rgba(0,102,255,0.15);
+  --accent-border:   color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+
+  /* ── Kettle / steam (mascot — BLUE, exact values from KettleAnimation.tsx) ── */
+  --steam-blue:      #85c2ff;  /* kettle body + steam wisps */
+  --kettle-glow:     rgba(51,133,255,0.20);
+  --steam-tint:      rgba(0,102,255,0.08);
+
+  /* ── Blue gradient panel (hero / CTA cards) ── */
+  --card-gradient-start: #05080d;
+  --card-gradient-mid:   #061733;
+  --card-gradient-end:   #072a63;
+  --grad: linear-gradient(180deg, #05080d 0%, #061733 58%, #072a63 100%);
+
+  /* ── Light sections (soft off-white for pacing) ── */
+  --light-section:   #FAFAFA;
+  --light-ink:       #111111;
+
+  /* ── Status ── */
+  --success:         #10b981;
+  --error:           #ef4444;
+
+  /* ── Wordmark text (matches logo SVGs) ── */
+  --wordmark-on-light: #081828;  /* kettleslong.svg */
+  --wordmark-on-dark:  #ffffff;  /* kettleslongLight.svg */
+
+  /* ── Client accent dots (cool-toned variety) ── */
+  --c1:#0D9488; --c2:#4F46E5; --c3:#BE185D; --c4:#0066ff;
+
+  /* ── Motion ── */
+  --motion-fast:120ms; --motion-base:180ms; --motion-slow:240ms;
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:       cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Layout ── */
+  --content-max-width: 1200px;
+  --content-padding-x: 32px;
+}
+
+/* Type: Urbanist (UI/headings), Geist Mono (timers/numbers).
+   Scale — Display 60-72 / H1 40 / H2 32 / H3 24 / Body-L 20 / Body 18 / Body-S 16 / Label 14.
+   Tight tracking on headings (-0.02em), line-height 1.5-1.6 on body. */

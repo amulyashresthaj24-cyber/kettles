@@ -1,0 +1,92 @@
+{
+  "cell": { "width": 192, "height": 208 },
+  "sheet": { "cols": 8, "rows": 9 },
+  "rows": [
+    {
+      "id": "idle",
+      "row": 0,
+      "frames": 6,
+      "fps": 5,
+      "loop": true,
+      "intent": "Calm breathing or blinking while no timer is active.",
+      "avoid": ["large gestures", "new props", "text", "floating effects"]
+    },
+    {
+      "id": "working",
+      "row": 1,
+      "frames": 8,
+      "fps": 8,
+      "loop": true,
+      "intent": "Active focus loop for hover or busy mode.",
+      "avoid": ["literal sprinting", "speed lines", "detached tools", "UI panels"]
+    },
+    {
+      "id": "drag_running",
+      "row": 2,
+      "frames": 8,
+      "fps": 10,
+      "loop": true,
+      "intent": "Playful carried or moved state while the desktop pet is dragged.",
+      "avoid": ["dust", "floor shadows", "motion streaks"]
+    },
+    {
+      "id": "waving",
+      "row": 3,
+      "frames": 4,
+      "fps": 6,
+      "loop": false,
+      "intent": "Short friendly acknowledgement on hover or click.",
+      "avoid": ["wave marks", "sparkles", "floating punctuation"]
+    },
+    {
+      "id": "jumping",
+      "row": 4,
+      "frames": 5,
+      "fps": 10,
+      "loop": false,
+      "intent": "Celebration for completed work.",
+      "avoid": ["impact bursts", "floor marks", "drop shadows"]
+    },
+    {
+      "id": "failed",
+      "row": 5,
+      "frames": 8,
+      "fps": 6,
+      "loop": false,
+      "intent": "Abandoned or interrupted work reaction.",
+      "avoid": ["red X symbols", "detached smoke", "detached tears", "floating icons"]
+    },
+    {
+      "id": "waiting",
+      "row": 6,
+      "frames": 6,
+      "fps": 4,
+      "loop": true,
+      "intent": "Paused timer or waiting state.",
+      "avoid": ["sleep bubbles", "text", "large prop changes"]
+    },
+    {
+      "id": "review",
+      "row": 7,
+      "frames": 6,
+      "fps": 5,
+      "loop": true,
+      "intent": "Focused review/checking state.",
+      "avoid": ["magnifying glasses unless already part of mascot", "paper", "code panels"]
+    },
+    {
+      "id": "running",
+      "row": 8,
+      "frames": 6,
+      "fps": 9,
+      "loop": true,
+      "intent": "In-progress task loop, busy but not traveling across the screen.",
+      "avoid": ["literal foot-running", "travel motion", "speed lines", "dust"]
+    }
+  ],
+  "derivedStates": {
+    "working_still": { "from": "working", "row": 1, "col": 0, "frames": 1, "fps": 1, "loop": true },
+    "sitting": { "from": "failed", "row": 5, "col": 6, "frames": 2, "fps": 2, "loop": true, "scale": 0.75 }
+  }
+}
+

@@ -67,25 +67,44 @@ serve(async (req) => {
         const taskStats = {
           total: tasks?.length || 0,
           completed: tasks?.filter(t => t.data?.status === 'done').length || 0,
-          inProgress: tasks?.filter(t => t.data?.status === 'in_progress').length || 0,
+          inProgress: tasks?.filter(t => t.data?.status === 'doing' || t.data?.status === 'in_progress').length || 0,
           todo: tasks?.filter(t => t.data?.status === 'todo').length || 0,
         };
 
-        // Get hourly rates for billable calculation
+        // Get projects and their client_id
         const { data: projects, error: projectsError } = await supabase
           .from('projects')
-          .select('id, data')
-          .eq('user_id', user.id)
-          .eq('data->>billable', 'true');
+          .select('id, client_id')
+          .eq('user_id', user.id);
         
         if (projectsError) throw projectsError;
 
-        const projectRates = new Map();
-        projects?.forEach(p => {
-          projectRates.set(p.id, p.data?.hourlyRate || 0);
+        // Get clients and their hourly rates
+        const { data: clients, error: clientsError } = await supabase
+          .from('clients')
+          .select('id, data, hourly_rate_cents')
+          .eq('user_id', user.id);
+        
+        if (clientsError) throw clientsError;
+
+        // Map client ID -> hourly rate in cents (converting dollar values if stored in data)
+        const clientRates = new Map();
+        clients?.forEach(c => {
+          const rateDollars = c.data?.hourlyRate ?? 0;
+          const rateCents = c.hourly_rate_cents ?? (rateDollars * 100) ?? 0;
+          clientRates.set(c.id, rateCents);
         });
 
-        // Calculate billable amount (simplified - assumes $75/hr default)
+        // Map project ID -> client rate (in cents)
+        const projectRates = new Map();
+        projects?.forEach(p => {
+          if (p.client_id) {
+            const rate = clientRates.get(p.client_id) || 0;
+            projectRates.set(p.id, rate);
+          }
+        });
+
+        // Calculate billable amount (assumes $75/hr default if no custom client rate)
         const DEFAULT_RATE = 7500; // cents per hour (=$75/hr)
         const weekBillableCents = weekSessions
           ?.filter(s => s.billable)
