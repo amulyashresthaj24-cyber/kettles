@@ -57,6 +57,72 @@ export function DesktopShell() {
   const activeSession = sessions.find((s) => s.id === activeSessionId);
 
   // -----------------------------------------------------------------------
+  // Global timer completion (Sound + Notification)
+  // -----------------------------------------------------------------------
+  const notifiedSessionIdRef = useRef<string | null>(null);
+  const notifiedCompletedRef = useRef<boolean>(false);
+  const lastMessageTriggerTimeRef = useRef<number>(Date.now());
+  const customMessageRef = useRef<string | null>(null);
+  const messageTimeRef = useRef<number>(0);
+
+  const playKettleWhistle = useCallback(() => {
+    const enabled = useApp.getState().preferences?.whistleSoundEnabled !== false;
+    if (!enabled) return;
+    try {
+      const audio = new Audio("/sounds/kettle-whistle.ogg");
+      audio.volume = 0.22;
+      void audio.play();
+      window.setTimeout(() => {
+        audio.pause();
+        audio.currentTime = 0;
+      }, 1800);
+    } catch (e) {
+      console.warn("Audio play failed:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeSession || activeSession.state !== "running" || activeSession.paused) {
+      notifiedCompletedRef.current = false;
+      return;
+    }
+
+    if (notifiedSessionIdRef.current !== activeSession.id) {
+      notifiedSessionIdRef.current = activeSession.id;
+      notifiedCompletedRef.current = false;
+    }
+
+    const task = tasks.find((t) => t.id === activeSession.taskId);
+    if (!task || !task.estimateMinutes) return;
+
+    const estimateSec = task.estimateMinutes * 60;
+
+    const checkCompletion = () => {
+      const elapsed = sessionElapsed(activeSession);
+      if (elapsed >= estimateSec && !notifiedCompletedRef.current) {
+        notifiedCompletedRef.current = true;
+        playKettleWhistle();
+
+        const taskTitle = task.title || "Focus session";
+        const title = "Focus session complete!";
+        const body = `Nice work — your ${task.estimateMinutes}m estimate for "${taskTitle}" is complete.`;
+
+        if (isDesktop()) {
+          showDesktopNotification(title, body);
+        } else {
+          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+            new Notification(title, { body });
+          }
+        }
+      }
+    };
+
+    checkCompletion();
+    const intervalId = window.setInterval(checkCompletion, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [activeSession, tasks, playKettleWhistle]);
+
+  // -----------------------------------------------------------------------
   // Global shortcut handler (from Rust backend)
   // -----------------------------------------------------------------------
   const handleShortcut = useCallback(
@@ -215,14 +281,58 @@ export function DesktopShell() {
     if (!isDesktop()) return;
 
     const syncPetStatus = () => {
+      const now = Date.now();
+      const isRunning = activeSession && activeSession.state === "running" && !activeSession.paused;
+      const intervalMs = isRunning ? 180000 : 120000; // 3 mins (running), 2 mins (idle)
+
+      let activeMsg = customMessageRef.current;
+      let triggerWave = false;
+
+      if (activeMsg && now - messageTimeRef.current > 8000) {
+        customMessageRef.current = null;
+        activeMsg = null;
+      }
+
+      if (!customMessageRef.current && now - lastMessageTriggerTimeRef.current > intervalMs) {
+        lastMessageTriggerTimeRef.current = now;
+        messageTimeRef.current = now;
+
+        const runningMsgs = [
+          "All the best!",
+          "You're doing great, keep going!",
+          "Stay focused!",
+          "You got this!",
+          "Remember to sit straight!",
+          "Let's smash this goal!",
+          "Every second counts!",
+          "Deep breath, you're in control.",
+          "Focus mode: activated!"
+        ];
+        const idleMsgs = [
+          "Ready to focus when you are!",
+          "Let's start a session!",
+          "What's our next goal?",
+          "Taking a break is good too.",
+          "Ready for the next challenge?",
+          "Let's do some work!"
+        ];
+
+        const msgs = isRunning ? runningMsgs : idleMsgs;
+        const randomMsg = msgs[Math.floor(Math.random() * msgs.length)];
+        customMessageRef.current = randomMsg;
+        activeMsg = randomMsg;
+        triggerWave = true;
+      }
+
       if (!activeSession) {
         const doingCount = tasks.filter((task) => task.status === "doing").length;
         petSignal({
           phase: "idle",
-          source: doingCount > 0
+          source: activeMsg || (doingCount > 0
             ? `${doingCount} task${doingCount === 1 ? "" : "s"} in progress`
-            : "Ready to focus",
+            : "Ready to focus"),
           detail: "00:00:00",
+          event: triggerWave ? ("hover" as any) : undefined,
         });
         return;
       }
@@ -231,10 +341,26 @@ export function DesktopShell() {
       const isComplete = activeSession.state === "finishing";
       const isPaused = activeSession.paused || activeSession.state === "paused";
 
+      const elapsed = sessionElapsed(activeSession);
+      const estimateMinutes = task?.estimateMinutes || 0;
+      const estimateSec = estimateMinutes * 60;
+
+      let detailStr = "";
+      if (estimateSec > 0) {
+        if (elapsed > estimateSec) {
+          detailStr = `+${formatHMS(elapsed - estimateSec)}`;
+        } else {
+          detailStr = formatHMS(estimateSec - elapsed);
+        }
+      } else {
+        detailStr = formatHMS(elapsed);
+      }
+
       petSignal({
         phase: isComplete ? "finished" : isPaused ? "paused" : "running",
-        source: task?.title || "Focus session",
-        detail: formatHMS(sessionElapsed(activeSession)),
+        source: activeMsg || (task?.title || "Focus session"),
+        detail: detailStr,
+        event: triggerWave ? ("hover" as any) : undefined,
       });
     };
 

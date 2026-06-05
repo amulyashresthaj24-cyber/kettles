@@ -377,9 +377,9 @@ function draw(now) {
 
   // Frozen while collapsed: hold the current frame (no animation). The sprite
   // still gets its position written each rAF so the layer stays painted.
-  // Also freeze loop animations at frame 0 when idle (not hovered, not dragging)
-  // — this gives complete stillness when the user isn't interacting.
-  const isIdle = !isHovered && !dragging && !oneShot && s.loop;
+  // Also freeze loop animations at frame 0 when idle (not hovered, not dragging) and collapsed
+  // — this gives complete stillness when the user isn't interacting and collapsed.
+  const isIdle = collapsed && !isHovered && !dragging && !oneShot && s.loop;
   if (isIdle) {
     // Pin to frame 0 — the mascot holds a still pose
     frame = 0;

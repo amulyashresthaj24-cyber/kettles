@@ -131,7 +131,7 @@ export default function Sidebar({
           projects={projects.filter((p) => !p.archived)}
           selectedProjectId={selectedProjectId}
           onSelectProject={setSelectedProject}
-          onNavigateProject={(projectId) => router.push(`/projects/${projectId}`)}
+          onNavigateProject={(projectId) => router.push(`/projects/view?id=${projectId}`)}
           onAddProject={() => setOpenNewProject(true)}
         />
       </div>

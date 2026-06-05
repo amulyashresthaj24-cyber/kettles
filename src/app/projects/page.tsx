@@ -207,7 +207,7 @@ export default function ProjectsPage() {
               return (
                 <article
                   key={project.id}
-                  onClick={() => router.push(`/projects/${project.id}`)}
+                  onClick={() => router.push(`/projects/view?id=${project.id}`)}
                   className={cn(
                     "group grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-lg px-lg py-md transition-colors duration-150 ease-out hover:bg-surface-mid focus-within:bg-surface-mid",
                     isArchived && "opacity-75"

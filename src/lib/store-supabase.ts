@@ -157,6 +157,7 @@ interface State {
   isLoading: boolean;
   error: string | null;
   lastDailyArchiveDate?: string;
+  initialLoadComplete: boolean;
 
   // Actions
   setUser: (user: { name: string; email?: string } | null) => void;
@@ -255,6 +256,7 @@ persist((set, get) => ({
   isLoading: false,
   error: null,
   lastDailyArchiveDate: undefined,
+  initialLoadComplete: false,
 
   preferences: {
     defaultFocusDuration: 25,
@@ -991,7 +993,8 @@ persist((set, get) => ({
   loadClients: async () => {
     try {
       const { clients } = await api.clients.list();
-      set({ clients: clients || [] });
+      const deletedClients = getSyncEngine().getPendingDeletes("clients");
+      set({ clients: (clients || []).filter((c) => !deletedClients.has(c.id)) });
     } catch (error) {
       console.error('Failed to load clients:', error);
     }
@@ -1000,7 +1003,8 @@ persist((set, get) => ({
   loadProjects: async () => {
     try {
       const { projects } = await api.projects.list();
-      set({ projects: withProjectDisplayFallbacks(projects || []) });
+      const deletedProjects = getSyncEngine().getPendingDeletes("projects");
+      set({ projects: withProjectDisplayFallbacks(projects || []).filter((p) => !deletedProjects.has(p.id)) });
     } catch (error) {
       console.error('Failed to load projects:', error);
     }
@@ -1009,7 +1013,8 @@ persist((set, get) => ({
   loadTasks: async () => {
     try {
       const { tasks } = await api.tasks.list();
-      set({ tasks: withTaskDisplayFallbacks(tasks || []) });
+      const deletedTasks = getSyncEngine().getPendingDeletes("tasks");
+      set({ tasks: withTaskDisplayFallbacks(tasks || []).filter((t) => !deletedTasks.has(t.id)) });
     } catch (error) {
       console.error('Failed to load tasks:', error);
     }
@@ -1018,7 +1023,11 @@ persist((set, get) => ({
   loadSessions: async () => {
     try {
       const { sessions } = await api.sessions.list();
-      const merged = mergeSessionLists((sessions || []).map(normalizeSession), get().sessions);
+      const deletedSessions = getSyncEngine().getPendingDeletes("sessions");
+      const remoteSessionsFiltered = (sessions || [])
+        .map(normalizeSession)
+        .filter((s) => !deletedSessions.has(s.id));
+      const merged = mergeSessionLists(remoteSessionsFiltered, get().sessions.filter((s) => !deletedSessions.has(s.id)));
       const mergedSessions = freezeStaleRunning(merged);
       set({ sessions: mergedSessions });
 
@@ -1040,18 +1049,38 @@ persist((set, get) => ({
         api.sessions.list(),
       ]);
 
+      const syncEngine = getSyncEngine();
+      const deletedSessions = syncEngine.getPendingDeletes("sessions");
+      const deletedTasks = syncEngine.getPendingDeletes("tasks");
+      const deletedProjects = syncEngine.getPendingDeletes("projects");
+      const deletedClients = syncEngine.getPendingDeletes("clients");
+
+      const remoteSessionsFiltered = (sessionsResult.sessions || [])
+        .map(normalizeSession)
+        .filter((s) => !deletedSessions.has(s.id));
+
       const sessions = freezeStaleRunning(
-        mergeSessionLists((sessionsResult.sessions || []).map(normalizeSession), get().sessions)
+        mergeSessionLists(remoteSessionsFiltered, get().sessions.filter((s) => !deletedSessions.has(s.id)))
       );
-      const tasks = reconcileSessionTasks(withTaskDisplayFallbacks(tasksResult.tasks || []), sessions);
-      const activeSession = sessions.find((s: Session) => !s.endedAt && ["running", "paused", "finishing"].includes(normalizeSession(s).state));
+
+      const remoteTasksFiltered = (tasksResult.tasks || [])
+        .filter((t) => !deletedTasks.has(t.id));
+
+      const tasks = reconcileSessionTasks(withTaskDisplayFallbacks(remoteTasksFiltered), sessions);
+
+      const remoteProjectsFiltered = withProjectDisplayFallbacks(projectsResult.projects || [])
+        .filter((p) => !deletedProjects.has(p.id));
+
+      const remoteClientsFiltered = (clientsResult.clients || [])
+        .filter((c) => !deletedClients.has(c.id));
 
       set({
-        clients: clientsResult.clients || [],
-        projects: withProjectDisplayFallbacks(projectsResult.projects || []),
+        clients: remoteClientsFiltered,
+        projects: remoteProjectsFiltered,
         tasks,
         sessions,
-        activeSessionId: activeSession?.id ?? null,
+        activeSessionId: sessions.find((s: Session) => !s.endedAt && ["running", "paused", "finishing"].includes(normalizeSession(s).state))?.id ?? null,
+        initialLoadComplete: true,
       });
 
       await get().performDailyArchive();
@@ -1120,6 +1149,7 @@ persist((set, get) => ({
     user: null,
     error: null,
     lastDailyArchiveDate: undefined,
+    initialLoadComplete: false,
   }),
 }), {
   name: "flowmate-supabase-session-store",

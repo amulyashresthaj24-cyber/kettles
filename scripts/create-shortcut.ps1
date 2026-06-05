@@ -2,8 +2,8 @@
 $ErrorActionPreference = "Stop"
 
 $desktopPath = [System.IO.Path]::Combine([System.Environment]::GetFolderPath("Desktop"), "Flowmate.lnk")
-$targetPath = "C:\Users\amuly\Documents\Work\Flowmate\src-tauri\target\release\flowmate-desktop.exe"
-$workingDir = "C:\Users\amuly\Documents\Work\Flowmate\src-tauri\target\release"
+$targetPath = "C:\Users\amuly\Documents\Work\Flowmate\scripts\Flowmate.bat"
+$workingDir = "C:\Users\amuly\Documents\Work\Flowmate\scripts"
 $iconPath = "C:\Users\amuly\Documents\Work\Flowmate\src-tauri\icons\icon.ico"
 
 Write-Host "Creating Desktop shortcut for Flowmate..."
@@ -16,6 +16,7 @@ try {
     $Shortcut.TargetPath = $targetPath
     $Shortcut.WorkingDirectory = $workingDir
     $Shortcut.IconLocation = "$iconPath,0"
+    $Shortcut.WindowStyle = 7  # Minimized — avoids the launcher console flashing
     $Shortcut.Description = "Flowmate - Task-linked time tracking, project management, and analytics"
     $Shortcut.Save()
     Write-Host "Desktop shortcut created successfully!"

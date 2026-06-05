@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/lib/store-supabase";
 import { Button } from "@/components/ui/button";
 import { ProjectWorkspace } from "@/components/ProjectWorkspace";
@@ -9,12 +9,12 @@ import { KettleLoader } from "@/components/KettleLoader";
 
 export default function ProjectDetailClient() {
   const router = useRouter();
-  const params = useParams();
-  const projectId = params.id as string;
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get("id") ?? "";
 
   const projects = useApp((s) => s.projects);
   const tasks = useApp((s) => s.tasks);
-  const isLoading = useApp((s) => s.isLoading);
+  const initialLoadComplete = useApp((s) => s.initialLoadComplete);
 
   const project = useMemo(
     () => projects.find((p) => p.id === projectId),
@@ -26,7 +26,7 @@ export default function ProjectDetailClient() {
     [tasks, projectId]
   );
 
-  if (isLoading && projects.length === 0) {
+  if (!initialLoadComplete) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-base">
         <KettleLoader message="Loading project details..." />

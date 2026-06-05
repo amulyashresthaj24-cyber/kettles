@@ -106,6 +106,17 @@ class SyncEngine {
     return this.queue.length;
   }
 
+  /** Get a set of entity IDs that are pending deletion. */
+  getPendingDeletes(entity: "clients" | "projects" | "tasks" | "sessions"): Set<string> {
+    const ids = new Set<string>();
+    for (const op of this.queue) {
+      if (op.entity === entity && op.action === "delete") {
+        ids.add(op.entityId);
+      }
+    }
+    return ids;
+  }
+
   /** Subscribe to sync status changes. Returns unsubscribe function. */
   subscribe(listener: SyncListener): () => void {
     this.listeners.push(listener);

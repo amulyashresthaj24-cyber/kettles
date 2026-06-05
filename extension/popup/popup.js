@@ -358,7 +358,7 @@ notesInput.addEventListener("input", () => {
 
 openProjectButton.addEventListener("click", () => {
   const id = activeProjectId();
-  openKettles(currentSettings, id ? `/projects/${id}` : "/projects");
+  openKettles(currentSettings, id ? `/projects/view?id=${id}` : "/projects");
 });
 settingsButton.addEventListener("click", () => chrome.runtime.openOptionsPage());
 

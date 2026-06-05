@@ -239,29 +239,11 @@ export default function TimerPage() {
   const noteCount = session?.notes?.length ?? 0;
   const draftSessions = sessions.filter((item) => item.state === "draft");
 
-  const playKettleWhistle = () => {
-    if (!audioReady.current || preferences?.whistleSoundEnabled === false) return;
-    try {
-      const audio = kettleAudio.current ?? new Audio("/sounds/kettle-whistle.ogg");
-      kettleAudio.current = audio;
-      audio.currentTime = 0;
-      audio.volume = 0.22;
-      void audio.play();
-      window.setTimeout(() => {
-        audio.pause();
-        audio.currentTime = 0;
-      }, 1800);
-    } catch {
-      // Notification state should not depend on audio support.
-    }
-  };
-
   useEffect(() => {
     if (!session || estimateSec <= 0 || estimateCompletedRef.current) return;
     if (remaining === 0 && session.state === "running") {
       estimateCompletedRef.current = true;
       setEstimateJustComplete(true);
-      playKettleWhistle();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estimateSec, remaining, session]);
@@ -711,6 +693,9 @@ export default function TimerPage() {
             setDraftBillable={setDraftBillable}
             draftErrors={draftErrors}
             savedDraft={savedDraft}
+            notes={session.notes ?? []}
+            onAddNote={addSessionNote}
+            onDeleteNote={deleteSessionNote}
             onFinished={() =>
               isDraft
                 ? handleDraftConfirm({ completed: true, celebrate: true })
@@ -833,6 +818,9 @@ function FinishOverlay(props: {
   setDraftBillable: (v: boolean | null) => void;
   draftErrors: string[];
   savedDraft: boolean;
+  notes: { id: string; timestamp: number; text: string }[];
+  onAddNote: (text: string) => void;
+  onDeleteNote: (id: string) => void;
   onFinished: () => void;
   onContinueLater: () => void;
   onSaveDraft: () => void;
@@ -840,6 +828,8 @@ function FinishOverlay(props: {
   onContinue: () => void;
   onAdjust: () => void;
 }) {
+  const [finishNote, setFinishNote] = useState("");
+
   if (props.savedDraft) {
     return (
       <div className="animate-modal-in mx-auto flex w-full max-w-[480px] flex-col items-center gap-4 rounded-2xl p-6 text-center shadow-2xl" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
@@ -888,7 +878,6 @@ function FinishOverlay(props: {
             <p className="mt-1 text-[12px] text-text-muted">{props.project?.name ?? "No project"} · {props.billable ? "Billable" : "Non-billable"}</p>
             <p className="mt-1 text-[12px] text-text-faint">Today, {formatWallTime(props.sessionStartedAt)} – {formatWallTime(props.sessionEndedAt)}</p>
           </div>
-          {finishButtons}
         </>
       ) : (
         <>
@@ -901,9 +890,62 @@ function FinishOverlay(props: {
             <Button variant={props.draftBillable === false ? "primary" : "secondary"} className="flex-1 justify-center" onClick={() => props.setDraftBillable(false)}>Non-billable</Button>
           </div>
           {props.draftErrors.length > 0 && <div className="flex flex-col gap-1 text-[12px] text-error">{props.draftErrors.map((e) => <p key={e}>{e}</p>)}</div>}
-          {finishButtons}
         </>
       )}
+
+      {/* Session Notes section */}
+      <div className="flex flex-col gap-2 border-t border-border-subtle pt-4">
+        <h4 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">Session Notes</h4>
+        
+        {props.notes.length > 0 && (
+          <div className="max-h-[100px] overflow-y-auto flex flex-col gap-1.5 mb-1.5">
+            {props.notes.map((note) => (
+              <div key={note.id} className="group flex items-center justify-between rounded bg-surface px-2.5 py-1.5 text-[12px] border border-border-subtle">
+                <span className="text-text-secondary truncate">{note.text}</span>
+                <button
+                  type="button"
+                  onClick={() => props.onDeleteNote(note.id)}
+                  className="text-text-muted hover:text-error opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        <div className="flex gap-2">
+          <Input
+            placeholder="Add note..."
+            value={finishNote}
+            onChange={(e) => setFinishNote(e.target.value)}
+            className="h-9 text-[13px]"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (finishNote.trim()) {
+                  props.onAddNote(finishNote.trim());
+                  setFinishNote("");
+                }
+              }
+            }}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={!finishNote.trim()}
+            onClick={() => {
+              props.onAddNote(finishNote.trim());
+              setFinishNote("");
+            }}
+          >
+            Add
+          </Button>
+        </div>
+      </div>
+
+      {finishButtons}
     </div>
   );
 }

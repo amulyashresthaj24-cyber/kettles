@@ -60,10 +60,9 @@ function SettingsContent() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab") as SettingsTab;
-      if (
-        tabParam &&
-        ["profile", "preferences", "projects", "clients", "data", "pet"].includes(tabParam)
-      ) {
+      const allowed = ["profile", "preferences", "projects", "clients", "data"];
+      if (isDesktop()) allowed.push("pet");
+      if (tabParam && allowed.includes(tabParam)) {
         setActiveTab(tabParam);
       }
     }
@@ -415,7 +414,10 @@ function SettingsContent() {
     { id: "projects" as SettingsTab, label: "Projects", Icon: FolderOpen },
     { id: "clients" as SettingsTab, label: "Clients", Icon: Briefcase },
     { id: "data" as SettingsTab, label: "Data Management", Icon: Download },
-    { id: "pet" as SettingsTab, label: "Mascot & Pet", Icon: Palette },
+    // Mascot & Pet settings only apply to the Tauri desktop app.
+    ...(desktopAvailable
+      ? [{ id: "pet" as SettingsTab, label: "Mascot & Pet", Icon: Palette }]
+      : []),
   ];
 
   return (
