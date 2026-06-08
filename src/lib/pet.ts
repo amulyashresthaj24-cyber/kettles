@@ -30,6 +30,8 @@ export interface PetSignal {
   source?: string;
   /** Card timer line — e.g. the elapsed "HH:MM:SS" countup. */
   detail?: string;
+  /** Quote/reminder text — renders the floating bubble + pointing pose (Row 4). */
+  quote?: string;
   /** Force a desktop notification regardless of event. */
   notify?: { title: string; body: string };
 }
@@ -50,6 +52,10 @@ export const petSetPosition = (x: number, y: number) =>
 /** Toggle mouse pass-through (true = decorative only). */
 export const petSetClickthrough = (enabled: boolean) =>
   invoke("pet_set_clickthrough", { enabled });
+
+/** Start/stop the OS cursor-polling thread (emits pet://cursor to the overlay). */
+export const petTracking = (enabled: boolean) =>
+  invoke("pet_tracking", { enabled });
 
 /** Listen for pet clicks (pet://poke). Returns an unlisten function. */
 export const onPetPoke = (handler: () => void) =>

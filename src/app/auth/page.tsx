@@ -27,6 +27,13 @@ export default function AuthPage() {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
+  // Prefill the email handed off from the marketing landing (/auth?email=...).
+  // Read from window to avoid the useSearchParams Suspense requirement.
+  useEffect(() => {
+    const handoff = new URLSearchParams(window.location.search).get("email");
+    if (handoff) setEmail(handoff);
+  }, []);
+
   // Redirect if already logged in
   useEffect(() => {
     if (!loading && user) {

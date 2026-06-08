@@ -43,9 +43,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const isAuthPage = pathname === "/auth";
+  const isAuthPage = pathname ? pathname.startsWith("/auth") : false;
   const isOnboardingPage = pathname === "/onboarding";
   const isMiniTimerPage = pathname === "/mini-timer";
+  // Public marketing pages (landing, etc) render outside the app chrome and
+  // are not auth-guarded. Keep this list in sync with src/app/(marketing).
+  const isMarketingPage = pathname === "/";
+  // The desktop app has no use for the public landing page — go straight to
+  // the app (sign in, or the dashboard if already authed).
+  // NOTE: isDesktop() reads window globals, which differ between SSR (false)
+  // and the Tauri webview (true). Reading it during render desyncs the first
+  // client paint from the server HTML → hydration error. Resolve after mount.
+  const [isDesktopApp, setIsDesktopApp] = useState(false);
+  useEffect(() => {
+    setIsDesktopApp(isDesktop());
+  }, []);
 
   // Boot the offline sync engine early so its connectivity listener is
   // registered before the app ever goes offline / comes back online.
@@ -85,12 +97,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem("flowmate-theme", theme);
   }, [theme]);
 
-  // Redirect to auth if not logged in (but not on auth page)
+  // Redirect to auth if not logged in (but not on auth/public pages)
   useEffect(() => {
-    if (!loading && !user && !isAuthPage && !isOnboardingPage) {
+    if (!loading && !user && !isAuthPage && !isOnboardingPage && !isMarketingPage) {
       router.replace("/auth");
     }
-  }, [user, loading, router, isAuthPage, isOnboardingPage]);
+  }, [user, loading, router, isAuthPage, isOnboardingPage, isMarketingPage]);
+
+  // Desktop app skips the landing page entirely → sign in (or dashboard).
+  useEffect(() => {
+    if (isDesktopApp && isMarketingPage && !loading) {
+      router.replace(user ? "/dashboard" : "/auth");
+    }
+  }, [isDesktopApp, isMarketingPage, loading, user, router]);
+
+  // Public marketing pages bypass the app chrome and auth guard entirely —
+  // except on desktop, where we show the loader while redirecting off it.
+  if (isMarketingPage) {
+    if (isDesktopApp) {
+      return (
+        <div className="flex h-screen flex-col items-center justify-center bg-base">
+          <KettleLoader message="Loading your workspace..." />
+        </div>
+      );
+    }
+    return <>{children}</>;
+  }
 
   // Show full-screen loading while checking auth (skip on auth page)
   if ((loading || !user) && !isAuthPage && !isOnboardingPage) {

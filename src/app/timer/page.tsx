@@ -15,6 +15,7 @@ import {
   CheckCircle,
 } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
+import { petSignal } from "@/lib/pet";
 import { formatDuration, formatHMS, formatMinSec, formatMSS, formatWallTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,91 @@ const URGENCY_ORDER = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
 const FOCUS_RING_SIZE = 320;
 const FOCUS_RING_R = 150;
 const FOCUS_RING_CIRC = 2 * Math.PI * FOCUS_RING_R;
+
+type AlarmSound = "bell" | "chime" | "digital" | "gentle" | "pulse";
+const ALARM_SOUNDS: { id: AlarmSound; label: string }[] = [
+  { id: "bell", label: "Bell" },
+  { id: "chime", label: "Chime" },
+  { id: "digital", label: "Digital" },
+  { id: "gentle", label: "Gentle" },
+  { id: "pulse", label: "Pulse" },
+];
+
+function playBell(ctx: AudioContext) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(880, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 1.5);
+  gain.gain.setValueAtTime(0.4, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
+  osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 1.5);
+}
+
+function playChime(ctx: AudioContext) {
+  [523, 659, 784, 1047].forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = "sine"; osc.frequency.value = freq;
+    const t = ctx.currentTime + i * 0.2;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.3, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+    osc.start(t); osc.stop(t + 0.8);
+  });
+}
+
+function playDigital(ctx: AudioContext) {
+  for (let i = 0; i < 3; i++) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = "square"; osc.frequency.value = 880;
+    const t = ctx.currentTime + i * 0.25;
+    gain.gain.setValueAtTime(0.15, t);
+    gain.gain.setValueAtTime(0, t + 0.15);
+    osc.start(t); osc.stop(t + 0.15);
+  }
+}
+
+function playGentle(ctx: AudioContext) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = "sine"; osc.frequency.value = 528;
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.5);
+  gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 1.5);
+  gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 2.5);
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 3);
+  osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 3);
+}
+
+function playPulse(ctx: AudioContext) {
+  for (let i = 0; i < 4; i++) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = "sine"; osc.frequency.value = 660;
+    const t = ctx.currentTime + i * 0.4;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    osc.start(t); osc.stop(t + 0.35);
+  }
+}
+
+function triggerAlarmSound(ctx: AudioContext, type: AlarmSound) {
+  switch (type) {
+    case "bell": playBell(ctx); break;
+    case "chime": playChime(ctx); break;
+    case "digital": playDigital(ctx); break;
+    case "gentle": playGentle(ctx); break;
+    case "pulse": playPulse(ctx); break;
+  }
+}
 
 function toTimeInput(ms: number) {
   const d = new Date(ms);
@@ -576,21 +662,7 @@ export default function TimerPage() {
               {isOvertime && <circle cx={FOCUS_RING_SIZE / 2} cy={FOCUS_RING_SIZE / 2} r={FOCUS_RING_R + 9} fill="none" strokeWidth="2" stroke="var(--error)" className="animate-slow-pulse" />}
             </svg>
 
-            {estimateJustComplete ? (
-              <div className="z-10 flex max-w-[260px] flex-col items-center gap-3 text-center animate-modal-in">
-                <div>
-                  <p className="text-[18px] font-semibold text-text-primary">Nice work — {Math.round(estimateSec / 60)}m complete</p>
-                  <p className="mt-1 text-[13px] text-text-muted">You can finish this session or keep going.</p>
-                </div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => setEstimateJustComplete(false)}>Continue timer</Button>
-                  <Button size="sm" variant="primary" onClick={handleFinish}>Finish session</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setShowNotes(true)}>Add note</Button>
-                </div>
-              </div>
-            ) : (
-              <TimerCenter elapsed={elapsed} estimateSec={estimateSec} remaining={remaining} isOvertime={isOvertime} isPaused={isPaused} />
-            )}
+            <TimerCenter elapsed={elapsed} estimateSec={estimateSec} remaining={remaining} isOvertime={isOvertime} isPaused={isPaused} />
           </div>
 
           {!isFinishing && (
@@ -675,6 +747,14 @@ export default function TimerPage() {
             onDelete={deleteSessionNote}
           />
         </section>
+        {estimateJustComplete && !isFinishing && (
+          <AlarmModal
+            plannedMinutes={Math.round(estimateSec / 60)}
+            taskTitle={activeTask?.title}
+            onContinue={() => setEstimateJustComplete(false)}
+            onFinish={() => { setEstimateJustComplete(false); handleFinish(); }}
+          />
+        )}
         <ModalShell open={isFinishing}>
           <FinishOverlay
             isDraft={isDraft}
@@ -1164,5 +1244,124 @@ function LabelInput({ label, value, onChange, type = "text", suffix }: { label: 
         {suffix && <span className="text-[12px] text-text-muted">{suffix}</span>}
       </div>
     </label>
+  );
+}
+
+function AlarmModal({
+  plannedMinutes,
+  taskTitle,
+  onContinue,
+  onFinish,
+}: {
+  plannedMinutes: number;
+  taskTitle?: string;
+  onContinue: () => void;
+  onFinish: () => void;
+}) {
+  const [sound, setSound] = useState<AlarmSound>("bell");
+  const soundRef = useRef<AlarmSound>("bell");
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const getCtx = () => {
+    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+      audioCtxRef.current = new AudioContext();
+    }
+    return audioCtxRef.current;
+  };
+
+  const playOnce = () => {
+    try { triggerAlarmSound(getCtx(), soundRef.current); } catch {}
+  };
+
+  useEffect(() => {
+    soundRef.current = sound;
+  }, [sound]);
+
+  useEffect(() => {
+    playOnce();
+    intervalRef.current = setInterval(playOnce, 4000);
+    petSignal({
+      event: "timerFinish",
+      phase: "finished",
+      source: taskTitle || "Focus session",
+      detail: `${plannedMinutes}m complete`,
+      notify: { title: "Time's up!", body: taskTitle ? `${plannedMinutes}m on "${taskTitle}" done.` : `${plannedMinutes}m session complete.` },
+    });
+    return () => {
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
+        audioCtxRef.current.close().catch(() => {});
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const dismiss = (action: () => void, resume?: boolean) => {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
+      audioCtxRef.current.close().catch(() => {});
+    }
+    if (resume) {
+      petSignal({ event: "timerResume", phase: "running", source: taskTitle || "Focus session" });
+    }
+    action();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[95] flex items-center justify-center p-6">
+      <div className="absolute inset-0 bg-base/80 backdrop-blur-md" />
+      <div className="relative w-full max-w-[440px] animate-modal-in flex flex-col items-center gap-6 rounded-2xl p-8 shadow-2xl text-center" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+        {/* Pulsing ring */}
+        <div className="relative flex items-center justify-center">
+          <span className="absolute inline-flex h-20 w-20 rounded-full opacity-20 animate-ping" style={{ background: "var(--accent)" }} />
+          <span className="relative flex h-20 w-20 items-center justify-center rounded-full text-[36px]" style={{ background: "var(--accent-dim)" }}>
+            ⏰
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <h2 className="text-[24px] font-semibold text-text-primary">Time&apos;s up!</h2>
+          <p className="text-[14px] text-text-secondary">
+            {taskTitle ? <><span className="font-medium text-text-primary">{taskTitle}</span> · </> : ""}
+            {plannedMinutes}m session complete
+          </p>
+        </div>
+
+        {/* Sound picker */}
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted">Alarm sound</span>
+          <div className="flex flex-wrap justify-center gap-2">
+            {ALARM_SOUNDS.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => {
+                  setSound(s.id);
+                  soundRef.current = s.id;
+                  playOnce();
+                }}
+                className="h-8 rounded-full px-4 text-[12px] font-medium transition-colors"
+                style={{
+                  background: sound === s.id ? "var(--accent)" : "var(--surface-mid)",
+                  color: sound === s.id ? "var(--text-primary)" : "var(--text-secondary)",
+                  border: "1px solid var(--border-subtle)",
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex w-full flex-col gap-2.5">
+          <Button variant="secondary" className="w-full justify-center" onClick={() => dismiss(onContinue, true)}>
+            <Play size={15} />Keep going
+          </Button>
+          <Button variant="primary" className="w-full justify-center" onClick={() => dismiss(onFinish, false)}>
+            <CheckCircle size={15} />Finish session
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

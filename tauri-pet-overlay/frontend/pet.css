@@ -86,9 +86,10 @@ body {
   position: absolute;
   bottom: 6px;
   left: 50%;
-  width: 84px;
-  height: 92px;
-  margin-left: -42px;
+  /* 70x112 keeps the sprite-update-female cell aspect (94.8x150.82 ≈ 0.63). */
+  width: 70px;
+  height: 112px;
+  margin-left: -35px;
   background-repeat: no-repeat;
   background-position: center;
   image-rendering: auto;
@@ -104,7 +105,7 @@ body {
   position: absolute;
   left: 50%;
   bottom: 2px;
-  width: 54px;
+  width: 46px;
   height: 12px;
   transform: translateX(-50%);
   border-radius: 50%;

@@ -22,6 +22,8 @@
 //! native notification when a session finishes. See README.md.
 
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
+use std::time::Duration;
 use tauri::{
     utils::config::Color, AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl,
     WebviewWindowBuilder,
@@ -31,10 +33,53 @@ use tauri_plugin_notification::NotificationExt;
 /// Window label of the pet overlay. Used by the capability file too.
 pub const PET_LABEL: &str = "pet";
 
-/// Overlay window size (logical px). Sized snug to the mascot + its thought
-/// bubble (incl. the finished-state action panel) — nothing is clipped.
-pub const PET_W: f64 = 260.0;
-pub const PET_H: f64 = 320.0;
+/// Small overlay window (logical px). It is sized snug to the mascot + the note
+/// / bubble that float above it, and the OS moves the whole window around — so
+/// the pet can live on, and be dragged across to, ANY monitor.
+pub const PET_W: f64 = 300.0;
+pub const PET_H: f64 = 500.0;
+
+static TRACKING: AtomicBool = AtomicBool::new(false);
+
+#[repr(C)]
+struct POINT {
+    x: i32,
+    y: i32,
+}
+
+extern "system" {
+    fn GetCursorPos(lpPoint: *mut POINT) -> i32;
+    fn GetSystemMetrics(index: i32) -> i32;
+}
+
+// SM_C[XY]SCREEN — PRIMARY monitor size (physical px). The primary monitor is
+// always anchored at (0,0) in Windows screen coords.
+const SM_CXSCREEN: i32 = 0;
+const SM_CYSCREEN: i32 = 1;
+
+/// (origin_x, origin_y, width, height) of the PRIMARY monitor, physical px.
+///
+/// NOTE: we deliberately do NOT span the whole virtual desktop. A transparent,
+/// always-on-top WebView2 window that large (e.g. 4480x1440 across mixed-height
+/// monitors) fails to composite — it renders fully invisible — and the
+/// bottom-anchored mascot falls off shorter screens. Keep it on one monitor.
+fn primary_screen() -> (i32, i32, i32, i32) {
+    unsafe {
+        let w = GetSystemMetrics(SM_CXSCREEN);
+        let h = GetSystemMetrics(SM_CYSCREEN);
+        if w <= 0 || h <= 0 {
+            (0, 0, 1920, 1080)
+        } else {
+            (0, 0, w, h)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CursorPos {
+    pub x: f64,
+    pub y: f64,
+}
 
 /// Optional native-notification payload.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,6 +123,11 @@ pub fn pet_init(app: &AppHandle) -> Result<(), String> {
     }
 
     log::info!("pet_init: creating pet overlay window (hidden)");
+
+    // Small snug window, parked at the bottom-right of the primary monitor. The
+    // OS owns its position from here on, so it can be dragged to any monitor.
+    let (_, _, pw, ph) = primary_screen();
+
     let builder =
         WebviewWindowBuilder::new(app, PET_LABEL, WebviewUrl::App("pet/pet.html".into()))
             .title("Agent Pet")
@@ -90,24 +140,29 @@ pub fn pet_init(app: &AppHandle) -> Result<(), String> {
             .skip_taskbar(true)
             .resizable(false)
             .shadow(false)
-            .position(200.0, 200.0)
             .visible(false);
 
-    builder.build().map_err(|e| {
+    let win = builder.build().map_err(|e| {
         log::error!("pet_init: builder.build() FAILED: {e}");
         e.to_string()
     })?;
-    log::info!("pet_init: pet overlay window created");
+
+    // Park bottom-right of the primary monitor (physical px). PET_* are logical,
+    // so scale them up by the monitor's factor.
+    let scale = win.scale_factor().unwrap_or(1.0);
+    let margin = 24.0 * scale;
+    let x = (pw as f64) - (PET_W * scale) - margin;
+    let y = (ph as f64) - (PET_H * scale) - margin;
+    let _ = win.set_position(PhysicalPosition::new(x.max(0.0) as i32, y.max(0.0) as i32));
+
+    let _ = win.set_ignore_cursor_events(true);
+    log::info!("pet_init: pet overlay window created ({PET_W}x{PET_H} @ {x},{y})");
     Ok(())
 }
 
 /// Open (or reveal) the always-on-top pet overlay window.
-/// Pass `x`/`y` (physical px) to place it, e.g. next to the mini-widget.
 #[tauri::command]
-pub fn pet_open(app: AppHandle, x: Option<f64>, y: Option<f64>) -> Result<(), String> {
-    // The window is created once at startup by `pet_init` (on the main thread).
-    // If it's missing for any reason, recreate it on the main thread to avoid
-    // the Windows deadlock that happens when building from a command thread.
+pub fn pet_open(app: AppHandle, _x: Option<f64>, _y: Option<f64>) -> Result<(), String> {
     if app.get_webview_window(PET_LABEL).is_none() {
         let handle = app.clone();
         app.run_on_main_thread(move || {
@@ -118,9 +173,6 @@ pub fn pet_open(app: AppHandle, x: Option<f64>, y: Option<f64>) -> Result<(), St
 
     if let Some(win) = app.get_webview_window(PET_LABEL) {
         log::info!("showing pet overlay window");
-        if let (Some(x), Some(y)) = (x, y) {
-            let _ = win.set_position(PhysicalPosition::new(x, y));
-        }
         win.show().map_err(|e| e.to_string())?;
         let _ = win.set_always_on_top(true);
     }
@@ -140,17 +192,12 @@ pub fn pet_close(app: AppHandle) -> Result<(), String> {
 }
 
 /// The one call you need: animate the pet and (on finish events) notify.
-///
-/// Examples — from your timer code:
-///   pet_signal({ event: "timerStart",  source: "Acme Co", detail: "Logo draft" })
-///   pet_signal({ event: "timerPause" })
-///   pet_signal({ event: "timerFinish", detail: "Logo draft — done" })
-///   pet_signal({ state: "running",     detail: "24:59" })   // live countdown text
 #[tauri::command]
 pub fn pet_signal(app: AppHandle, signal: PetSignal) -> Result<(), String> {
-    // 1. Drive the animation + bubble inside the pet window.
-    app.emit_to(PET_LABEL, "pet://state", &signal)
-        .map_err(|e| e.to_string())?;
+    // 1. Drive the animation + bubble inside the pet window. The window may be
+    //    hidden (user exited mini mode mid-session) — don't let a failed emit
+    //    swallow the notification below.
+    let _ = app.emit_to(PET_LABEL, "pet://state", &signal);
 
     // 2. Native desktop notification: explicit, or implied by a finish event.
     let notify = signal
@@ -179,21 +226,25 @@ pub fn pet_signal(app: AppHandle, signal: PetSignal) -> Result<(), String> {
             .show()
             .map_err(|e| e.to_string())?;
 
-        // Re-assert the overlay on top so the user actually sees the reaction.
+        // Re-assert the overlay on top so the user actually sees the reaction —
+        // but only when it's already visible (mini mode). Never force-show it
+        // over the main window when the user isn't in mini mode.
         if let Some(win) = app.get_webview_window(PET_LABEL) {
-            let _ = win.show();
-            let _ = win.set_always_on_top(true);
+            if win.is_visible().unwrap_or(false) {
+                let _ = win.set_always_on_top(true);
+            }
         }
     }
 
     Ok(())
 }
 
-/// Move the pet window (physical px). Handy to dock it beside the mini-widget.
+/// Move the pet window (physical px). Used to park / snap it programmatically;
+/// interactive dragging uses the OS via `startDragging` in the webview.
 #[tauri::command]
 pub fn pet_set_position(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
     if let Some(win) = app.get_webview_window(PET_LABEL) {
-        win.set_position(PhysicalPosition::new(x, y))
+        win.set_position(PhysicalPosition::new(x as i32, y as i32))
             .map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -209,3 +260,55 @@ pub fn pet_set_clickthrough(app: AppHandle, enabled: bool) -> Result<(), String>
     }
     Ok(())
 }
+
+/// Absolute OS cursor position in PHYSICAL px (global, spans all monitors). The
+/// pet window subtracts its own outer position + divides by devicePixelRatio to
+/// get window-relative px. No Tauri monitor calls here (those corrupt the heap
+/// from a background thread).
+fn cursor_pos() -> Result<CursorPos, String> {
+    let mut pt = POINT { x: 0, y: 0 };
+    unsafe {
+        if GetCursorPos(&mut pt) != 0 {
+            Ok(CursorPos {
+                x: pt.x as f64,
+                y: pt.y as f64,
+            })
+        } else {
+            Err("Failed to get cursor position".into())
+        }
+    }
+}
+
+/// Start or stop the global cursor tracking thread. The thread only does a bare
+/// Win32 `GetCursorPos` + `emit_to` (both thread-safe) — no Manager/monitor
+/// calls, which are main-thread-only on Windows.
+#[tauri::command]
+pub fn pet_tracking(app: AppHandle, enabled: bool) -> Result<(), String> {
+    if !enabled {
+        TRACKING.store(false, Relaxed);
+        return Ok(());
+    }
+    if TRACKING.swap(true, Relaxed) {
+        return Ok(()); // already running
+    }
+    let app_clone = app.clone();
+    std::thread::spawn(move || {
+        let mut fail_count: u8 = 0;
+        while TRACKING.load(Relaxed) {
+            if let Ok(pos) = cursor_pos() {
+                if app_clone.emit_to(PET_LABEL, "pet://cursor", pos).is_err() {
+                    fail_count += 1;
+                    if fail_count > 10 {
+                        TRACKING.store(false, Relaxed);
+                        break;
+                    }
+                } else {
+                    fail_count = 0;
+                }
+            }
+            std::thread::sleep(Duration::from_millis(16)); // ~60Hz
+        }
+    });
+    Ok(())
+}
+

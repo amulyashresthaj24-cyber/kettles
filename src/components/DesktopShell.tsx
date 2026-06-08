@@ -10,7 +10,7 @@ import {
 } from "@/lib/desktop";
 import { useApp } from "@/lib/store-supabase";
 import type { Session } from "@/lib/types";
-import { petSignal, onPetPoke, onPetControl } from "@/lib/pet";
+import { petSignal, onPetPoke, onPetControl, petTracking } from "@/lib/pet";
 import { formatHMS } from "@/lib/format";
 
 /** Coarse timer phase used to drive pet overlay animations. */
@@ -104,8 +104,9 @@ export function DesktopShell() {
         playKettleWhistle();
 
         const taskTitle = task.title || "Focus session";
+        const name = useApp.getState().user?.name ?? "there";
         const title = "Focus session complete!";
-        const body = `Nice work — your ${task.estimateMinutes}m estimate for "${taskTitle}" is complete.`;
+        const body = `Incredible job, ${name}! Your ${task.estimateMinutes}m on "${taskTitle}" is done — let's stand up and stretch together!`;
 
         if (isDesktop()) {
           showDesktopNotification(title, body);
@@ -179,22 +180,23 @@ export function DesktopShell() {
   useEffect(() => {
     if (!isDesktop()) return;
 
+    let cancelled = false;
+
     const setup = async () => {
-      // Listen for global shortcut events from Rust
       const unShortcut = await listen<string>("shortcut-action", handleShortcut);
+      if (cancelled) { unShortcut(); return; }
       unlistenRefs.current.push(unShortcut);
 
-      // Listen for idle detection events from Rust
       const unIdle = await listen<number>("idle-detected", handleIdle);
+      if (cancelled) { unIdle(); return; }
       unlistenRefs.current.push(unIdle);
 
-      // Pet click → restore the full window from mini mode
       const unPoke = await onPetPoke(() => {
         invoke("exit_mini_mode");
       });
+      if (cancelled) { unPoke(); return; }
       unlistenRefs.current.push(unPoke);
 
-      // Pet controls (play/pause, complete/done, save/confirm, discard)
       const unControl = await onPetControl(async (action) => {
         switch (action) {
           case "toggle":
@@ -213,12 +215,14 @@ export function DesktopShell() {
             break;
         }
       });
+      if (cancelled) { unControl(); return; }
       unlistenRefs.current.push(unControl);
     };
 
     setup();
 
     return () => {
+      cancelled = true;
       unlistenRefs.current.forEach((fn) => fn());
       unlistenRefs.current = [];
     };
@@ -231,6 +235,17 @@ export function DesktopShell() {
     if (!isDesktop()) return;
     setIdleDetectionEnabled(autoPauseOnIdleEnabled);
   }, [autoPauseOnIdleEnabled]);
+
+  // -----------------------------------------------------------------------
+  // Global cursor tracking — drives the pet's sightline + click-through gate
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    if (!isDesktop()) return;
+    petTracking(true);
+    return () => {
+      petTracking(false);
+    };
+  }, []);
 
   // -----------------------------------------------------------------------
   // Sync active session state to tray icon (Rust backend)
@@ -297,24 +312,26 @@ export function DesktopShell() {
         lastMessageTriggerTimeRef.current = now;
         messageTimeRef.current = now;
 
+        const name = useApp.getState().user?.name ?? "there";
+
         const runningMsgs = [
-          "All the best!",
-          "You're doing great, keep going!",
+          `Time to focus, ${name}!`,
+          `You're doing great, ${name} — keep going!`,
           "Stay focused!",
-          "You got this!",
+          `You got this, ${name}!`,
           "Remember to sit straight!",
-          "Let's smash this goal!",
+          `Let's smash this goal, ${name}!`,
           "Every second counts!",
           "Deep breath, you're in control.",
           "Focus mode: activated!"
         ];
         const idleMsgs = [
-          "Ready to focus when you are!",
-          "Let's start a session!",
+          `Ready when you are, ${name}!`,
+          `Let's start a session, ${name}!`,
           "What's our next goal?",
-          "Taking a break is good too.",
+          `${name}, are you still there?`,
           "Ready for the next challenge?",
-          "Let's do some work!"
+          `Let's do some work, ${name}!`
         ];
 
         const msgs = isRunning ? runningMsgs : idleMsgs;

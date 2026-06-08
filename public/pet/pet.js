@@ -13,6 +13,7 @@
 const tauri = window.__TAURI__ || {};
 const listen = tauri.event?.listen || (async () => () => {});
 const emit = tauri.event?.emit || (async () => {});
+const invoke = tauri.core?.invoke || tauri.invoke || (async () => {});
 const getCurrentWindow =
   tauri.window?.getCurrentWindow ||
   tauri.webviewWindow?.getCurrentWebviewWindow ||
@@ -26,6 +27,8 @@ const el = {
   label: document.getElementById("label"),
   timer: document.getElementById("timer"),
   task: document.getElementById("task"),
+  msg: document.getElementById("msg"),
+  hideToggle: document.getElementById("hideToggle"),
   controls: document.getElementById("controls"),
   toggle: document.getElementById("toggle"),
   toggleLabel: document.getElementById("toggleLabel"),
@@ -82,6 +85,55 @@ const SPRITE2_PRESET = {
     review:        { row: 7, frames: 8, fps: 5,  loop: true },
     sitting:       { row: 6, col: 0, frames: 2, fps: 2, loop: true, scale: 0.9 },
     running_right: { row: 1, frames: 8, fps: 9,  loop: true },
+    reading:       { row: 8, frames: 8, fps: 5,  loop: true },
+    drag_right:    { row: 1, frames: 8, fps: 11, loop: true },
+    drag_left:     { row: 2, frames: 8, fps: 11, loop: true },
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Third mascot ("female") — baked preset for assets/sprite-female.clean.webp.
+//
+// Source art (sprite-update-female.png/.webp) shipped on an opaque near-white
+// checker, same family of problem as sprite-2. sprite-female.clean.webp is the
+// processed atlas: background border-flood-filled to transparent (the white
+// dress is preserved because it isn't connected to the border bg). Grid is a
+// uniform 10x8 (cols) x 11 (rows) packing at cell 95x151 (minor bottom hair
+// bleed only). Row meanings (raw read of the sheet, left->right):
+//
+//   row 0  idle standing front (~10f)        row 1  walk side (last frames back/bag)
+//   row 2  both-arms cheer / small jump       row 3  arms-raised / pointing variants
+//   row 4  holding laptop -> standing          row 5  standing -> crouch-run w/ speed lines
+//   row 6  stool-sit -> sprint -> sparkle cheer row 7  run leap -> back-view -> lie-down
+//   row 8  lying / sleeping (afk)              row 9  standing + mug/phone variants
+//   row 10 idle + emote icons (anger marks)
+//
+// State NAMES kept identical to the kettle sheet so all event / phase / mapping
+// / fps logic keeps working untouched. frames/col offsets below are STARTING
+// values for the well-behaved rows; the mixed rows (1,4,5,6,7) carry a `col`
+// window to avoid the off-action frames and will be dialed in per the agreed
+// state+condition table.
+// ---------------------------------------------------------------------------
+const FEMALE_PRESET = {
+  spritesheet: "assets/sprite-female.clean.webp",
+  cell: { width: 95, height: 151 },
+  sheet: { cols: 10, rows: 11 },
+  scale: 0.85,
+  states: {
+    idle:          { row: 0,  frames: 8, fps: 5,  loop: true },
+    working:       { row: 4,  col: 0, frames: 5, fps: 6,  loop: true },
+    running_left:  { row: 3,  frames: 10, fps: 10, loop: true },
+    waving:        { row: 2,  frames: 6, fps: 6,  loop: false },
+    jumping:       { row: 7,  frames: 5, fps: 10, loop: false },
+    failed:        { row: 10, frames: 6, fps: 6,  loop: false },
+    waiting:       { row: 0,  frames: 8, fps: 4,  loop: true },
+    review:        { row: 9,  frames: 6, fps: 5,  loop: true },
+    sitting:       { row: 6,  col: 0, frames: 2, fps: 2, loop: true, scale: 0.95 },
+    running_right: { row: 1,  frames: 10, fps: 10, loop: true },
+    reading:       { row: 9,  frames: 6,  fps: 5,  loop: true },
+    // drag: row 1 = side walk-right, row 3 = leaping run (used as run-left).
+    drag_right:    { row: 1,  frames: 10, fps: 11, loop: true },
+    drag_left:     { row: 3,  frames: 10, fps: 11, loop: true },
   },
 };
 
@@ -104,6 +156,26 @@ let isHovered = false; // true while cursor is over the mascot element
 let lastX = null;
 let lastY = null;
 let lastActiveScale = null;
+
+// --- interaction layer (cursor feed + click-through + petting) -------------
+let clickThrough = true;     // mirrors set_ignore_cursor_events; true = pass-through
+let winPos = { x: 0, y: 0 }; // pet window outer position (physical px), cached
+let interactive = false;     // true while the cursor is over the mascot/bubble
+// velocity / shake / afk tracking, all fed by the global pet://cursor thread
+let lastCursorTime = Date.now();
+let lastCursorGx = null;
+let lastCursorGy = null;
+let sprinting = false;
+let afk = false;
+let shakeDir = 0;            // last horizontal travel sign (-1 | 0 | 1)
+let shakeFlips = [];         // timestamps of recent direction reversals
+let protesting = false;      // true while playing the shake-protest pose
+const SHAKE_WINDOW = 600;    // ms lookback for counting reversals
+const SHAKE_FLIPS = 4;       // reversals within the window => protest
+const SHAKE_DEADZONE = 2;    // px; ignore sub-pixel jitter
+// petting (press-and-hold on the mascot)
+let petting = false;
+let petTimer = null;
 
 // ---------------------------------------------------------------------------
 // preferences sync
@@ -134,6 +206,13 @@ function applyPreferences() {
     cfg.sheet = { ...SPRITE2_PRESET.sheet };
     cfg.scale = SPRITE2_PRESET.scale;
     cfg.states = JSON.parse(JSON.stringify(SPRITE2_PRESET.states));
+  } else if (prefs.activeMascot === "female") {
+    // Baked third mascot: swap the sheet AND remap rows to its layout.
+    cfg.spritesheet = FEMALE_PRESET.spritesheet;
+    cfg.cell = { ...FEMALE_PRESET.cell };
+    cfg.sheet = { ...FEMALE_PRESET.sheet };
+    cfg.scale = FEMALE_PRESET.scale;
+    cfg.states = JSON.parse(JSON.stringify(FEMALE_PRESET.states));
   } else if (prefs.activeMascot === "custom") {
     cfg.spritesheet = prefs.customMascotSpritesheet || "assets/spritesheet.orig.webp";
     cfg.cell = {
@@ -208,6 +287,10 @@ async function boot() {
   applyPreferences();
 
   await listen("pet://state", (e) => onSignal(e.payload || {}));
+  await listen("pet://cursor", (e) => {
+    const p = e.payload || {};
+    onCursor(p.x, p.y);
+  });
 
   // Listen to Storage events to sync preferences dynamically!
   window.addEventListener("storage", (e) => {
@@ -220,10 +303,117 @@ async function boot() {
     }
   });
 
+  // Start the OS cursor-polling thread (emits pet://cursor ~60Hz) and keep the
+  // pet window's outer position cached so we can hit-test the global cursor.
+  invoke("pet_tracking", { enabled: true }).catch(() => {});
+  await refreshWinPos();
+  setInterval(refreshWinPos, 1000);
+
+  // 5-minute AFK doze — only when idle (not running / dragging / petting).
+  setInterval(() => {
+    if (Date.now() - lastCursorTime > 5 * 60 * 1000) {
+      if (!afk && !dragging && !petting && phase !== "running" && cfg.states.sitting) {
+        afk = true;
+        applyState("sitting");
+      }
+    }
+  }, 10000);
+
   wireInput();
   applyPhase("idle");
   syncAnimToPhase("idle");
   requestAnimationFrame(loop);
+}
+
+// Cache the pet window's outer position (physical px) for cursor hit-testing.
+async function refreshWinPos() {
+  try {
+    const p = await getCurrentWindow?.()?.outerPosition?.();
+    if (p && typeof p.x === "number") winPos = { x: p.x, y: p.y };
+  } catch (_) {}
+}
+
+// Enable/disable mouse interaction by flipping OS click-through. We keep the
+// pet pass-through (so the desktop stays usable) and only capture the mouse
+// while the cursor is actually over the mascot or the timer bubble.
+function setClickThrough(next) {
+  if (clickThrough === next) return;
+  clickThrough = next;
+  invoke("pet_set_clickthrough", { enabled: next }).catch(() => {});
+}
+
+// Global physical cursor → drives hit-testing, fast-flick sprint, shake-protest
+// and AFK wake. Coordinates arrive in physical px spanning all monitors.
+function onCursor(gx, gy) {
+  if (typeof gx !== "number" || typeof gy !== "number") return;
+  const now = Date.now();
+  const dt = now - lastCursorTime;
+
+  // Any movement wakes the pet from its AFK doze.
+  if (afk) {
+    afk = false;
+    syncAnimToPhase(phase);
+  }
+
+  // Window-relative CSS px (subtract window origin, divide by DPR).
+  const dpr = window.devicePixelRatio || 1;
+  const relX = (gx - winPos.x) / dpr;
+  const relY = (gy - winPos.y) / dpr;
+
+  // Hit-test the mascot + bubble + chevron; capture the mouse only over them.
+  const over = hitTest(el.mascot, relX, relY) || hitTest(el.bubble, relX, relY) || hitTest(el.hideToggle, relX, relY);
+  interactive = over;
+  if (!dragging) setClickThrough(!over);
+
+  // Cursor-driven moods only when active (not hidden / dragged / petted).
+  if (!collapsed && !dragging && !petting && lastCursorGx !== null && dt > 0) {
+    const dx = gx - lastCursorGx;
+    const dist = Math.hypot(dx, gy - lastCursorGy);
+    const speed = dist / dt; // px per ms
+
+    // Fast flick (> ~3 px/ms) → the pet waves at you.
+    if (speed > 3.0 && !sprinting && cfg.states.waving) {
+      sprinting = true;        // reused as a "just waved" cooldown latch
+      applyState("waving");
+      clearTimeout(window._sprintTimeout);
+      window._sprintTimeout = setTimeout(() => {
+        sprinting = false;
+        if (!oneShot) syncAnimToPhase(phase);
+      }, 700);
+    }
+
+    // Frantic shake (>= 4 direction reversals in 600ms) → sit down.
+    if (Math.abs(dx) > SHAKE_DEADZONE) {
+      const dir = dx < 0 ? -1 : 1;
+      if (shakeDir !== 0 && dir !== shakeDir) {
+        shakeFlips.push(now);
+        shakeFlips = shakeFlips.filter((t) => now - t < SHAKE_WINDOW);
+        if (shakeFlips.length >= SHAKE_FLIPS && !protesting && cfg.states.sitting) {
+          protesting = true;
+          applyState("sitting");
+          clearTimeout(window._shakeTimeout);
+          window._shakeTimeout = setTimeout(() => {
+            protesting = false;
+            shakeFlips = [];
+            syncAnimToPhase(phase);
+          }, 2000);
+        }
+      }
+      shakeDir = dir;
+    }
+  }
+
+  lastCursorTime = now;
+  lastCursorGx = gx;
+  lastCursorGy = gy;
+}
+
+// Is (x,y) in CSS px inside an element's box (with a small padding)?
+function hitTest(node, x, y, pad = 6) {
+  if (!node) return false;
+  const r = node.getBoundingClientRect();
+  if (r.width === 0 && r.height === 0) return false;
+  return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
 }
 
 // ---------------------------------------------------------------------------
@@ -277,6 +467,15 @@ function applyPhase(next) {
   el.shell.dataset.phase = next;
   el.label.textContent = PHASE_LABELS[next];
   updateControls(next);
+  // Completion message: shown only while finished (task name stays above it).
+  if (el.msg) {
+    if (next === "finished") {
+      el.msg.textContent = "You have completed task!";
+      el.msg.hidden = false;
+    } else {
+      el.msg.hidden = true;
+    }
+  }
   // Surface a freshly-finished session — but only on the transition, so the
   // user can still collapse it afterwards (this fires every second otherwise).
   if (changed && next === "finished" && collapsed) setCollapsed(false);
@@ -466,8 +665,8 @@ function wireInput() {
     lastDragX = startX;
     el.shell.classList.add("dragging");
     const prefs = loadPreferences();
-    const dragLeftAnim = prefs?.mascotMappings?.dragLeft || "running_left";
-    const dragRightAnim = prefs?.mascotMappings?.dragRight || "running_right";
+    const dragLeftAnim = prefs?.mascotMappings?.dragLeft || "drag_left";
+    const dragRightAnim = prefs?.mascotMappings?.dragRight || "drag_right";
     applyState(direction === "left" ? dragLeftAnim : dragRightAnim);
     getCurrentWindow?.()?.startDragging?.();
   };
@@ -477,6 +676,7 @@ function wireInput() {
     dragging = false;
     lastDragX = null;
     el.shell.classList.remove("dragging");
+    void refreshWinPos();   // window landed somewhere new — resync its origin
     syncAnimToPhase(phase); // settle back to the phase's looping state
   };
 
@@ -488,6 +688,12 @@ function wireInput() {
     onMascot = e.target === el.mascot;
     startX = e.screenX;
     startY = e.screenY;
+    // Press-and-hold on the mascot = petting (joy pose + particles). If the
+    // pointer then travels past the drag threshold it becomes a drag instead.
+    if (onMascot) {
+      clearTimeout(petTimer);
+      petTimer = setTimeout(() => { if (pressed && !dragged) startPetting(); }, 220);
+    }
   });
 
   window.addEventListener("mousemove", (e) => {
@@ -514,6 +720,8 @@ function wireInput() {
     if (Math.hypot(e.screenX - startX, e.screenY - startY) > DRAG_THRESHOLD) {
       pressed = false;
       dragged = true;
+      clearTimeout(petTimer);   // moved too far — this is a drag, not a pet
+      if (petting) stopPetting();
       const direction = (e.screenX < startX) ? "left" : "right";
       beginDrag(direction);
     }
@@ -527,21 +735,23 @@ function wireInput() {
 
   window.addEventListener("mouseup", (e) => {
     if (e.button !== 0) return;
+    clearTimeout(petTimer);
     if (dragging) endDrag();
-    if (pressed && !dragged && onMascot) {
-      // Companion mascot uses a click to blow a kiss (handled in the mascot
-      // click listener), so don't also collapse here — the chevron does that.
-      const prefs = loadPreferences();
-      if (prefs?.activeMascot !== "sprite2") {
-        setCollapsed(!collapsed); // Toggle collapsed state on left click
-      }
-    }
+    if (petting) stopPetting(); // releasing after a hold ends the pet
+    // Single taps no longer collapse — the card always shows the time, and a
+    // double-tap is reserved for the jump.
     pressed = false;
   });
 
   el.collapse.addEventListener("click", (e) => {
     e.stopPropagation();
     setCollapsed(true);
+  });
+
+  // Single always-visible chevron toggles the timer card hidden/shown.
+  document.getElementById("hideToggle")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setCollapsed(!collapsed);
   });
 
   el.reopen.addEventListener("click", (e) => {
@@ -580,7 +790,7 @@ function wireInput() {
     if (collapsed || dragging) return;
     isHovered = true;
     const prefs = loadPreferences();
-    const hoverAnim = prefs?.mascotMappings?.hover || "waving";
+    const hoverAnim = prefs?.mascotMappings?.hover || "review"; // open the book
     applyState(hoverAnim); // Hovering always plays hover mapped anim
   });
 
@@ -599,15 +809,18 @@ function wireInput() {
       // Companion mascot: clicking blows a flying kiss (hand-up pose + 💋).
       flyKiss();
       if (cfg.states.waving) applyState("waving");
-      return;
     }
-    const target = eventTarget("click");
-    if (target && cfg.states[target.play]) {
-      applyState(target.play);
-    }
+    // Default mascot: single click does nothing — double-click jumps.
   });
 
-  // Double-click is intentionally disabled — no animation trigger
+  // Double-click the mascot → jump, then open the main app.
+  el.mascot.addEventListener("dblclick", (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (dragging) return;
+    if (cfg.states.jumping) applyState("jumping");
+    pokeApp();
+  });
 
   // Reset dragging/hover states on window focus/blur
   window.addEventListener("blur", () => {
@@ -617,6 +830,49 @@ function wireInput() {
   window.addEventListener("focus", () => {
     if (dragging) endDrag();
   });
+}
+
+// --- petting (press-and-hold the mascot) -----------------------------------
+
+// Which pose to play while being petted — prefer the click event's state,
+// fall back to a happy wave.
+function joyState() {
+  const prefs = loadPreferences();
+  const m = prefs?.mascotMappings?.click;
+  if (m && cfg.states[m]) return m;
+  const t = eventTarget("click");
+  if (t && cfg.states[t.play]) return t.play;
+  return cfg.states.waving ? "waving" : "idle";
+}
+
+function startPetting() {
+  if (petting || collapsed || dragging) return;
+  petting = true;
+  if (cfg.states.sitting) applyState("sitting"); // press-and-hold → sit down
+}
+
+function stopPetting() {
+  if (!petting) return;
+  petting = false;
+  if (!dragging && !oneShot) syncAnimToPhase(phase);
+}
+
+// A single floating heart/star that drifts up from the mascot and fades.
+function spawnParticle() {
+  if (!el.shell) return;
+  const p = document.createElement("span");
+  p.className = "particle";
+  p.textContent = Math.random() < 0.5 ? "❤️" : "⭐";
+  p.style.setProperty("--pdx", `${(Math.random() * 36 - 18).toFixed(0)}px`);
+  const mh = parseFloat(getComputedStyle(el.mascot).height) || 150;
+  p.style.bottom = `${mh * 0.7}px`;
+  el.shell.appendChild(p);
+  p.addEventListener("animationend", () => p.remove());
+  setTimeout(() => p.remove(), 1300);
+}
+
+function burstPets(n) {
+  for (let i = 0; i < n; i++) setTimeout(() => spawnParticle(), i * 70);
 }
 
 function pokeApp() {

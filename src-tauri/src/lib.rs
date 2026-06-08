@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::{
@@ -16,6 +16,13 @@ mod pet;
 static IDLE_NOTIFIED: AtomicBool = AtomicBool::new(false);
 static IDLE_DETECTION_ENABLED: AtomicBool = AtomicBool::new(true);
 const IDLE_THRESHOLD_SECS: u64 = 300; // 5 minutes
+
+// Logical (width, height) of the main window captured on entering mini mode, so
+// exit_mini_mode restores the user's real layout instead of a hardcoded size.
+fn saved_main_size() -> &'static Mutex<Option<(f64, f64)>> {
+    static SIZE: OnceLock<Mutex<Option<(f64, f64)>>> = OnceLock::new();
+    SIZE.get_or_init(|| Mutex::new(None))
+}
 
 // ---------------------------------------------------------------------------
 // IPC Commands (invoked from the React frontend)
@@ -40,16 +47,20 @@ fn show_from_tray(app: tauri::AppHandle) {
 #[tauri::command]
 fn enter_mini_mode(app: tauri::AppHandle) -> Result<(), String> {
     log::info!("enter_mini_mode invoked");
-    // Pet mode = hide main window entirely, show only the pet avatar overlay.
-    // Pet bubble already renders task title + live timer via pet_signal stream.
-    let pet_pos = primary_pet_position(&app);
+    // Pet mode = hide main window entirely, show only the pet overlay. The pet
+    // is now a fullscreen click-through stage, so no positioning is needed.
     log::info!("enter_mini_mode: opening pet before hiding main");
-    match pet_pos {
-        Some((x, y)) => pet::pet_open(app.clone(), Some(x), Some(y))?,
-        None => pet::pet_open(app.clone(), None, None)?,
-    }
+    pet::pet_open(app.clone(), None, None)?;
 
     if let Some(win) = app.get_webview_window("main") {
+        // Remember the current size (logical px) so we can restore it on exit.
+        if let Ok(size) = win.inner_size() {
+            let scale = win.scale_factor().unwrap_or(1.0);
+            let logical = size.to_logical::<f64>(scale);
+            if let Ok(mut slot) = saved_main_size().lock() {
+                *slot = Some((logical.width, logical.height));
+            }
+        }
         let _ = win.hide();
         let _ = win.set_skip_taskbar(true);
     }
@@ -58,24 +69,19 @@ fn enter_mini_mode(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn primary_pet_position(app: &tauri::AppHandle) -> Option<(f64, f64)> {
-    let win = app.get_webview_window("main")?;
-    let monitor = win.current_monitor().ok().flatten()?;
-    let scale = monitor.scale_factor();
-    let area = monitor.work_area();
-    let pet_w = pet::PET_W * scale;
-    let margin = 24.0 * scale;
-    let x = (area.position.x as f64) + (area.size.width as f64) - pet_w - margin;
-    let y = (area.position.y as f64) + margin;
-    Some((x, y))
-}
-
 #[tauri::command]
 fn exit_mini_mode(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("main") {
         win.set_skip_taskbar(false).map_err(|e| e.to_string())?;
         win.show().map_err(|e| e.to_string())?;
-        win.set_size(tauri::Size::Logical(tauri::LogicalSize::new(1280.0, 800.0)))
+        // Restore the size we captured on entering mini mode; fall back to the
+        // default only if nothing was ever stored.
+        let (w, h) = saved_main_size()
+            .lock()
+            .ok()
+            .and_then(|slot| *slot)
+            .unwrap_or((1280.0, 800.0));
+        win.set_size(tauri::Size::Logical(tauri::LogicalSize::new(w, h)))
             .map_err(|e| e.to_string())?;
         win.set_always_on_top(false).map_err(|e| e.to_string())?;
         win.set_decorations(true).map_err(|e| e.to_string())?;
@@ -88,20 +94,18 @@ fn exit_mini_mode(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn toggle_mini_mode(app: tauri::AppHandle) -> Result<(), String> {
-    if app.get_webview_window(pet::PET_LABEL).is_some() {
-        exit_mini_mode(app)?;
-        return Ok(());
-    }
+    // The pet window is pre-created at startup (hidden), so existence is always
+    // true — mini mode is defined by the pet overlay being VISIBLE.
+    let in_mini = app
+        .get_webview_window(pet::PET_LABEL)
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false);
 
-    if let Some(win) = app.get_webview_window("main") {
-        let size = win.inner_size().unwrap_or_default();
-        if size.width < 500 {
-            exit_mini_mode(app)?;
-        } else {
-            enter_mini_mode(app)?;
-        }
+    if in_mini {
+        exit_mini_mode(app)
+    } else {
+        enter_mini_mode(app)
     }
-    Ok(())
 }
 
 #[tauri::command]
@@ -257,6 +261,24 @@ pub fn run() {
                 }
             });
 
+            // Alt+Shift+R → reload the pet overlay webview. Dev convenience:
+            // the pet window serves static /pet assets with no HMR, so this
+            // picks up pet.html/css/js edits without restarting the whole app.
+            let _ = app.global_shortcut().on_shortcut("Alt+Shift+R", {
+                let handle = app_handle.clone();
+                move |_app, _shortcut, _event| {
+                    if _event.state() != ShortcutState::Pressed {
+                        return;
+                    }
+                    if let Some(win) = handle.get_webview_window(pet::PET_LABEL) {
+                        let _ = win.eval("window.location.reload()");
+                    }
+                    if let Some(win) = handle.get_webview_window("main") {
+                        let _ = win.eval("window.location.reload()");
+                    }
+                }
+            });
+
             // --- Idle Detection Thread ---
             let idle_handle = app.handle().clone();
             let running = Arc::new(AtomicBool::new(true));
@@ -304,6 +326,7 @@ pub fn run() {
             pet::pet_signal,
             pet::pet_set_position,
             pet::pet_set_clickthrough,
+            pet::pet_tracking,
         ])
         // --- Close to tray behavior ---
         .on_window_event(|window, event| {

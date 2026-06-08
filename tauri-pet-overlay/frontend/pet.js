@@ -20,12 +20,20 @@ const sourceEl = document.getElementById("source");
 const detailEl = document.getElementById("detail");
 
 let cfg = null;
-let baseState = "idle"; // last looping state — the pet returns here after a one-shot
-let current = "idle"; // state currently on screen
+let baseState = "idle_blink"; // last looping state — the pet returns here after a one-shot
+let current = "idle_blink"; // state currently on screen
 let frame = 0;
 let lastTick = 0;
 let oneShot = false; // true while a non-looping animation plays once
 let bubbleTimer = null;
+let phase = "idle"; // coarse timer phase — drives data-phase + the resting state
+let afk = false;
+let sprinting = false;
+let lastCursorTime = Date.now();
+let lastCursorGx = null;
+let lastCursorGy = null;
+
+let dragging = false; // true while the OS is moving the window
 
 /* ---------- boot ---------------------------------------------------------- */
 
@@ -36,9 +44,24 @@ async function boot() {
   petEl.style.backgroundSize = `${cfg.sheet.cols * 100}% ${cfg.sheet.rows * 100}%`;
 
   await listen("pet://state", (e) => onSignal(e.payload || {}));
+  await listen("pet://cursor", (e) => {
+    const p = e.payload || {};
+    onCursor(p.x, p.y);
+  });
+
+  // 5 minute AFK check
+  setInterval(() => {
+    if (Date.now() - lastCursorTime > 5 * 60 * 1000) {
+      if (!afk && !dragging && phase !== "running") {
+        afk = true;
+        applyState("sleeping_afk");
+      }
+    }
+  }, 10000);
 
   wireInput();
-  setState("idle");
+  applyPhase("idle");
+  setState("idle_blink");
   requestAnimationFrame(loop);
 }
 
@@ -51,11 +74,17 @@ function eventTarget(name) {
   return typeof v === "string" ? { play: v } : v;
 }
 
-// payload: { state?, event?, source?, detail? }
+// payload: { state?, event?, phase?, source?, detail? }
 function onSignal(sig) {
   if (typeof sig.source === "string" || typeof sig.detail === "string") {
     showBubble(sig.source, sig.detail);
   }
+  if (typeof sig.phase === "string") applyPhase(sig.phase);
+
+  // Completing a focus session → scale-pop celebration (Row 6 plays below).
+  if (sig.event === "timerFinish") celebrate();
+
+  if (dragging) return; // OS owns the mascot mid-drag — don't fight the walk anim.
 
   let play = null;
   let then = null;
@@ -69,12 +98,82 @@ function onSignal(sig) {
       then = t.then && cfg.states[t.then] ? t.then : null;
     }
   }
-  if (!play) return;
 
   if (cfg.flashOn && sig.event && cfg.flashOn.includes(sig.event)) flash();
 
-  if (then) baseState = then;
-  applyState(play);
+  if (play) {
+    if (then) baseState = then;
+    applyState(play);
+  } else if (typeof sig.phase === "string") {
+    syncAnimToPhase(sig.phase);
+  }
+}
+
+/* ---------- cursor velocity tracking (from the host app) ------------------ */
+
+function onCursor(gx, gy) {
+  if (typeof gx !== "number" || typeof gy !== "number") return;
+
+  const now = Date.now();
+  const dt = now - lastCursorTime;
+  
+  if (afk) {
+    afk = false;
+    syncAnimToPhase(phase);
+  }
+
+  // Velocity tracking (Fast Hunting)
+  if (lastCursorGx !== null && lastCursorGy !== null && dt > 0) {
+    const dist = Math.hypot(gx - lastCursorGx, gy - lastCursorGy);
+    const speed = dist / dt; // px per ms
+    
+    // speed > 3 px/ms is roughly > 50px/frame at 60fps
+    if (speed > 3.0 && !sprinting && !dragging) {
+      sprinting = true;
+      applyState("sprinting_fast");
+      
+      // Face the direction of the cursor movement
+      const movingLeft = gx < lastCursorGx;
+      petEl.style.transform = movingLeft ? "scaleX(1)" : "scaleX(-1)";
+      
+      clearTimeout(window._sprintTimeout);
+      window._sprintTimeout = setTimeout(() => {
+        sprinting = false;
+        petEl.style.transform = "";
+        syncAnimToPhase(phase);
+      }, 500);
+    }
+  }
+
+  lastCursorTime = now;
+  lastCursorGx = gx;
+  lastCursorGy = gy;
+}
+
+/* ---------- phase → data-phase + resting state ---------------------------- */
+
+const PHASES = ["idle", "running", "paused", "finished"];
+
+function applyPhase(p) {
+  if (!PHASES.includes(p)) return;
+  phase = p;
+  shellEl.dataset.phase = p;
+}
+
+// Settle into the phase's looping state once a one-shot / drag finishes.
+function syncAnimToPhase(p) {
+  if (oneShot || dragging) return;
+  const target = cfg.phaseStates && cfg.phaseStates[p];
+  if (target && cfg.states[target] && baseState !== target) applyState(target);
+}
+
+// 1.2× pop for 3s on a completed session, then settle back.
+function celebrate() {
+  petEl.style.transition = "transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)";
+  petEl.style.transform = "scale(1.2)";
+  setTimeout(() => {
+    petEl.style.transform = "";
+  }, 3000);
 }
 
 /* ---------- state machine ------------------------------------------------- */
@@ -110,7 +209,7 @@ function loop(now) {
 }
 
 function drawFrame(now) {
-  const state = cfg.states[current] || cfg.states.idle;
+  const state = cfg.states[current] || cfg.states.idle_blink;
   const frameMs = 1000 / state.fps;
 
   if (now - lastTick >= frameMs) {
@@ -183,7 +282,11 @@ function wireInput() {
     if (Math.hypot(e.screenX - startX, e.screenY - startY) > DRAG_THRESHOLD) {
       pressed = false;
       dragged = true;
+      dragging = true;
       shellEl.classList.add("dragging");
+      // Carried/walking pose while moving (Row 1); face the travel direction.
+      petEl.style.transform = e.screenX < startX ? "scaleX(1)" : "scaleX(-1)";
+      applyState("walking");
       // Hand the move off to the OS — smooth, no per-pixel IPC.
       getCurrentWindow().startDragging();
     }
@@ -192,6 +295,11 @@ function wireInput() {
   window.addEventListener("mouseup", (e) => {
     if (e.button !== 0) return;
     if (pressed && !dragged) onClick();
+    if (dragged) {
+      dragging = false;
+      petEl.style.transform = ""; // drop the direction flip
+      syncAnimToPhase(phase);     // settle into the phase's resting state
+    }
     pressed = false;
     shellEl.classList.remove("dragging");
   });

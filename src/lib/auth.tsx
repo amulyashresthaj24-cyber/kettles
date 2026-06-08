@@ -55,14 +55,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        setStoreUser({ 
+        setStoreUser({
           name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || "User",
-          email: session.user.email 
+          email: session.user.email
         });
-        loadAll();
+        // Only full-reload on real sign-in / account changes. TOKEN_REFRESHED is a
+        // background JWT rotation (~hourly) — no app data changed, so skip the reload.
+        if (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "INITIAL_SESSION") {
+          loadAll();
+        }
       } else {
         setStoreUser(null);
         clearAll();

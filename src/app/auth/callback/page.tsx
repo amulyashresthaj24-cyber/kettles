@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase";
 import { KettleLoader } from "@/components/KettleLoader";
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -53,5 +53,17 @@ export default function AuthCallbackPage() {
     <div className="flex h-screen items-center justify-center bg-base">
       <KettleLoader message="Confirming your email..." />
     </div>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center bg-base">
+        <KettleLoader message="Confirming your email..." />
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }

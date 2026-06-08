@@ -1,41 +1,43 @@
 {
-  "_comment": "Single source of truth for the pet overlay. Safe to edit by hand. No rebuild needed for value changes (the pet window reloads it on open). A state may set `col` to start partway across its row (e.g. sitting frames live in the right-hand cells of the waiting row).",
+  "_comment": "Single source of truth for the pet overlay. sprite-update-female-clean.png is 950x1661, a 10x11 grid. This overlay positions frames in PERCENT, so cell px are informational only — sheet.cols/rows drive the math.",
 
-  "spritesheet": "assets/spritesheet.webp",
-  "cell":  { "width": 192, "height": 208 },
-  "sheet": { "cols": 8, "rows": 9 },
-  "scale": 0.42,
+  "spritesheet": "assets/sprite-update-female-clean.png",
+  "cell":  { "width": 95, "height": 151 },
+  "sheet": { "cols": 10, "rows": 11 },
+  "scale": 0.85,
 
   "states": {
-    "idle":          { "row": 0, "frames": 6, "fps": 5,  "loop": true },
-    "working":       { "row": 1, "frames": 8, "fps": 8,  "loop": true },
-    "running_left":  { "row": 2, "frames": 8, "fps": 10, "loop": true },
-    "waving":        { "row": 3, "frames": 4, "fps": 6,  "loop": false },
-    "jumping":       { "row": 4, "frames": 5, "fps": 10, "loop": false },
-    "failed":        { "row": 5, "frames": 8, "fps": 6,  "loop": false },
-    "waiting":       { "row": 6, "frames": 6, "fps": 4,  "loop": true },
-    "review":        { "row": 7, "frames": 6, "fps": 5,  "loop": true },
-    "sitting":       { "row": 6, "col": 6, "frames": 2, "fps": 2, "loop": true },
-    "running_right": { "row": 8, "frames": 6, "fps": 9,  "loop": true }
+    "idle_blink":           { "row": 0,  "frames": 10, "fps": 5,  "loop": true },
+    "walking":              { "row": 1,  "frames": 10, "fps": 8,  "loop": true },
+    "waving_jumping":       { "row": 2,  "frames": 10, "fps": 8,  "loop": false },
+    "sitting_laptop":       { "row": 3,  "frames": 10, "fps": 6,  "loop": true },
+    "pointing_presenting":  { "row": 4,  "frames": 10, "fps": 6,  "loop": true },
+    "sprinting_fast":       { "row": 5,  "frames": 10, "fps": 12, "loop": true },
+    "leaping_celebration":  { "row": 6,  "frames": 10, "fps": 8,  "loop": false },
+    "sleeping_afk":         { "row": 7,  "frames": 8,  "fps": 3,  "loop": true },
+    "crossed_arms_alert":   { "row": 8,  "frames": 9,  "fps": 6,  "loop": true },
+    "coffee_break":         { "row": 9,  "frames": 9,  "fps": 4,  "loop": true },
+    "anger_surprise":       { "row": 10, "frames": 10, "fps": 8,  "loop": false }
   },
 
   "events": {
-    "hover":        "waving",
-    "click":        "waving",
-    "doubleClick":  "jumping",
-    "timerStart":   "review",
-    "timerResume":  "review",
-    "timerPause":   "review",
-    "timerBreak":   "waiting",
-    "timerFinish":  { "play": "jumping",  "then": "waiting" },
-    "timerAbandon": { "play": "failed",   "then": "waiting" }
+    "hover":        "waving_jumping",
+    "click":        "waving_jumping",
+    "doubleClick":  "crossed_arms_alert",
+    "timerStart":   "sitting_laptop",
+    "timerResume":  "sitting_laptop",
+    "timerPause":   "coffee_break",
+    "timerBreak":   "coffee_break",
+    "timerFinish":  { "play": "leaping_celebration", "then": "idle_blink" },
+    "timerAbandon": { "play": "anger_surprise",      "then": "idle_blink" },
+    "showQuote":    "pointing_presenting"
   },
 
   "phaseStates": {
-    "idle":     "waiting",
-    "running":  "review",
-    "paused":   "review",
-    "finished": "waiting"
+    "idle":     "idle_blink",
+    "running":  "sitting_laptop",
+    "paused":   "coffee_break",
+    "finished": "idle_blink"
   },
 
   "flashOn": ["timerFinish"]
