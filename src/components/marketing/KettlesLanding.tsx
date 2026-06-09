@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { HeroVisuals } from "@/components/marketing/MockComponents";
 import { WorkflowPreview } from "@/components/marketing/ProductSections";
+import { BeamsBackground } from "@/components/ui/beams-background";
+import DisplayCards from "@/components/ui/display-cards";
 import {
   ArrowRight,
   ArrowsClockwise,
@@ -23,6 +25,9 @@ import {
   User,
   WarningOctagon,
   X,
+  DownloadSimple,
+  Sun,
+  Moon,
 } from "@phosphor-icons/react";
 import "./landing.css";
 
@@ -179,7 +184,7 @@ function EmailCapture() {
         <div>
           <p className="text-[14px] font-medium text-[var(--k-ink)]">Kettle&apos;s warming up.</p>
           <p className="text-[13px] text-[var(--k-muted)]">
-            Continue in the app —{" "}
+            Continue in the app to{" "}
             <Link href={`/auth?email=${encodeURIComponent(email.trim())}`} className="text-[var(--k-accent2)] underline-offset-2 hover:underline">
               finish signing up
             </Link>
@@ -230,6 +235,40 @@ function EmailCapture() {
         {state === "error" ? msg : "Free to start · no card required."}
       </p>
     </form>
+  );
+}
+
+// ----- theme toggle (reuses the app's flowmate-theme plumbing) --------------
+function ThemeToggle() {
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+
+  useEffect(() => {
+    const read = () => {
+      const stored = window.localStorage.getItem("flowmate-theme");
+      setTheme(stored === "light" ? "light" : "dark");
+    };
+    read();
+    window.addEventListener("flowmate-theme-changed", read);
+    return () => window.removeEventListener("flowmate-theme-changed", read);
+  }, []);
+
+  const toggle = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    window.localStorage.setItem("flowmate-theme", next);
+    window.dispatchEvent(new Event("flowmate-theme-changed"));
+    setTheme(next);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      className="k-press grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-white/5 text-neutral-300 hover:text-white hover:bg-white/10 transition-colors active:scale-95 shrink-0"
+    >
+      {theme === "dark" ? <Sun size={16} weight="bold" /> : <Moon size={16} weight="bold" />}
+    </button>
   );
 }
 
@@ -526,6 +565,28 @@ export function KettlesLanding() {
       handleCfScroll();
     }
 
+    // Kinetic zoom on the big "KETTLES" text in the footer when scrolled
+    const footerSec = $("#k-textured-footer") as HTMLElement | null;
+    const footerText = $("#k-footer-big-text") as HTMLElement | null;
+    if (footerSec && footerText && !reduce) {
+      const handleFooterTextScroll = () => {
+        const rect = footerSec.getBoundingClientRect();
+        const winH = window.innerHeight;
+        
+        // Calculate visibility ratio
+        const visibleAmt = winH - rect.top;
+        if (visibleAmt > 0) {
+          const totalDistance = rect.height + 150;
+          const progress = Math.max(0, Math.min(1, visibleAmt / totalDistance));
+          // Zoom scale: scale(1.0) to scale(1.15)
+          const scale = 1 + progress * 0.15;
+          footerText.style.transform = `scale(${scale})`;
+        }
+      };
+      on(window, "scroll", handleFooterTextScroll, { passive: true });
+      handleFooterTextScroll();
+    }
+
     return () => {
       cleanups.forEach((f) => f());
       timers.forEach((id) => clearInterval(id));
@@ -534,71 +595,101 @@ export function KettlesLanding() {
   }, []);
 
   const faqs = [
-    ["Is it task-linked or just a stopwatch?", "Task-linked. You pick a task first, and the time you brew is sealed to it — that's what makes your weekly report accurate enough to invoice without second-guessing."],
+    ["Is it task-linked or just a stopwatch?", "Task-linked. You pick a task first, and the time you brew is sealed to it. That's what makes your weekly report accurate enough to invoice without second-guessing."],
     ["Does the timer survive a tab close?", "Yes. Brews are saved to the cloud, so closing a tab, refreshing, or switching devices doesn't lose a second. Your timer keeps running where it left off."],
     ["Which platforms are supported?", "Kettles runs in the browser, plus native macOS and Windows apps with a floating always-on-top mini-timer. A browser extension keeps everything in sync."],
-    ["Can I export for invoicing?", "Every weekly report exports to PDF or CSV in one click — hours broken down per client, ready to attach to an invoice or send straight to a client."],
-    ["Is my data private?", "Completely. Kettles never takes screenshots, logs keystrokes, or scores your productivity. It records the hours you choose to brew — nothing else."],
+    ["Can I export for invoicing?", "Every weekly report exports to PDF or CSV in one click, with hours broken down per client, ready to attach to an invoice or send straight to a client."],
+    ["Is my data private?", "Completely. Kettles never takes screenshots, logs keystrokes, or scores your productivity. It records the hours you choose to brew, and nothing else."],
   ];
 
   return (
-    <div ref={rootRef} className="kettles min-h-[100dvh]">
+    <BeamsBackground ref={rootRef} className="kettles min-h-[100dvh] bg-transparent" intensity="strong">
       {/* ===================== NAV ===================== */}
       <header
         id="k-nav"
-        className="fixed inset-x-0 top-0 z-50 border-b border-[var(--k-line)] bg-[color:rgba(8,9,10,0.8)] backdrop-blur-md transition-transform duration-300 ease-[var(--k-ease)] [&.k-nav-hide]:-translate-y-[100%]"
+        className="fixed top-0 left-1/2 -translate-x-1/2 z-50 transition-transform duration-300 ease-[var(--k-ease)] [&.k-nav-hide]:-translate-y-[110%] w-full md:w-auto px-4 md:px-0 pt-0 md:pt-0"
       >
-        <div className="mx-auto flex h-[64px] max-w-[1240px] items-center justify-between px-6">
+        {/* Nav pill stays dark in both themes — a deliberate high-contrast
+            floating bar over the light page (see design ref). */}
+        <div className="relative mx-auto bg-[#0e0f10] text-white h-[58px] rounded-b-2xl md:rounded-b-[24px] flex items-center justify-between px-6 gap-8 shadow-[0_12px_30px_-10px_rgba(0,0,0,0.45)] border-x border-b border-white/15 md:min-w-[720px] lg:min-w-[840px]">
+          {/* Left inverse corner */}
+          <div
+            className="hidden md:block w-6 h-6 absolute top-0 right-full pointer-events-none"
+            style={{ background: "radial-gradient(circle at left bottom, transparent 23px, rgba(255,255,255,0.15) 23px, rgba(255,255,255,0.15) 24px, #0e0f10 24px)" }}
+          />
+
+          {/* Right inverse corner */}
+          <div
+            className="hidden md:block w-6 h-6 absolute top-0 left-full pointer-events-none"
+            style={{ background: "radial-gradient(circle at right bottom, transparent 23px, rgba(255,255,255,0.15) 23px, rgba(255,255,255,0.15) 24px, #0e0f10 24px)" }}
+          />
+
+          {/* Logo / Link */}
           <Link href="#top" aria-label="Kettles home" className="group inline-flex items-center">
-            <Wordmark className="h-[54px] w-auto text-[var(--k-ink)]" />
+            <Wordmark className="h-[42px] w-auto text-white" />
           </Link>
-          <nav className="mx-auto hidden items-center gap-0.5 md:flex" aria-label="Primary">
+
+          {/* Navigation Links */}
+          <nav className="hidden items-center gap-1.5 md:flex" aria-label="Primary">
             {[
               ["Features", "#features"],
               ["How it works", "#how"],
               ["Reviews", "#reviews"],
               ["Pricing", "#pricing"],
             ].map(([l, h]) => (
-              <Link key={h} href={h} className="rounded-lg px-3 py-2 text-[14.5px] font-[450] text-[var(--k-muted)] transition-[background-color,color,transform] duration-200 ease-out hover:bg-[var(--k-card2)] hover:text-[var(--k-ink)] active:scale-95">
+              <Link 
+                key={h} 
+                href={h} 
+                className="px-3 py-1.5 text-[14px] font-medium text-neutral-400 hover:text-white transition-colors duration-200 rounded-md hover:bg-white/5 active:scale-95"
+              >
                 {l}
               </Link>
             ))}
           </nav>
+
+          {/* Actions / Buttons */}
           <div className="flex items-center gap-4">
-            <Link href="/auth" className="hidden text-[14px] font-[450] text-[var(--k-ink2)] transition hover:text-[var(--k-accent2)] sm:block">
+            <ThemeToggle />
+            <Link
+              href="/auth"
+              className="hidden text-[14px] font-medium text-neutral-400 hover:text-white transition-colors sm:block"
+            >
               Sign in
             </Link>
-            <PrimaryBtn href="/auth" magnet>
-              Start free
-            </PrimaryBtn>
+            <Link
+              href="/auth"
+              className="bg-white text-black font-semibold rounded-full px-4 py-2 text-[13px] flex items-center gap-1.5 hover:bg-neutral-100 active:scale-95 transition-all shadow-sm shrink-0"
+            >
+              <DownloadSimple size={15} weight="bold" />
+              <span>Download</span>
+            </Link>
           </div>
         </div>
       </header>
 
       <main id="top">
         {/* ===================== HERO (Centered layout + flanking visual cards) ===================== */}
-        <section className="relative mx-auto flex flex-col items-center justify-center px-6 pb-20 pt-[150px] text-center w-full max-w-[1240px]">
-          <div className="k-reveal mb-5">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/5 bg-white/[0.03] px-3.5 py-1.5 text-[12px] font-semibold text-[var(--k-ink2)]">
-              Trusted by 10k+ Freelancers
-            </span>
-          </div>
-          <h1 className="k-reveal text-[clamp(44px,6.5vw,76px)] font-bold leading-[1.01] tracking-[-0.04em] max-w-[20ch]">
-            Time tracking that does <br className="hidden sm:inline" />
-            <span className="text-[var(--k-ink-blue)]">the remembering for you.</span>
-          </h1>
-          <p className="k-reveal mt-6 max-w-[50ch] text-[clamp(17px,1.5vw,20px)] leading-[1.5] text-[var(--k-muted)]">
-            Pick a task, hit start — every minute locks to the work. <br className="hidden sm:block" />
-            Your weekly report stays accurate and invoice-ready, automatically.
-          </p>
-          <div className="k-reveal mt-8 flex flex-col items-center gap-3">
-            <PrimaryBtn href="/auth" big magnet>
-              Start free
-            </PrimaryBtn>
-            <span className="text-[13px] text-[var(--k-faint)]">No card required · free to start</span>
+        <section className="relative z-10 mx-auto flex min-h-[100dvh] flex-col items-center justify-between px-6 pb-0 pt-[120px] text-center w-full max-w-[1240px]">
+          {/* Text + CTA group (pinned toward the top, vertically centered in the remaining space) */}
+          <div className="flex flex-1 flex-col items-center justify-center">
+            <h1 className="k-reveal text-[clamp(44px,6.5vw,76px)] font-bold leading-[1.01] tracking-[-0.04em] max-w-[20ch]">
+              Time tracking that does <br className="hidden sm:inline" />
+              the remembering for you.
+            </h1>
+            <p className="k-reveal mt-6 max-w-[50ch] text-[clamp(17px,1.5vw,20px)] leading-[1.5] text-[var(--k-muted)]">
+              Pick a task, hit start. Every minute locks to the work. <br className="hidden sm:block" />
+              Your weekly report stays accurate and invoice-ready, automatically.
+            </p>
+            <div className="k-reveal mt-8 flex flex-col items-center gap-3">
+              <PrimaryBtn href="/auth" big magnet>
+                Start free
+              </PrimaryBtn>
+              <span className="text-[13px] text-[var(--k-faint)]">No card required · free to start</span>
+            </div>
           </div>
 
-          {/* Centered Visual Flanking Cards Wrapper */}
+          {/* Visual flanking cards — anchored to the hero bottom so the next
+              section's overlap stays consistent across viewport heights. */}
           <div className="k-reveal w-full flex justify-center mt-12">
             <HeroVisuals />
           </div>
@@ -607,70 +698,162 @@ export function KettlesLanding() {
 
 
 
-        {/* ===================== HOW IT WORKS (rail, no cards) ===================== */}
-        <section id="how" className="border-y border-[var(--k-line)] bg-[var(--k-bg2)] py-[120px]">
+        {/* ===================== HOW IT WORKS (Bento Grid) ===================== */}
+        <section id="how" className="relative z-20 -mt-10 py-[120px] bg-[var(--k-bg)] border-t border-[var(--k-line)]">
           <div className="mx-auto max-w-[1180px] px-6">
-            <div className="k-reveal mx-auto max-w-[740px] text-center">
-              <Eyebrow>The ritual</Eyebrow>
-              <h2 className="mt-5 text-[clamp(28px,3.4vw,42px)] font-semibold tracking-[-0.03em]">Three steps. One honest record.</h2>
-              <p className="mx-auto mt-5 max-w-[56ch] text-[18px] text-[var(--k-muted)]">
+            <div className="k-reveal text-left mb-12">
+              <h2 className="text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">Three steps. One honest record.</h2>
+              <p className="mt-4 text-[17px] text-[var(--k-muted)] max-w-[500px]">
                 No stopwatch guesswork. Pick the task, let the kettle boil, and the time locks itself to the work.
               </p>
             </div>
-            <div id="k-flow" className="relative mt-16">
-              <div className="absolute left-[8%] right-[8%] top-[27px] hidden h-0.5 overflow-hidden rounded bg-[var(--k-line2)] md:block">
-                <i id="k-railFill" className="k-rail-fill block h-full bg-[var(--k-accent)]" />
-              </div>
-              <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-6">
-                {[
-                  ["Pick a task", "Choose what you're working on. The timer attaches to that task — not a blank stopwatch."],
-                  ["The kettle boils", "The timer runs and steam builds. Close the tab, switch devices — the brew keeps going in the cloud."],
-                  ["Time locks to the task", "When the brew is done, the minutes seal to the task. No guessing, no backfilling, no rounding up."],
-                ].map(([t, d], i) => (
-                  <div key={t} data-step className="group relative px-2 text-center [&.k-step-on_.k-num]:scale-105 [&.k-step-on_.k-num]:border-[var(--k-accent)] [&.k-step-on_.k-num]:bg-[var(--k-accent)] [&.k-step-on_.k-num]:text-white [&.k-step-on_.k-num]:shadow-[0_14px_30px_-14px_rgba(0,102,255,0.55)]">
-                    <div className="k-num k-mono relative z-[2] mx-auto grid h-[54px] w-[54px] place-items-center rounded-2xl border border-[var(--k-line2)] bg-[var(--k-card2)] text-[19px] font-medium text-[var(--k-faint)] transition-all duration-500">
-                      {i + 1}
+            
+            <div className="k-reveal grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Card 1: Pick a task */}
+              <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1">
+                <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-gradient-to-br from-[#3385ff]/20 via-[#0066ff]/10 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative h-full flex flex-col justify-between bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] min-h-[340px]">
+                  
+                  <div className="relative h-40 w-full flex items-center justify-center">
+                    {/* Floating Cards Graphic */}
+                    <div className="relative w-40 h-32">
+                      <div className="absolute top-4 left-0 w-24 h-28 rounded-xl border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] transform -rotate-6 shadow-2xl transition-transform duration-500 group-hover:-rotate-12 group-hover:-translate-x-2 flex flex-col gap-2 p-3">
+                        <div className="w-10 h-1 rounded-full bg-white/20" />
+                        <div className="w-16 h-1 rounded-full bg-white/10" />
+                        <div className="w-12 h-1 rounded-full bg-white/10" />
+                      </div>
+                      <div className="absolute top-0 left-8 w-28 h-32 rounded-xl border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-2xl transition-transform duration-500 group-hover:translate-x-2 group-hover:-translate-y-2 flex flex-col items-center p-3 relative overflow-hidden">
+                        <div className="w-16 h-1.5 rounded-full bg-white/20 mb-2 mt-2 self-start" />
+                        <div className="w-full flex-1 border border-white/10 rounded-lg mt-1 relative overflow-hidden flex items-end">
+                           <svg viewBox="0 0 100 50" className="w-full h-full opacity-30 text-white" preserveAspectRatio="none">
+                             <path d="M0,50 Q25,20 50,40 T100,10 L100,50 Z" fill="currentColor"/>
+                           </svg>
+                        </div>
+                        {/* Glowing Planet */}
+                        <div className="absolute -bottom-2 -right-2 w-16 h-16 rounded-full bg-gradient-to-tr from-[#0066ff] to-[#3385ff] shadow-[0_0_30px_rgba(0,102,255,0.6)] flex flex-col items-center justify-center overflow-hidden">
+                          {/* Stripes on planet */}
+                          <div className="w-full h-1.5 bg-white/20 transform rotate-12 mb-1.5" />
+                          <div className="w-full h-1 bg-white/20 transform rotate-12" />
+                        </div>
+                      </div>
                     </div>
-                    <h3 className="mt-5 text-[19px] font-semibold tracking-[-0.02em]">{t}</h3>
-                    <p className="mx-auto mt-2 max-w-[30ch] text-[14.5px] text-[var(--k-muted)]">{d}</p>
                   </div>
-                ))}
+                  <div className="mt-6 flex flex-col gap-2 relative z-10">
+                    <h3 className="text-[20px] font-semibold text-[var(--k-ink)] tracking-[-0.02em]">Pick a task</h3>
+                    <p className="text-[14.5px] text-[var(--k-muted)] leading-relaxed pr-6">Choose what you&apos;re working on. The timer attaches to that task, not a blank stopwatch.</p>
+                  </div>
+                  <div className="absolute bottom-6 right-6 w-7 h-7 rounded-full bg-[var(--k-surface-soft)] border border-[var(--k-hairline2)] flex items-center justify-center text-[var(--k-faint)] group-hover:bg-[var(--k-tint)] group-hover:text-[var(--k-ink2)] transition-all duration-300">
+                    <Plus size={14} weight="bold" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: The kettle boils */}
+              <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1">
+                <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-gradient-to-br from-[#3385ff]/20 via-[#0066ff]/10 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative h-full flex flex-col justify-between bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] min-h-[340px]">
+                  
+                  <div className="relative h-40 w-full flex items-center justify-center">
+                    {/* Clock Graphic */}
+                    <div className="relative w-28 h-28 rounded-full border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
+                      {/* Inner ring */}
+                      <div className="absolute inset-2 rounded-full border border-white/5" />
+                      
+                      {/* Tick marks */}
+                      <div className="absolute top-3 w-1 h-1.5 bg-white/20 rounded-full" />
+                      <div className="absolute bottom-3 w-1 h-1.5 bg-white/20 rounded-full" />
+                      <div className="absolute left-3 w-1.5 h-1 bg-white/20 rounded-full" />
+                      <div className="absolute right-3 w-1.5 h-1 bg-white/20 rounded-full" />
+
+                      {/* Hour hand */}
+                      <div className="absolute inset-0 rotate-45 transition-transform duration-1000 ease-out group-hover:rotate-[405deg]">
+                        <div className="absolute bottom-1/2 left-1/2 -translate-x-1/2 w-1.5 h-6 bg-white/30 rounded-full origin-bottom translate-y-[1px]" />
+                      </div>
+
+                      {/* Minute hand */}
+                      <div className="absolute inset-0 transition-transform duration-[1500ms] ease-out group-hover:rotate-[1080deg]">
+                        <div className="absolute bottom-1/2 left-1/2 -translate-x-1/2 w-1 h-10 bg-gradient-to-t from-[#0066ff] to-[#3385ff] shadow-[0_0_12px_rgba(51,133,255,0.6)] rounded-full origin-bottom translate-y-[1px]" />
+                      </div>
+
+                      {/* Center dot */}
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#0066ff] shadow-[0_0_10px_rgba(51,133,255,0.8)] z-10" />
+                    </div>
+                  </div>
+                  <div className="mt-6 flex flex-col gap-2 relative z-10">
+                    <h3 className="text-[20px] font-semibold text-[var(--k-ink)] tracking-[-0.02em]">The timer runs</h3>
+                    <p className="text-[14.5px] text-[var(--k-muted)] leading-relaxed pr-6">Watch your focus session count down. Close the app, switch devices. Your progress keeps ticking in the cloud.</p>
+                  </div>
+                  <div className="absolute bottom-6 right-6 w-7 h-7 rounded-full bg-[var(--k-surface-soft)] border border-[var(--k-hairline2)] flex items-center justify-center text-[var(--k-faint)] group-hover:bg-[var(--k-tint)] group-hover:text-[var(--k-ink2)] transition-all duration-300">
+                    <Plus size={14} weight="bold" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Time locks to the task */}
+              <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1">
+                <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-gradient-to-br from-[#3385ff]/20 via-[#0066ff]/10 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative h-full flex flex-col justify-between bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] min-h-[340px]">
+                  
+                  <div className="relative h-40 w-full flex items-center justify-center">
+                    {/* Sleek Progress/Pill Graphic */}
+                    <div className="relative w-48 h-16 rounded-full border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-2xl backdrop-blur-md flex items-center px-3 transition-transform duration-500 group-hover:scale-105">
+                      <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-[#0066ff] to-[#3385ff] flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(0,102,255,0.4)] overflow-hidden">
+                        <Check size={16} weight="bold" className="text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.6)] absolute transition-all duration-300 group-hover:opacity-0 group-hover:scale-75" />
+                        <Lock size={15} weight="bold" className="text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.6)] absolute opacity-0 scale-75 transition-all duration-300 group-hover:opacity-100 group-hover:scale-100" />
+                      </div>
+                      <div className="ml-3 w-28 h-6 rounded-full bg-[#0a0a0a] border border-black shadow-inner flex items-center px-1">
+                        <div className="h-4 w-2/3 bg-gradient-to-r from-[#0066ff] to-[#3385ff] rounded-full shadow-[0_0_10px_rgba(51,133,255,0.4)] transition-all duration-500 ease-out group-hover:w-[92%]" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-6 flex flex-col gap-2 relative z-10">
+                    <h3 className="text-[20px] font-semibold text-[var(--k-ink)] tracking-[-0.02em]">Time locks to the task</h3>
+                    <p className="text-[14.5px] text-[var(--k-muted)] leading-relaxed pr-6">When the brew is done, the minutes seal to the task. No guessing, no backfilling, no rounding up.</p>
+                  </div>
+                  <div className="absolute bottom-6 right-6 w-7 h-7 rounded-full bg-[var(--k-surface-soft)] border border-[var(--k-hairline2)] flex items-center justify-center text-[var(--k-faint)] group-hover:bg-[var(--k-tint)] group-hover:text-[var(--k-ink2)] transition-all duration-300">
+                    <Plus size={14} weight="bold" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ===================== PROBLEM (asymmetric, line-grouped) ===================== */}
-        <section className="mx-auto max-w-[1180px] px-6 py-[120px]">
-          <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-16">
+        {/* ===================== PROBLEM (editorial, all cards legible) ===================== */}
+        <section className="mx-auto max-w-[1180px] px-6 py-[clamp(80px,12vh,140px)]">
+          <div className="grid w-full grid-cols-1 items-center gap-14 lg:grid-cols-12 lg:gap-16">
             <div className="k-reveal lg:col-span-5">
-              <Eyebrow>The cold cup</Eyebrow>
-              <h2 className="mt-5 text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.05] tracking-[-0.03em]">
+              <h2 className="text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.05] tracking-[-0.03em]">
                 Your logged hours don&apos;t match your real work.
               </h2>
               <p className="mt-5 max-w-[46ch] text-[18px] leading-relaxed text-[var(--k-muted)]">
-                Guessed timesheets quietly cost you money and trust. Kettles fixes the leak at the source — no boxes, just an honest record.
+                Guessed timesheets quietly cost you money and trust. Kettles fixes the leak at the source. No boxes, just an honest record.
               </p>
             </div>
-            <div className="k-stagger divide-y divide-[var(--k-line)] lg:col-span-7">
-              {[
-                [Coins, "Underbilling", "Forgotten minutes are unpaid minutes. The work happened — your invoice never saw it.", "var(--k-c3)"],
-                [WarningOctagon, "The distraction tax", "You worked all day — where did it go? A guessed timesheet is a story, not a record.", "var(--k-c5)"],
-                [X, "Broken self-trust", "If the log lies, you stop trusting it — and a tool you don't trust is one you stop opening.", "var(--k-accent2)"],
-              ].map(([Ic, t, d, col]) => {
-                const Icon = Ic as typeof Coins;
-                return (
-                  <div key={t as string} className="group flex items-start gap-5 py-7 transition-transform hover:translate-x-1">
-                    <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl border" style={{ color: col as string, borderColor: "color-mix(in srgb, currentColor 22%, transparent)", background: "color-mix(in srgb, currentColor 10%, transparent)" }}>
-                      <Icon size={22} />
-                    </span>
-                    <div>
-                      <h3 className="text-[19px] font-semibold tracking-[-0.02em]">{t as string}</h3>
-                      <p className="mt-1.5 max-w-[52ch] text-[15px] text-[var(--k-muted)]">{d as string}</p>
-                    </div>
-                  </div>
-                );
-              })}
+
+            <div className="k-reveal flex min-h-[22rem] items-center justify-center lg:col-span-7 lg:justify-end lg:pr-2">
+              <DisplayCards
+                cards={[
+                  {
+                    icon: <Coins size={20} weight="bold" />,
+                    title: "Underbilling",
+                    description: "Forgotten minutes are unpaid minutes.",
+                    accent: "var(--k-c3)",
+                  },
+                  {
+                    icon: <WarningOctagon size={20} weight="bold" />,
+                    title: "The distraction tax",
+                    description: "A guessed timesheet is a story, not a record.",
+                    accent: "var(--k-c5)",
+                  },
+                  {
+                    icon: <X size={20} weight="bold" />,
+                    title: "Broken self-trust",
+                    description: "A log you don't trust is one you stop opening.",
+                    accent: "var(--k-accent2)",
+                  },
+                ]}
+              />
             </div>
           </div>
         </section>
@@ -693,13 +876,13 @@ export function KettlesLanding() {
         </section>
 
         {/* ===================== COMPANION (asymmetric focal + states) ===================== */}
-        <section className="border-y border-[var(--k-line)] bg-[var(--k-bg2)] py-[120px]">
+        <section className="relative z-10 border-y border-[var(--k-line)] bg-[var(--k-bg2)] py-[120px]">
           <div className="mx-auto max-w-[1180px] px-6">
             <div className="k-reveal mx-auto max-w-[740px] text-center">
               <Eyebrow>The companion</Eyebrow>
               <h2 className="mt-5 text-[clamp(28px,3.4vw,42px)] font-semibold tracking-[-0.03em]">You&apos;re not focusing alone.</h2>
               <p className="mx-auto mt-5 max-w-[58ch] text-[18px] text-[var(--k-muted)]">
-                Your kettle stays warm while you work, whistles when a brew is done, and wanders off when you go cold. Keep your streak — keep the kettle on.
+                Your kettle stays warm while you work, whistles when a brew is done, and wanders off when you go cold. Keep your streak. Keep the kettle on.
               </p>
             </div>
             <div className="mt-14 grid grid-cols-1 gap-[18px] lg:grid-cols-12">
@@ -729,7 +912,7 @@ export function KettlesLanding() {
         </section>
 
         {/* ===================== TRUST BADGE STRIP (slim) ===================== */}
-        <section id="security" className="border-y border-[var(--k-line)] bg-[var(--k-bg2)] py-12">
+        <section id="security" className="relative z-10 border-y border-[var(--k-line)] bg-[var(--k-bg2)] py-12">
           <div className="mx-auto max-w-[1180px] px-6 text-center">
             <p className="k-reveal text-[15px] text-[var(--k-muted)]">
               <span className="font-semibold text-[var(--k-ink)]">No screenshots. No keystroke spying. No productivity scores.</span> Just an accurate record you own.
@@ -747,113 +930,149 @@ export function KettlesLanding() {
           </div>
         </section>
 
-        {/* ===================== TESTIMONIALS (vertical kinetic columns) ===================== */}
-        <section id="reviews" className="mx-auto max-w-[1180px] px-6 py-[120px]">
-          <div className="k-reveal mx-auto max-w-[740px] text-center">
-            <Eyebrow>Wall of love</Eyebrow>
-            <h2 className="mt-5 text-[clamp(28px,3.4vw,42px)] font-semibold tracking-[-0.03em]">Freelancers who finally trust their timesheet.</h2>
-          </div>
-          <div className="k-reveal mt-14 grid max-h-[640px] grid-cols-1 gap-5 overflow-hidden [mask-image:linear-gradient(180deg,transparent,#000_10%,#000_90%,transparent)] md:grid-cols-3">
-            {[
-              [
-                ["I used to round my hours and quietly lose money every month. Now the brew is the invoice.", "Mara Alvarez", "Brand designer", "c3"],
-                ["My last two clients didn't question a single line on the invoice. That's never happened.", "Theo Bell", "Motion designer", "c4"],
-                ["The little kettle is genuinely delightful — and the numbers underneath are dead accurate.", "Lukas Berg", "Illustrator", "c3"],
-              ],
-              [
-                ["The timer survives a tab close, which sounds boring until you've lost an afternoon of work.", "Devin Tran", "Full-stack dev", "c2"],
-                ["The per-client breakdown at the end of the week is just there. No spreadsheet wrangling.", "Ana Costa", "Consultant", "c5"],
-                ["Invoicing went from a dreaded Friday ritual to a two-minute export. Worth it alone.", "Nadia Hassan", "Copywriter", "c4"],
-              ],
-              [
-                ["It's the only tracker that doesn't make me feel watched. I put the kettle on and write.", "Rosa Kim", "Freelance writer", "c1"],
-                ["Gentle whistles instead of alarms changed how my whole day feels. Calmer, and I bill more.", "Sam Ortega", "iOS developer", "c2"],
-                ["Switched from three tools to one. Tasks, timer, and billing finally agree with each other.", "Priya Nair", "Studio owner", "c1"],
-              ],
-            ].map((col, ci) => (
-              <div key={ci} className="k-vcol overflow-hidden">
-                <div className="k-vtrack flex flex-col gap-5" style={{ ["--dur" as string]: `${34 + ci * 6}s` }}>
-                  {[...col, ...col].map((q, qi) => (
-                    <Testimonial key={qi} quote={q[0]} name={q[1]} role={q[2]} color={q[3]} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ===================== PRICING (asymmetric band) ===================== */}
-        <section id="pricing" className="mx-auto max-w-[1180px] px-6 py-[88px]">
-          <div className="k-reveal overflow-hidden rounded-[28px] border border-[var(--k-line2)] bg-[var(--k-card)]">
-            <div className="grid grid-cols-1 items-center gap-10 p-10 md:grid-cols-12 md:p-14">
-              <div className="md:col-span-7">
-                <Eyebrow>Pricing</Eyebrow>
-                <h2 className="mt-5 text-[clamp(28px,3.4vw,40px)] font-semibold tracking-[-0.03em]">Start free. Brew on.</h2>
-                <p className="mt-4 max-w-[52ch] text-[18px] text-[var(--k-muted)]">
-                  Track your first client and the whole ritual at no cost. Upgrade when your roster grows.
-                </p>
-                <div className="mt-6">
-                  <PrimaryBtn href="/auth" big magnet>
-                    Start free
-                  </PrimaryBtn>
-                </div>
-              </div>
-              <div className="md:col-span-5 md:border-l md:border-[var(--k-line2)] md:pl-12">
-                <div className="flex items-baseline gap-2">
-                  <span className="k-mono text-[56px] font-medium tracking-[-0.03em]">$0</span>
-                  <span className="text-[15px] text-[var(--k-muted)]">to start</span>
-                </div>
-                <p className="mt-1 text-[15px] text-[var(--k-muted)]">Pro from $8/mo when you add clients.</p>
-                <p className="mt-5 text-[13px] text-[var(--k-faint)]">No card required · cancel anytime</p>
-              </div>
+        {/* ===================== TESTIMONIALS (Bento Grid) & PRICING ===================== */}
+        <section id="reviews" className="relative overflow-hidden border-y border-[var(--k-line)] py-[120px]">
+          {/* no section bg — let the fixed beam backdrop show through (parallax) */}
+          <div className="relative z-10 mx-auto max-w-[1180px] px-6 flex flex-col gap-6">
+            <div className="k-reveal mx-auto max-w-[740px] text-center mb-10">
+              <h2 className="text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.035em] text-[var(--k-ink)]">People love using Kettles.</h2>
+              <p className="mt-4 text-[17px] text-[var(--k-muted)] mx-auto leading-relaxed max-w-none">
+                Thousands before you have successfully tracked their time and loved it.
+              </p>
             </div>
-          </div>
-        </section>
 
-        {/* ===================== FAQ ===================== */}
-        <section id="faq" className="border-y border-[var(--k-line)] bg-[var(--k-bg2)] py-[120px]">
-          <div className="mx-auto max-w-[1180px] px-6">
-            <div className="k-reveal mx-auto max-w-[740px] text-center">
-              <Eyebrow>Questions</Eyebrow>
-              <h2 className="mt-5 text-[clamp(28px,3.4vw,42px)] font-semibold tracking-[-0.03em]">Good to know.</h2>
-            </div>
-            <div className="k-reveal mx-auto mt-12 max-w-[760px]">
-              {faqs.map(([q, a], i) => {
-                const open = faqOpen === i;
-                return (
-                  <div key={q} className="border-b border-[var(--k-line)]">
-                    <button onClick={() => setFaqOpen(open ? null : i)} aria-expanded={open} className="flex w-full items-center justify-between gap-5 py-6 text-left text-[17.5px] font-[550] text-[var(--k-ink)] transition-transform duration-200 active:scale-[0.99]">
-                      {q}
-                      <span className={`grid h-[22px] w-[22px] flex-none place-items-center rounded-md text-[var(--k-accent2)] transition-[transform,background-color] duration-200 ease-[var(--k-ease)] ${open ? "rotate-45 bg-[var(--k-tint)]" : "bg-[var(--k-card2)]"}`}>
-                        <Plus size={14} weight="bold" />
-                      </span>
-                    </button>
-                    <div className="grid transition-[grid-template-rows] duration-300 ease-[var(--k-ease)]" style={{ gridTemplateRows: open ? "1fr" : "0fr" }}>
-                      <div className="overflow-hidden">
-                        <p className="max-w-[64ch] pb-6 text-[15.5px] text-[var(--k-muted)]">{a}</p>
-                      </div>
+            <div className="k-reveal grid grid-cols-1 md:grid-cols-12 gap-6 w-full items-stretch">
+              {/* Left Card: X/Twitter Quote (stands out with large metallic dark gradient) */}
+              <div className="md:col-span-7 k-bento-card-quote rounded-3xl border border-[var(--k-hairline2)] p-8 md:p-12 flex flex-col justify-between min-h-[440px] shadow-2xl transition-all duration-300 hover:border-[var(--k-line3)] group">
+                {/* X logo at top center */}
+                <div className="flex justify-center w-full">
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="h-10 w-10 text-[var(--k-muted)] opacity-60 group-hover:opacity-100 transition-opacity duration-300">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </div>
+
+                {/* Big Quote in center */}
+                <div className="my-8 text-center relative z-10">
+                  <p className="text-[22px] md:text-[26px] lg:text-[30px] font-semibold leading-snug tracking-tight text-[var(--k-ink)] max-w-[20ch] mx-auto">
+                    &ldquo;Once you experience using Kettles to track your work, there is no going back.&rdquo;
+                  </p>
+                </div>
+
+                {/* Author avatar and name at bottom center */}
+                <div className="flex justify-center relative z-10">
+                  <div className="flex items-center gap-2.5 bg-[var(--k-surface-soft)] border border-[var(--k-hairline2)] px-4 py-2 rounded-full backdrop-blur-md transition-transform duration-300 group-hover:scale-105 group-hover:bg-[var(--k-tint)] group-hover:border-[var(--k-line3)]">
+                    <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-amber-400 to-rose-500 flex items-center justify-center text-[10px] font-bold text-white uppercase shadow-sm">
+                      SS
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-xs font-semibold text-[var(--k-ink)] leading-tight">Samreshan Sahani</span>
+                      <span className="text-[10px] text-[var(--k-muted)] leading-none">Creative Director</span>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              </div>
+
+              {/* Right Column: Stacked Product Hunt and G2 cards */}
+              <div className="md:col-span-5 flex flex-col gap-6 justify-between">
+                
+                {/* Top Right Card: Product Hunt (Red Radial Gradient) */}
+                <div className="k-bento-card-ph rounded-3xl border border-[var(--k-hairline2)] p-6 flex flex-col items-center justify-center min-h-[208px] relative overflow-hidden transition-all duration-300 hover:border-[var(--k-line3)] group">
+                  {/* Background Laurels left & right */}
+                  <div className="absolute left-6 top-1/2 -translate-y-1/2 text-rose-500/10 select-none pointer-events-none transition-all duration-500 group-hover:scale-105 group-hover:translate-x-[-6px] group-hover:opacity-20">
+                    <LaurelBadge label="Soon to" subLabel="be" />
+                  </div>
+                  <div className="absolute right-6 top-1/2 -translate-y-1/2 text-rose-500/10 select-none pointer-events-none transition-all duration-500 group-hover:scale-105 group-hover:translate-x-[6px] group-hover:opacity-20">
+                    <LaurelBadge label="Not" subLabel="yet" />
+                  </div>
+
+                  {/* Floating Product Hunt review card */}
+                  <div className="relative z-10 bg-[var(--k-card)]/80 border border-[var(--k-hairline2)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_20px_40px_-15px_rgba(0,0,0,0.25)] backdrop-blur-xl rounded-2xl p-5 w-full max-w-[230px] text-center flex flex-col items-center gap-2.5 transition-transform duration-300 hover:scale-[1.03] hover:bg-[var(--k-card)]/90">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider text-[var(--k-muted)] uppercase">
+                      <span className="w-4.5 h-4.5 rounded-full bg-[#DA552F] flex items-center justify-center text-white text-[10px] font-black font-sans leading-none">P</span>
+                      <span>Product Hunt</span>
+                    </div>
+                    <div className="flex gap-0.5 text-[#DA552F]">
+                      {[...Array(5)].map((_, i) => (
+                        <svg key={i} viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                          <path d="M12 2l3 7h7l-5.5 4 2 7L12 17l-6.5 4 2-7L2 9h7z" />
+                        </svg>
+                      ))}
+                    </div>
+                    <div className="text-[11px] text-[var(--k-muted)] font-medium">
+                      (4.8) based on 620 reviews
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Right Card: G2 (Blue Radial Gradient) */}
+                <div className="k-bento-card-g2 rounded-3xl border border-[var(--k-hairline2)] p-6 flex flex-col items-center justify-center min-h-[208px] relative overflow-hidden transition-all duration-300 hover:border-[var(--k-line3)] group">
+                  
+                  {/* Faded Background Badges arranged behind */}
+                  <div className="absolute inset-0 flex items-center justify-center w-full h-full pointer-events-none select-none">
+                    <div className="absolute left-[0%] lg:left-[5%] z-0 opacity-10 scale-[0.7] transform -rotate-12 translate-y-4 blur-[0.6px] transition-all duration-500 group-hover:translate-x-[-8px] group-hover:opacity-20 group-hover:scale-75">
+                      <FadedG2Badge title="Leader" sub="EMEA" />
+                    </div>
+                    
+                    <div className="absolute left-[15%] lg:left-[22%] z-10 opacity-25 scale-[0.85] transform -rotate-6 translate-y-1.5 blur-[0.2px] transition-all duration-500 group-hover:translate-x-[-4px] group-hover:opacity-40 group-hover:scale-90">
+                      <FadedG2Badge title="Leader" sub="Europe" />
+                    </div>
+
+                    <div className="absolute right-[15%] lg:right-[22%] z-10 opacity-25 scale-[0.85] transform rotate-6 translate-y-1.5 blur-[0.2px] transition-all duration-500 group-hover:translate-x-[4px] group-hover:opacity-40 group-hover:scale-90">
+                      <FadedG2Badge title="Leader" sub="Asia" />
+                    </div>
+                    
+                    <div className="absolute right-[0%] lg:right-[5%] z-0 opacity-10 scale-[0.7] transform rotate-12 translate-y-4 blur-[0.6px] transition-all duration-500 group-hover:translate-x-[8px] group-hover:opacity-20 group-hover:scale-75">
+                      <FadedG2Badge title="Leader" sub="Global" />
+                    </div>
+                  </div>
+
+                  {/* Foreground G2 badge */}
+                  <div className="relative z-20 scale-[0.95] transform transition-transform duration-500 group-hover:scale-100 group-hover:rotate-1 group-hover:shadow-[0_25px_60px_rgba(0,0,0,0.6)] shadow-[0_15px_35px_rgba(0,0,0,0.5)]">
+                    <G2Badge />
+                  </div>
+                </div>
+                
+              </div>
             </div>
+
+            {/* Integrated Pricing Card (Same border/gradient styling to fit Bento visual theme) */}
+            <div id="pricing" className="k-reveal overflow-hidden rounded-3xl border border-[var(--k-hairline2)] bg-gradient-to-br from-[var(--k-card2)] to-[var(--k-card)] shadow-2xl transition-all duration-300 hover:border-[var(--k-line3)] mt-2">
+              <div className="grid grid-cols-1 items-center gap-10 p-10 md:grid-cols-12 md:p-12">
+                <div className="md:col-span-7">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#3385ff] mb-2 block">Pricing</span>
+                  <h3 className="text-[clamp(24px,3vw,36px)] font-bold tracking-[-0.035em] text-[var(--k-ink)] leading-tight">Start free. Brew on.</h3>
+                  <p className="mt-3.5 max-w-[52ch] text-[16px] leading-relaxed text-[var(--k-muted)]">
+                    Track your first client and the whole ritual at no cost. Upgrade when your roster grows.
+                  </p>
+                  <div className="mt-5">
+                    <PrimaryBtn href="/auth" big magnet>
+                      Start free
+                    </PrimaryBtn>
+                  </div>
+                </div>
+                <div className="md:col-span-5 md:border-l md:border-[var(--k-hairline2)] md:pl-12">
+                  <div className="flex items-baseline gap-2">
+                    <span className="k-mono text-[52px] font-semibold tracking-[-0.035em] text-[var(--k-ink)]">$0</span>
+                    <span className="text-[14px] text-[var(--k-muted)]">to start</span>
+                  </div>
+                  <p className="mt-1 text-[14px] text-[var(--k-muted)]">Pro from $8/mo when you add clients.</p>
+                  <p className="mt-5 text-[12px] text-[var(--k-faint)]">No card required · cancel anytime</p>
+                </div>
+              </div>
+            </div>
+
           </div>
         </section>
 
         {/* ===================== FINAL CTA (Redesigned with mock modal + spotlight) ===================== */}
-        <section id="download" className="k-spotlight-bg border-t border-[var(--k-line)] bg-gradient-to-b from-[var(--k-bg)] to-[var(--k-bg2)] px-6 py-[120px] text-center overflow-hidden">
+        <section id="download" className="border-t border-[var(--k-line)] bg-[var(--k-bg)] px-6 py-[120px] text-center overflow-hidden">
           <div className="mx-auto max-w-[1180px] flex flex-col items-center relative z-10">
-            <div className="k-reveal mb-6">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/5 bg-white/[0.03] px-3.5 py-1.5 text-[12px] font-semibold text-[var(--k-ink2)]">
-                Start Tracking Today
-              </span>
-            </div>
             
-            <h2 className="k-reveal text-[clamp(34px,4.6vw,56px)] font-bold tracking-[-0.035em] text-white">
+            <h2 className="k-reveal text-[clamp(34px,4.6vw,56px)] font-bold tracking-[-0.035em] text-[var(--k-ink)]">
               The kettle&apos;s ready when you are.
             </h2>
             <p className="k-reveal mx-auto mt-4 max-w-[48ch] text-[18px] text-[var(--k-muted)]">
-              Drop your email and pick up in the app — every minute from here brews into a record you can bill.
+              Drop your email and pick up in the app. Every minute from here brews into a record you can bill.
             </p>
 
             {/* Keep the email capture functional */}
@@ -861,38 +1080,7 @@ export function KettlesLanding() {
               <EmailCapture />
             </div>
 
-            {/* Bottom 3 Features list row */}
-            <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 text-left w-full max-w-[1000px] pt-12 border-t border-white/5">
-              <div className="flex gap-4">
-                <span className="grid h-11 w-11 flex-none place-items-center rounded-xl border border-[var(--k-line2)] bg-[var(--k-card)] text-[var(--k-accent2)]">
-                  <Globe size={20} />
-                </span>
-                <div>
-                  <h4 className="text-[15px] font-semibold text-white">Client Ledger</h4>
-                  <p className="mt-1.5 text-[13px] text-[var(--k-muted)]">Every session resolves to a specific client profile automatically, ready to invoice.</p>
-                </div>
-              </div>
 
-              <div className="flex gap-4">
-                <span className="grid h-11 w-11 flex-none place-items-center rounded-xl border border-[var(--k-line2)] bg-[var(--k-card)] text-[var(--k-accent2)]">
-                  <Lock size={20} />
-                </span>
-                <div>
-                  <h4 className="text-[15px] font-semibold text-white">Focus Blocks</h4>
-                  <p className="mt-1.5 text-[13px] text-[var(--k-muted)]">Lock focus periods with customized durations (Pomodoro brews) and custom notes.</p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <span className="grid h-11 w-11 flex-none place-items-center rounded-xl border border-[var(--k-line2)] bg-[var(--k-card)] text-[var(--k-accent2)]">
-                  <User size={20} />
-                </span>
-                <div>
-                  <h4 className="text-[15px] font-semibold text-white">Workspaces</h4>
-                  <p className="mt-1.5 text-[13px] text-[var(--k-muted)]">Work seamlessly across multiple teams, switching profiles in one click.</p>
-                </div>
-              </div>
-            </div>
 
           </div>
         </section>
@@ -900,12 +1088,12 @@ export function KettlesLanding() {
 
 
       {/* ===================== FOOTER ===================== */}
-      <footer className="border-t border-[var(--k-line)] bg-[var(--k-bg2)] px-6 pb-9 pt-16">
+      <footer className="relative z-10 border-t border-[var(--k-line)] px-6 pb-9 pt-16" style={{ backgroundColor: 'var(--k-bg)' }}>
         <div className="mx-auto max-w-[1180px]">
           <div className="grid grid-cols-2 gap-9 md:grid-cols-[1.5fr_repeat(4,1fr)]">
             <div className="col-span-2 md:col-span-1">
-              <Wordmark className="h-6 w-auto text-[var(--k-ink)]" />
-              <p className="mt-4 max-w-[28ch] text-[14px] text-[var(--k-muted)]">Task-linked time tracking, made for focused work.</p>
+              <Wordmark className="h-8 w-auto text-[var(--k-ink)]" />
+              <p className="mt-4 max-w-[28ch] text-[15px] text-[var(--k-muted)]">Task-linked time tracking, made for focused work.</p>
             </div>
             {[
               ["Product", [["Features", "#features"], ["How it works", "#how"], ["Pricing", "#pricing"], ["Download", "#download"]]],
@@ -914,9 +1102,9 @@ export function KettlesLanding() {
               ["Legal", [["Privacy", "#"], ["Terms", "#"], ["Security", "#security"]]],
             ].map(([h, links]) => (
               <div key={h as string}>
-                <h5 className="mb-4 text-[12.5px] font-semibold text-[var(--k-ink)]">{h as string}</h5>
+                <h5 className="mb-4 text-[14.5px] font-semibold text-[var(--k-ink)]">{h as string}</h5>
                 {(links as [string, string][]).map(([l, href]) => (
-                  <Link key={l} href={href} className="block w-fit py-1.5 text-[14px] text-[var(--k-muted)] transition hover:text-[var(--k-accent2)]">
+                  <Link key={l} href={href} className="block w-fit py-1.5 text-[15px] text-[var(--k-muted)] transition hover:text-[var(--k-accent2)]">
                     {l}
                   </Link>
                 ))}
@@ -936,24 +1124,39 @@ export function KettlesLanding() {
         </div>
       </footer>
 
-      {/* ===================== CINEMATIC FOOTER REVEAL ===================== */}
-      <section className="k-cinematic-container">
-        <div id="k-cinematic-portal" className="k-cinematic-portal">
-          <div className="k-cinematic-image-wrapper">
-            <Image
-              id="k-cinematic-image"
-              src="/images/footer.png"
-              alt="Kettles Cinematic Brand Logo"
-              width={1920}
-              height={480}
-              priority
-              className="k-cinematic-image"
-            />
-          </div>
-          <div className="k-cinematic-overlay" />
+      {/* ===================== TEXTURED GRADIENT FOOTER ===================== */}
+      <section id="k-textured-footer" className="relative h-[400px] w-full overflow-hidden bg-[var(--k-bg)]">
+        {/* Blue Bottom Glow */}
+        <div className="k-tf-glow absolute -bottom-[40%] left-1/2 h-[80%] w-[100%] max-w-[1200px] -translate-x-1/2 rounded-[100%] bg-blue-600/40 blur-[100px]" />
+        <div className="k-tf-glow absolute -bottom-[20%] left-1/2 h-[50%] w-[60%] max-w-[800px] -translate-x-1/2 rounded-[100%] bg-blue-500/60 blur-[80px]" />
+
+        {/* Big Studio Text */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10 pt-10">
+           <span id="k-footer-big-text" className="text-[clamp(80px,20vw,360px)] font-black leading-none tracking-[-0.05em] text-white mix-blend-overlay opacity-90 drop-shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-transform duration-75 ease-out will-change-transform">
+             KETTLES
+           </span>
         </div>
+
+        {/* Vertical Columns */}
+        <div className="absolute inset-0 mx-auto grid max-w-[1180px] grid-cols-5 px-6">
+          {[...Array(5)].map((_, i) => (
+            <div 
+              key={i} 
+              className={`h-full w-full border-r border-dashed border-[var(--k-hairline2)] ${i === 0 ? 'border-l' : ''}`}
+            />
+          ))}
+        </div>
+
+        {/* Grain Texture Overlay */}
+        <div
+          className="k-tf-grain pointer-events-none absolute inset-0 z-10 opacity-[0.15] mix-blend-overlay"
+          style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }}
+        />
+        
+        {/* Top Fade to blend with the footer above */}
+        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[var(--k-bg)] to-transparent" />
       </section>
-    </div>
+    </BeamsBackground>
   );
 }
 
@@ -997,4 +1200,102 @@ function Testimonial({ quote, name, role, color }: { quote: string; name: string
   );
 }
 
+function LaurelBadge({ label, subLabel, rank }: { label: string; subLabel?: string; rank?: string }) {
+  return (
+    <div className="flex flex-col items-center text-center opacity-20 select-none pointer-events-none scale-90">
+      <div className="relative flex items-center justify-center w-24 h-24">
+        {/* Laurel Wreath */}
+        <svg className="absolute inset-0 w-full h-full text-current animate-pulse" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+          {/* Left arc */}
+          <path d="M 35 75 A 22 25 0 0 1 35 25" strokeWidth="1.5" strokeLinecap="round" />
+          {/* Left Leaves */}
+          <path d="M 32 72 Q 24 70 26 63 Q 32 66 33 70" fill="currentColor" />
+          <path d="M 28 60 Q 20 56 24 49 Q 30 52 30 57" fill="currentColor" />
+          <path d="M 28 46 Q 21 40 26 33 Q 31 37 30 43" fill="currentColor" />
+          <path d="M 32 32 Q 28 24 35 20 Q 37 27 34 31" fill="currentColor" />
+          
+          {/* Right arc */}
+          <path d="M 65 75 A 22 25 0 0 0 65 25" strokeWidth="1.5" strokeLinecap="round" />
+          {/* Right Leaves */}
+          <path d="M 68 72 Q 76 70 74 63 Q 68 66 67 70" fill="currentColor" />
+          <path d="M 72 60 Q 80 56 76 49 Q 70 52 70 57" fill="currentColor" />
+          <path d="M 72 46 Q 79 40 74 33 Q 69 37 70 43" fill="currentColor" />
+          <path d="M 68 32 Q 72 24 65 20 Q 63 27 66 31" fill="currentColor" />
+        </svg>
+        {/* Rank & label inside */}
+        <div className="z-10 flex flex-col items-center justify-center mt-[-4px]">
+          <span className="text-[10px] font-bold tracking-wider uppercase opacity-85 max-w-[60px] leading-none text-center text-rose-500">{label}</span>
+          {subLabel && (
+            <span className="text-[9px] font-bold uppercase opacity-80 text-rose-500 leading-none mt-0.5">{subLabel}</span>
+          )}
+          {rank && (
+            <span className="text-lg font-extrabold mt-1 text-white leading-none">{rank}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function G2Badge() {
+  return (
+    <div className="relative flex flex-col items-center justify-between bg-white text-black rounded-xl w-[135px] h-[175px] p-3.5 shadow-2xl border border-neutral-200 select-none">
+      {/* G2 Logo at top */}
+      <div className="flex items-center justify-center w-7 h-7 bg-[#FF4F00] rounded-md text-white font-extrabold text-base shadow-sm">
+        G
+      </div>
+      
+      {/* Title */}
+      <div className="text-center mt-1 flex flex-col">
+        <span className="text-[12px] font-extrabold text-neutral-800 leading-none">Highest User</span>
+        <span className="text-[12px] font-extrabold text-neutral-800 leading-tight">Adoption</span>
+      </div>
+      
+      {/* Blue Ribbon Banner */}
+      <div className="relative w-[118%] bg-[#0066ff] text-white text-[9px] font-bold uppercase tracking-wider py-1.5 text-center my-1.5 shadow-md">
+        SUMMER
+        {/* Ribbon ears/tails under the main fold */}
+        <div className="absolute left-0 bottom-[-4px] border-t-[4px] border-t-[#0047b3] border-l-[4px] border-l-transparent"></div>
+        <div className="absolute right-0 bottom-[-4px] border-t-[4px] border-t-[#0047b3] border-r-[4px] border-r-transparent"></div>
+      </div>
+      
+      {/* Year */}
+      <div className="text-[16px] font-extrabold text-neutral-800 tracking-tight leading-none">
+        2026
+      </div>
+    </div>
+  );
+}
+
+function FadedG2Badge({ title, sub }: { title: string; sub: string }) {
+  return (
+    <div className="flex flex-col items-center justify-between bg-white/95 text-black rounded-lg w-[105px] h-[140px] p-2.5 shadow-lg border border-neutral-200 select-none">
+      {/* G2 Logo at top */}
+      <div className="flex items-center justify-center w-6 h-6 bg-[#FF4F00]/80 rounded-md text-white font-bold text-xs">
+        G
+      </div>
+      
+      {/* Title */}
+      <div className="text-[10px] font-extrabold text-neutral-800 leading-none text-center">
+        {title}
+      </div>
+      {/* Sub */}
+      <div className="text-[8px] font-extrabold text-neutral-500 uppercase tracking-tight text-center leading-none mt-0.5">
+        {sub}
+      </div>
+      
+      {/* Ribbon */}
+      <div className="w-[115%] bg-[#0066ff]/80 text-white text-[8px] font-black uppercase py-1 text-center my-1 leading-normal">
+        SUMMER
+      </div>
+      
+      {/* Year */}
+      <div className="text-[12px] font-black text-neutral-800 leading-none">
+        2026
+      </div>
+    </div>
+  );
+}
+
 export default KettlesLanding;
+

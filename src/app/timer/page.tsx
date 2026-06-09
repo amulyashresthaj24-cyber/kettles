@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Play,
@@ -25,20 +25,12 @@ import { AddTaskModal } from "@/components/AddTaskModal";
 import { AddProjectModal } from "@/components/AddProjectModal";
 import { TaskFinishedState } from "@/components/TaskFinishedState";
 import type { Project, Session, Task } from "@/lib/types";
+import { AlarmSound, ALARM_SOUNDS } from "@/lib/constants";
 
 const URGENCY_ORDER = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
 const FOCUS_RING_SIZE = 320;
 const FOCUS_RING_R = 150;
 const FOCUS_RING_CIRC = 2 * Math.PI * FOCUS_RING_R;
-
-type AlarmSound = "bell" | "chime" | "digital" | "gentle" | "pulse";
-const ALARM_SOUNDS: { id: AlarmSound; label: string }[] = [
-  { id: "bell", label: "Bell" },
-  { id: "chime", label: "Chime" },
-  { id: "digital", label: "Digital" },
-  { id: "gentle", label: "Gentle" },
-  { id: "pulse", label: "Pulse" },
-];
 
 function playBell(ctx: AudioContext) {
   const osc = ctx.createOscillator();
@@ -106,7 +98,23 @@ function playPulse(ctx: AudioContext) {
   }
 }
 
-function triggerAlarmSound(ctx: AudioContext, type: AlarmSound) {
+function triggerAlarmSound(ctx: AudioContext, type: AlarmSound, kettleAudioRef?: React.MutableRefObject<HTMLAudioElement | null>) {
+  if (type === "kettle") {
+    if (kettleAudioRef) {
+      if (!kettleAudioRef.current) {
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        kettleAudioRef.current = new Audio(`${origin}/sounds/kettle-whistle.ogg`);
+        kettleAudioRef.current.loop = true;
+        kettleAudioRef.current.volume = 0.4;
+      }
+      kettleAudioRef.current.play().catch(() => {});
+    }
+    return;
+  } else {
+    if (kettleAudioRef && kettleAudioRef.current) {
+      kettleAudioRef.current.pause();
+    }
+  }
   switch (type) {
     case "bell": playBell(ctx); break;
     case "chime": playChime(ctx); break;
@@ -144,7 +152,7 @@ function sessionReferenceTime(session: Session) {
   return session.endedAt ?? session.frozenAt ?? session.startedAt;
 }
 
-function projectProgressLabel(projectId: string | undefined, allTasks: Task[]) {
+function projectProgressLabel(projectId: string | null | undefined, allTasks: Task[]) {
   if (!projectId) return undefined;
   const projectTasks = allTasks.filter((task) => task.projectId === projectId && !task.archived && !task.deletedAt);
   if (projectTasks.length === 0) return undefined;
@@ -273,6 +281,7 @@ export default function TimerPage() {
   const estimateCompletedRef = useRef(false);
   const idleWarningShown = useRef(false);
   const processedFinishParam = useRef(false);
+  const lastSyncedTaskRef = useRef<string | null>(null);
 
   const activeTask = session ? tasks.find((t) => t.id === session.taskId) : tasks.find((t) => t.id === taskId);
   const activeProject = session ? projects.find((p) => p.id === session.projectId) : projects.find((p) => p.id === projectId);
@@ -288,13 +297,26 @@ export default function TimerPage() {
       return;
     }
     const t = tasks.find((x) => x.id === taskId);
-    if (t && !projectId) setProjectId(t.projectId);
     if (t?.estimateMinutes) {
       if (!estimateMin) setEstimateMin(String(t.estimateMinutes));
     } else if (!estimateMin && preferences?.defaultFocusDuration) {
       setEstimateMin(String(preferences.defaultFocusDuration));
     }
-  }, [taskId, tasks, projectId, estimateMin, preferences?.defaultFocusDuration]);
+  }, [taskId, tasks, estimateMin, preferences?.defaultFocusDuration]);
+
+  // Project follows the selected task: a task with a project fills it; a task
+  // without a project clears it. Only fires when the task itself changes, so a
+  // manual project override on a project-less task is preserved.
+  useEffect(() => {
+    if (!taskId) {
+      lastSyncedTaskRef.current = null;
+      return;
+    }
+    if (lastSyncedTaskRef.current === taskId) return;
+    lastSyncedTaskRef.current = taskId;
+    const t = tasks.find((x) => x.id === taskId);
+    setProjectId(t?.projectId ?? "");
+  }, [taskId, tasks]);
 
   useEffect(() => {
     if (!session || session.state !== "running") return;
@@ -326,13 +348,18 @@ export default function TimerPage() {
   const draftSessions = sessions.filter((item) => item.state === "draft");
 
   useEffect(() => {
-    if (!session || estimateSec <= 0 || estimateCompletedRef.current) return;
+    if (!session) {
+      estimateCompletedRef.current = false;
+      return;
+    }
+    if (estimateSec <= 0 || estimateCompletedRef.current) return;
     if (remaining === 0 && session.state === "running") {
       estimateCompletedRef.current = true;
       setEstimateJustComplete(true);
+      pauseSession();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estimateSec, remaining, session]);
+  }, [estimateSec, remaining, session, pauseSession]);
 
   useEffect(() => {
     if (!session || session.state !== "running") return;
@@ -341,6 +368,10 @@ export default function TimerPage() {
       setIdleVisible(true);
     }
   }, [elapsed, session]);
+
+  useEffect(() => {
+    setConfirmDiscard(false);
+  }, [session?.id, session?.state]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -373,20 +404,22 @@ export default function TimerPage() {
   const handleStart = async () => {
     if (!taskId) return;
     audioReady.current = true;
-    await startSession(taskId, billable);
+    const est = Number(estimateMin) > 0 ? Number(estimateMin) : undefined;
+    await startSession(taskId, billable, est);
   };
 
   const handleStartDraft = async () => {
     audioReady.current = true;
-    await startDraftSession(projectId, billable);
+    const est = Number(estimateMin) > 0 ? Number(estimateMin) : undefined;
+    await startDraftSession(projectId, billable, est);
   };
 
   const handleQuickStart = async (t: Task) => {
     setTaskId(t.id);
-    setProjectId(t.projectId);
+    setProjectId(t.projectId ?? "");
     if (t.estimateMinutes) setEstimateMin(String(t.estimateMinutes));
     audioReady.current = true;
-    await startSession(t.id);
+    await startSession(t.id, undefined, t.estimateMinutes);
   };
 
   const handleFinish = () => {
@@ -516,7 +549,7 @@ export default function TimerPage() {
     const start = timeInputToToday(adjustStart);
     const end = timeInputToToday(adjustEnd);
     const computed = Math.max(0, Math.round((end - start) / 1000));
-    await handleKnownLog({ seconds: Number(adjustDuration) > 0 ? Number(adjustDuration) * 60 : computed });
+    await handleKnownLog({ seconds: Number(adjustDuration) > 0 ? Number(adjustDuration) * 60 : computed, celebrate: false });
     setAdjustEditing(false);
   };
 
@@ -578,11 +611,14 @@ export default function TimerPage() {
               value={projectId}
               onChange={setProjectId}
               placeholder="pick project"
-              items={projects.map((p) => ({
-                value: p.id,
-                label: p.name,
-                meta: p.billable ? "Billable" : "Internal",
-              }))}
+              items={[
+                { value: "", label: "No project" },
+                ...projects.map((p) => ({
+                  value: p.id,
+                  label: p.name,
+                  meta: p.billable ? "Billable" : "Internal",
+                })),
+              ]}
               createLabel="Create project"
               onCreate={() => setProjectModalOpen(true)}
             />
@@ -672,7 +708,7 @@ export default function TimerPage() {
                   <p className="text-[13px] font-medium text-text-primary">Discard this session? Time worked won&apos;t be logged.</p>
                   <div className="flex gap-2">
                     <Button size="sm" variant="ghost" onClick={() => setConfirmDiscard(false)}>Cancel</Button>
-                    <Button size="sm" variant="primary" className="text-error" onClick={async () => { await discardSession(); router.push("/timer"); }}><Trash size={14} />Discard</Button>
+                    <Button size="sm" variant="primary" className="text-error" onClick={async (e) => { e.preventDefault(); e.stopPropagation(); await discardSession(); router.push("/timer"); }}><Trash size={14} />Discard</Button>
                   </div>
                 </div>
               ) : (
@@ -751,7 +787,7 @@ export default function TimerPage() {
           <AlarmModal
             plannedMinutes={Math.round(estimateSec / 60)}
             taskTitle={activeTask?.title}
-            onContinue={() => setEstimateJustComplete(false)}
+            onContinue={() => { setEstimateJustComplete(false); resumeSession(); }}
             onFinish={() => { setEstimateJustComplete(false); handleFinish(); }}
           />
         )}
@@ -765,6 +801,16 @@ export default function TimerPage() {
             project={activeProject}
             billable={session.billable}
             projects={projects}
+            activeMascot={preferences?.activeMascot || "kettle"}
+            totalLoggedSeconds={
+              sessions
+                .filter((item) => item.taskId === session.taskId && (item.state ?? "confirmed") === "confirmed")
+                .reduce((sum, item) => sum + item.durationSeconds, 0) + elapsed
+            }
+            sessionCount={
+              sessions.filter((item) => item.taskId === session.taskId && (item.state ?? "confirmed") === "confirmed").length + 1
+            }
+            projectProgressLabel={projectProgressLabel(activeTask?.projectId, tasks) ?? ""}
             draftProjectId={draftProjectId}
             setDraftProjectId={setDraftProjectId}
             draftTaskTitle={draftTaskTitle}
@@ -778,8 +824,8 @@ export default function TimerPage() {
             onDeleteNote={deleteSessionNote}
             onFinished={() =>
               isDraft
-                ? handleDraftConfirm({ completed: true, celebrate: true })
-                : handleKnownLog({ completed: true, celebrate: true })
+                ? handleDraftConfirm({ completed: true, celebrate: false })
+                : handleKnownLog({ completed: true, celebrate: false })
             }
             onContinueLater={() =>
               isDraft
@@ -790,7 +836,7 @@ export default function TimerPage() {
               await saveSessionAsDraft();
               setSavedDraft(true);
             }}
-            onDiscard={async () => { await discardSession(); router.push("/timer"); }}
+            onDiscard={async (e?: React.MouseEvent) => { e?.preventDefault(); e?.stopPropagation(); await discardSession(); router.push("/timer"); }}
             onContinue={() => { setSavedDraft(false); resumeFromFinishing(); }}
             onAdjust={openAdjust}
           />
@@ -866,13 +912,13 @@ function ActiveSentence({ userName, task, project, clientName, billable, isDraft
           <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>+ Add task / client</Button>
           {open && (
             <div className="flex flex-wrap justify-center gap-2 rounded-lg p-3" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
-              <SelectPill value={taskId} onChange={(v) => { setTaskId(v); const t = tasks.find((item) => item.id === v); if (t) setProjectId(t.projectId); }} placeholder="task">
+              <SelectPill value={taskId} onChange={(v) => { setTaskId(v); const t = tasks.find((item) => item.id === v); if (t) setProjectId(t.projectId ?? ""); }} placeholder="task">
                 {tasks.filter((t) => t.status !== "done").map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
               </SelectPill>
               <SelectPill value={projectId || selectedTask?.projectId || ""} onChange={setProjectId} placeholder="client">
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </SelectPill>
-              <Button size="sm" variant="primary" disabled={!taskId || !(projectId || selectedTask?.projectId)} onClick={() => onClassify(taskId, projectId || selectedTask!.projectId, selectedTask ? projects.find((p) => p.id === selectedTask.projectId)?.billable ?? false : false)}>Apply</Button>
+              <Button size="sm" variant="primary" disabled={!taskId || !(projectId || selectedTask?.projectId)} onClick={() => onClassify(taskId, projectId || selectedTask!.projectId || "", selectedTask ? projects.find((p) => p.id === selectedTask.projectId)?.billable ?? false : false)}>Apply</Button>
             </div>
           )}
         </>
@@ -890,6 +936,10 @@ function FinishOverlay(props: {
   project?: Project;
   billable: boolean;
   projects: Project[];
+  activeMascot: string;
+  totalLoggedSeconds: number;
+  sessionCount: number;
+  projectProgressLabel: string;
   draftProjectId: string;
   setDraftProjectId: (v: string) => void;
   draftTaskTitle: string;
@@ -904,11 +954,18 @@ function FinishOverlay(props: {
   onFinished: () => void;
   onContinueLater: () => void;
   onSaveDraft: () => void;
-  onDiscard: () => void;
+  onDiscard: (e?: React.MouseEvent) => void;
   onContinue: () => void;
   onAdjust: () => void;
 }) {
   const [finishNote, setFinishNote] = useState("");
+
+  const jumpClass = props.activeMascot === "sprite2" ? "animate-pet-jump-sprite2" :
+                    props.activeMascot === "female" ? "animate-pet-jump-female" :
+                    "animate-pet-jump-kettle";
+  const jumpScale = props.activeMascot === "kettle" ? "scale-[0.55]" :
+                    props.activeMascot === "female" ? "scale-[0.9]" :
+                    "scale-[0.75]";
 
   if (props.savedDraft) {
     return (
@@ -943,6 +1000,10 @@ function FinishOverlay(props: {
 
   return (
     <div className="animate-modal-in mx-auto flex w-full max-w-[480px] flex-col gap-5 rounded-2xl p-6 shadow-2xl" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+      <div className="relative flex items-center justify-center -mb-6 overflow-visible" aria-hidden>
+        <div className={`${jumpClass} pointer-events-none transform ${jumpScale} origin-bottom`} />
+      </div>
+
       <div className="flex flex-col gap-1.5 text-center">
         <h3 className="text-[22px] font-semibold text-text-primary">Did you finish this task?</h3>
         <p className="text-[13px] text-text-muted">
@@ -958,6 +1019,14 @@ function FinishOverlay(props: {
             <p className="mt-1 text-[12px] text-text-muted">{props.project?.name ?? "No project"} · {props.billable ? "Billable" : "Non-billable"}</p>
             <p className="mt-1 text-[12px] text-text-faint">Today, {formatWallTime(props.sessionStartedAt)} – {formatWallTime(props.sessionEndedAt)}</p>
           </div>
+          <div className="grid grid-cols-3 gap-2">
+            <FinishStat label="This session" value={formatHMS(props.elapsed)} />
+            <FinishStat label="Total logged" value={formatDuration(props.totalLoggedSeconds)} />
+            <FinishStat label="Sessions" value={`${props.sessionCount}`} />
+          </div>
+          {props.projectProgressLabel && (
+            <p className="-mt-1 text-center text-[12px] text-text-muted">{props.projectProgressLabel}</p>
+          )}
         </>
       ) : (
         <>
@@ -1026,6 +1095,15 @@ function FinishOverlay(props: {
       </div>
 
       {finishButtons}
+    </div>
+  );
+}
+
+function FinishStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg px-3 py-2.5 text-center" style={{ background: "var(--surface-mid)", border: "1px solid var(--border-subtle)" }}>
+      <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-text-faint">{label}</p>
+      <p className="mt-1 truncate font-mono text-[14px] font-semibold tabular-nums text-text-primary">{value}</p>
     </div>
   );
 }
@@ -1258,10 +1336,19 @@ function AlarmModal({
   onContinue: () => void;
   onFinish: () => void;
 }) {
-  const [sound, setSound] = useState<AlarmSound>("bell");
-  const soundRef = useRef<AlarmSound>("bell");
+  const preferences = useApp((s) => s.preferences);
+  const alarmSound = preferences?.alarmSound || "kettle";
+  const whistleEnabled = preferences?.whistleSoundEnabled !== false;
+  
+  const activeMascot = preferences?.activeMascot || "kettle";
+  const jumpClass = activeMascot === "sprite2" ? "animate-pet-jump-sprite2" :
+                    activeMascot === "female" ? "animate-pet-jump-female" :
+                    "animate-pet-jump-kettle";
+  const jumpScale = activeMascot === "kettle" ? "scale-[0.6]" : activeMascot === "female" ? "scale-[1]" : "scale-[0.85]";
+
   const audioCtxRef = useRef<AudioContext | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const kettleAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const getCtx = () => {
     if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
@@ -1270,13 +1357,10 @@ function AlarmModal({
     return audioCtxRef.current;
   };
 
-  const playOnce = () => {
-    try { triggerAlarmSound(getCtx(), soundRef.current); } catch {}
-  };
-
-  useEffect(() => {
-    soundRef.current = sound;
-  }, [sound]);
+  const playOnce = useCallback(() => {
+    if (!whistleEnabled) return;
+    try { triggerAlarmSound(getCtx(), alarmSound as AlarmSound, kettleAudioRef); } catch {}
+  }, [alarmSound, whistleEnabled]);
 
   useEffect(() => {
     playOnce();
@@ -1293,14 +1377,22 @@ function AlarmModal({
       if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
         audioCtxRef.current.close().catch(() => {});
       }
+      if (kettleAudioRef.current) {
+        kettleAudioRef.current.pause();
+        kettleAudioRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [playOnce]);
 
   const dismiss = (action: () => void, resume?: boolean) => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
       audioCtxRef.current.close().catch(() => {});
+    }
+    if (kettleAudioRef.current) {
+      kettleAudioRef.current.pause();
+      kettleAudioRef.current = null;
     }
     if (resume) {
       petSignal({ event: "timerResume", phase: "running", source: taskTitle || "Focus session" });
@@ -1309,18 +1401,15 @@ function AlarmModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center p-6">
-      <div className="absolute inset-0 bg-base/80 backdrop-blur-md" />
-      <div className="relative w-full max-w-[440px] animate-modal-in flex flex-col items-center gap-6 rounded-2xl p-8 shadow-2xl text-center" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
-        {/* Pulsing ring */}
-        <div className="relative flex items-center justify-center">
-          <span className="absolute inline-flex h-20 w-20 rounded-full opacity-20 animate-ping" style={{ background: "var(--accent)" }} />
-          <span className="relative flex h-20 w-20 items-center justify-center rounded-full text-[36px]" style={{ background: "var(--accent-dim)" }}>
-            ⏰
-          </span>
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[18vh]">
+      <div className="absolute inset-0 bg-base/50 backdrop-blur-sm animate-fade-in" />
+      <div className="relative w-full max-w-[440px] mx-lg animate-modal-in flex flex-col items-center gap-6 rounded-xl p-8 shadow-2xl bg-surface-raised border border-border text-center overflow-hidden">
+        
+        <div className="relative flex items-center justify-center -mb-8 mt-2 overflow-visible">
+          <div className={`${jumpClass} pointer-events-none transform ${jumpScale} origin-bottom`} />
         </div>
 
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5 relative z-10">
           <h2 className="text-[24px] font-semibold text-text-primary">Time&apos;s up!</h2>
           <p className="text-[14px] text-text-secondary">
             {taskTitle ? <><span className="font-medium text-text-primary">{taskTitle}</span> · </> : ""}
@@ -1328,37 +1417,12 @@ function AlarmModal({
           </p>
         </div>
 
-        {/* Sound picker */}
-        <div className="flex flex-col items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted">Alarm sound</span>
-          <div className="flex flex-wrap justify-center gap-2">
-            {ALARM_SOUNDS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => {
-                  setSound(s.id);
-                  soundRef.current = s.id;
-                  playOnce();
-                }}
-                className="h-8 rounded-full px-4 text-[12px] font-medium transition-colors"
-                style={{
-                  background: sound === s.id ? "var(--accent)" : "var(--surface-mid)",
-                  color: sound === s.id ? "var(--text-primary)" : "var(--text-secondary)",
-                  border: "1px solid var(--border-subtle)",
-                }}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex w-full flex-col gap-2.5">
-          <Button variant="secondary" className="w-full justify-center" onClick={() => dismiss(onContinue, true)}>
-            <Play size={15} />Keep going
-          </Button>
+        <div className="flex w-full flex-col gap-2.5 mt-2 relative z-10">
           <Button variant="primary" className="w-full justify-center" onClick={() => dismiss(onFinish, false)}>
             <CheckCircle size={15} />Finish session
+          </Button>
+          <Button variant="secondary" className="w-full justify-center" onClick={() => dismiss(onContinue, true)}>
+            <Play size={15} />Keep going
           </Button>
         </div>
       </div>

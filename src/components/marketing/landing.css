@@ -31,7 +31,15 @@
   --k-ok:        #10b981;
   --k-ease:      cubic-bezier(0.16, 1, 0.3, 1);
 
-  background: linear-gradient(135deg, var(--card-gradient-start) 0%, var(--card-gradient-mid) 50%, var(--card-gradient-end) 100%);
+  /* semantic surface/ink tokens — the "white-on-dark" literals map here so a
+     single theme block flips them. Dark defaults below; light in the override. */
+  --k-surface:      #111214;             /* inset card bg (was #0a0a0a/#111214) */
+  --k-surface-soft: rgba(255,255,255,0.03); /* faint fills (was bg-white/[0.02]/5) */
+  --k-on-dark:      var(--k-ink);        /* text-white */
+  --k-hairline:     rgba(255,255,255,0.06); /* border-white/5 */
+  --k-hairline2:    rgba(255,255,255,0.10); /* border-white/10 */
+
+  background: linear-gradient(180deg, var(--card-gradient-start) 0%, var(--card-gradient-mid) 50%, var(--k-bg) 100%);
   color: var(--k-ink);
   font-family: "Urbanist", var(--font-urbanist), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-feature-settings: "ss01" 1;
@@ -231,8 +239,8 @@
 /* Per-card bottom fade — each card dissolves into the dark page individually,
    instead of a single outer mask dimming all the card bottoms + badges. */
 .k-card-fade {
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%);
-          mask-image: linear-gradient(180deg, #000 0%, #000 62%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 80%, transparent 100%);
+          mask-image: linear-gradient(180deg, #000 0%, #000 80%, transparent 100%);
 }
 
 .k-interactive-card {
@@ -312,6 +320,43 @@
   .k-interactive-card:hover .k-wave-svg path { animation: none !important; }
 }
 
+/* ---------- problem cards (legible, crafted hover) ---------- */
+.k-prob {
+  position: relative;
+  /* transform + border + bg only — GPU-friendly; strong ease-out for snap */
+  transition: transform .18s var(--ease-out-quint),
+              border-color .18s var(--ease-out-quint),
+              background-color .18s var(--ease-out-quint),
+              box-shadow .18s var(--ease-out-quint);
+}
+/* accent edge bar grows from the top on hover — an unseen detail */
+.k-prob::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 14px; bottom: 14px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--acc, var(--k-accent2));
+  transform: scaleY(0);
+  transform-origin: top;
+  opacity: 0;
+  transition: transform .22s var(--ease-out-quint), opacity .22s var(--ease-out-quint);
+}
+@media (hover: hover) and (pointer: fine) {
+  .k-prob:hover {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--acc, var(--k-accent2)) 45%, var(--k-line2));
+    background-color: color-mix(in srgb, var(--k-card) 88%, transparent);
+    box-shadow: 0 18px 40px -22px color-mix(in srgb, var(--acc, var(--k-accent2)) 60%, transparent);
+  }
+  .k-prob:hover::before { transform: scaleY(1); opacity: 1; }
+}
+.k-prob:active { transform: translateY(-2px) scale(.992); }
+@media (prefers-reduced-motion: reduce) {
+  .k-prob:hover { transform: none; box-shadow: none; }
+  .k-prob::before { transition: opacity .2s ease; }
+}
+
 /* ---------- cinematic footer reveal ---------- */
 .k-cinematic-container {
   position: relative;
@@ -356,6 +401,222 @@
   pointer-events: none;
   background: linear-gradient(to bottom, transparent 30%, rgba(8, 9, 10, 0.75) 85%, var(--k-bg) 100%);
 }
+
+/* ---------- Bento Testimonials Redesign ---------- */
+.k-bento-card-quote {
+  background: radial-gradient(circle at 30% 90%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 40%, transparent 80%),
+              radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 50%),
+              linear-gradient(135deg, #141517 0%, #070809 100%);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.4s var(--k-ease), box-shadow 0.4s var(--k-ease), background-color 0.4s var(--k-ease);
+}
+
+.k-bento-card-quote:hover {
+  background: radial-gradient(circle at 35% 85%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 45%, transparent 80%),
+              radial-gradient(circle at 75% 25%, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 50%),
+              linear-gradient(135deg, #18191c 0%, #08090a 100%);
+}
+
+/* diagonal wave overlay for the quote card to emulate satin/silk waves */
+.k-bento-card-quote::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    -35deg,
+    rgba(255, 255, 255, 0.006) 0px,
+    rgba(255, 255, 255, 0.006) 1px,
+    transparent 1px,
+    transparent 16px
+  );
+  mask-image: radial-gradient(circle at bottom center, black 20%, transparent 80%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.k-bento-card-ph {
+  background: radial-gradient(circle at center, rgba(218, 85, 47, 0.15) 0%, rgba(18, 10, 10, 0.95) 75%, #080303 100%),
+              linear-gradient(135deg, #160806 0%, #060202 100%);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.4s var(--k-ease), box-shadow 0.4s var(--k-ease), background-color 0.4s var(--k-ease);
+}
+
+.k-bento-card-ph:hover {
+  background: radial-gradient(circle at center, rgba(218, 85, 47, 0.22) 0%, rgba(18, 10, 10, 0.95) 75%, #080303 100%),
+              linear-gradient(135deg, #1d0b08 0%, #070202 100%);
+}
+
+.k-bento-card-g2 {
+  background: radial-gradient(circle at center, rgba(51, 133, 255, 0.12) 0%, rgba(10, 14, 18, 0.95) 75%, #03060a 100%),
+              linear-gradient(135deg, #051020 0%, #010408 100%);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.4s var(--k-ease), box-shadow 0.4s var(--k-ease), background-color 0.4s var(--k-ease);
+}
+
+.k-bento-card-g2:hover {
+  background: radial-gradient(circle at center, rgba(51, 133, 255, 0.18) 0%, rgba(10, 14, 18, 0.95) 75%, #03060a 100%),
+              linear-gradient(135deg, #06152a 0%, #010408 100%);
+}
+
+/* ==========================================================================
+   LIGHT THEME — driven by <html data-theme="light"> (shared flowmate-theme).
+   Flip tokens, then override the dark-baked helper classes that hardcode
+   rgba/hex so tokens can't reach them. Accent blue stays on both themes.
+   ========================================================================== */
+[data-theme="light"] .kettles {
+  --k-bg:        #ffffff;
+  --k-bg2:       #f6f7f9;
+  --k-card:      #ffffff;
+  --k-card2:     #f2f4f7;
+  --k-line:      #e6e8ec;
+  --k-line2:     #d7dade;
+  --k-line3:     #c2c6cc;
+  --k-ink:       #0c0d0f;
+  --k-ink2:      #2f343b;
+  --k-muted:     #5c636e;
+  --k-faint:     #9aa0a8;
+  --k-steam:     #2f7bd6;
+  --k-ink-blue:  #2f6fd0;
+  --k-tint:      rgba(0,102,255,0.08);
+  --k-tint2:     rgba(0,102,255,0.18);
+
+  --k-surface:      #ffffff;
+  --k-surface-soft: #f2f4f7;
+  --k-hairline:     rgba(0,0,0,0.06);
+  --k-hairline2:    rgba(0,0,0,0.10);
+
+  background: linear-gradient(180deg, #ffffff 0%, #f6f7f9 50%, #eef1f5 100%);
+  color: var(--k-ink);
+}
+
+[data-theme="light"] .kettles ::selection { background: var(--k-accent); color: #fff; }
+
+/* ---------- glass + feature cards ---------- */
+[data-theme="light"] .kettles .k-glass-panel {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 8px 32px rgba(15,23,42,0.10);
+}
+[data-theme="light"] .kettles .k-glass-card {
+  background: rgba(255,255,255,0.8);
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 20px 40px -15px rgba(15,23,42,0.18);
+}
+[data-theme="light"] .kettles .k-bento-diffusion {
+  box-shadow: 0 20px 40px -15px rgba(15,23,42,0.18);
+}
+[data-theme="light"] .kettles .k-feat-card {
+  border: 0.7px solid rgba(0,0,0,0.08);
+  background: #ffffff;
+  box-shadow: 0 20.462px 36.377px 0 rgba(15,23,42,0.10);
+}
+[data-theme="light"] .kettles .k-mesh-gradient {
+  background-image: radial-gradient(at 0% 0%, hsla(216,100%,50%,0.10) 0px, transparent 50%),
+                    radial-gradient(at 100% 100%, hsla(216,100%,50%,0.10) 0px, transparent 50%);
+}
+
+/* ---------- wireframe dividers / blueprint borders ---------- */
+[data-theme="light"] .kettles .k-grid-container {
+  border-left: 1px solid rgba(0,0,0,0.06);
+  border-right: 1px solid rgba(0,0,0,0.06);
+}
+[data-theme="light"] .kettles .k-section-divider { border-top: 1px solid rgba(0,0,0,0.06); }
+
+/* ---------- spotlight + rings ---------- */
+[data-theme="light"] .kettles .k-spotlight-bg::before {
+  background: radial-gradient(circle, rgba(0,102,255,0.08) 0%, transparent 70%);
+}
+[data-theme="light"] .kettles .k-rings-bg { background-color: var(--k-bg); }
+[data-theme="light"] .kettles .k-rings-bg::before {
+  background-image: repeating-radial-gradient(circle at center,
+    transparent 0, transparent 119px, rgba(0,0,0,0.05) 120px);
+}
+
+/* ---------- soft bg texture ---------- */
+[data-theme="light"] .kettles .k-texture::before {
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgba(0,102,255,0.06) 0%, transparent 60%),
+    radial-gradient(80% 60% at 50% 50%, rgba(15,23,42,0.02) 0%, transparent 70%);
+}
+[data-theme="light"] .kettles .k-texture::after { opacity: 0.18; mix-blend-mode: multiply; }
+
+/* ---------- logos ---------- */
+[data-theme="light"] .kettles .k-logo-grid i { color: var(--k-muted); opacity: 0.5; }
+[data-theme="light"] .kettles .k-logo-grid i:hover { color: var(--k-ink); opacity: 0.9; }
+
+/* ---------- card hover glow text (dark forced #fff) ---------- */
+[data-theme="light"] .kettles .k-interactive-card:hover .k-glow-text {
+  text-shadow: 0 0 12px rgba(0,102,255,0.25);
+  color: var(--k-ink) !important;
+}
+
+/* ---------- cinematic footer ---------- */
+[data-theme="light"] .kettles .k-cinematic-container,
+[data-theme="light"] .kettles .k-cinematic-portal { background: var(--k-bg); }
+[data-theme="light"] .kettles .k-cinematic-portal { border-top: 1px solid rgba(0,0,0,0.06); }
+[data-theme="light"] .kettles .k-cinematic-overlay {
+  background: linear-gradient(to bottom, transparent 30%, rgba(255,255,255,0.78) 85%, var(--k-bg) 100%);
+}
+
+/* ---------- testimonial bento cards (baked dark gradients) ---------- */
+[data-theme="light"] .kettles .k-bento-card-quote {
+  background: radial-gradient(circle at 30% 90%, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.02) 40%, transparent 80%),
+              radial-gradient(circle at 80% 20%, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0) 50%),
+              linear-gradient(135deg, #ffffff 0%, #eef1f5 100%);
+}
+[data-theme="light"] .kettles .k-bento-card-quote:hover {
+  background: radial-gradient(circle at 35% 85%, rgba(0,0,0,0.07) 0%, rgba(0,0,0,0.03) 45%, transparent 80%),
+              radial-gradient(circle at 75% 25%, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0) 50%),
+              linear-gradient(135deg, #ffffff 0%, #e8edf4 100%);
+}
+[data-theme="light"] .kettles .k-bento-card-quote::after {
+  background-image: repeating-linear-gradient(-35deg,
+    rgba(0,0,0,0.012) 0px, rgba(0,0,0,0.012) 1px, transparent 1px, transparent 16px);
+}
+[data-theme="light"] .kettles .k-bento-card-ph {
+  background: radial-gradient(circle at center, rgba(218,85,47,0.10) 0%, rgba(255,245,242,0.95) 75%, #fff5f2 100%),
+              linear-gradient(135deg, #fdece7 0%, #ffffff 100%);
+}
+[data-theme="light"] .kettles .k-bento-card-ph:hover {
+  background: radial-gradient(circle at center, rgba(218,85,47,0.16) 0%, rgba(255,245,242,0.95) 75%, #fff5f2 100%),
+              linear-gradient(135deg, #fde3db 0%, #ffffff 100%);
+}
+[data-theme="light"] .kettles .k-bento-card-g2 {
+  background: radial-gradient(circle at center, rgba(51,133,255,0.10) 0%, rgba(240,245,251,0.95) 75%, #f0f5fb 100%),
+              linear-gradient(135deg, #eaf1fc 0%, #ffffff 100%);
+}
+[data-theme="light"] .kettles .k-bento-card-g2:hover {
+  background: radial-gradient(circle at center, rgba(51,133,255,0.16) 0%, rgba(240,245,251,0.95) 75%, #f0f5fb 100%),
+              linear-gradient(135deg, #e1ecfb 0%, #ffffff 100%);
+}
+
+/* ---------- textured gradient footer ---------- */
+[data-theme="light"] .kettles #k-textured-footer {
+  background:
+    radial-gradient(120% 80% at 50% 120%, rgba(0,102,255,0.16) 0%, transparent 60%),
+    linear-gradient(180deg, var(--k-bg) 0%, #eef2f8 100%);
+}
+/* soften the heavy blue blooms — on white they'd over-saturate */
+[data-theme="light"] .kettles #k-textured-footer .k-tf-glow { opacity: 0.4; }
+/* grain barely registers in overlay on white — switch to a light multiply */
+[data-theme="light"] .kettles #k-textured-footer .k-tf-grain {
+  mix-blend-mode: multiply;
+  opacity: 0.05;
+}
+/* the giant KETTLES wordmark: white+overlay vanishes on white. Make it a
+   faint embossed brand-blue watermark instead. */
+[data-theme="light"] .kettles #k-footer-big-text {
+  color: var(--k-accent);
+  mix-blend-mode: normal;
+  opacity: 0.1;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+  filter: none;
+}
+
+
 
 
 

@@ -38,6 +38,11 @@ const el = {
   open: document.getElementById("open"),
   collapse: document.getElementById("collapse"),
   reopen: document.getElementById("reopen"),
+  noteToggle: document.getElementById("noteToggle"),
+  notePane: document.getElementById("notePane"),
+  noteInput: document.getElementById("noteInput"),
+  saveNote: document.getElementById("saveNote"),
+  cancelNote: document.getElementById("cancelNote"),
 };
 
 window.addEventListener("error", (e) =>
@@ -156,6 +161,7 @@ let isHovered = false; // true while cursor is over the mascot element
 let lastX = null;
 let lastY = null;
 let lastActiveScale = null;
+let prePos = null; // pet outer position (physical px) cached before centering on finish
 
 // --- interaction layer (cursor feed + click-through + petting) -------------
 let clickThrough = true;     // mirrors set_ignore_cursor_events; true = pass-through
@@ -267,6 +273,11 @@ function applyPreferences() {
   el.mascot.style.backgroundImage = `url("${cfg.spritesheet}")`;
   el.mascot.style.backgroundSize = `${cfg.sheet.cols * cw}px ${cfg.sheet.rows * ch}px`;
   
+  // 4. Notes Integration Toggle
+  if (el.noteToggle) {
+    el.noteToggle.hidden = !prefs.petNotesIntegrationEnabled;
+  }
+  
   // Clear layout cache to force re-render
   lastActiveScale = null;
   lastX = null;
@@ -330,6 +341,40 @@ async function refreshWinPos() {
   try {
     const p = await getCurrentWindow?.()?.outerPosition?.();
     if (p && typeof p.x === "number") winPos = { x: p.x, y: p.y };
+  } catch (_) {}
+}
+
+// On task completion the pet jumps to the middle of the screen for a moment.
+// We cache its prior spot so it can hop back when the session resumes/ends.
+async function centerOnScreen() {
+  try {
+    const win = getCurrentWindow?.();
+    if (!win) return;
+    const [mon, size, pos] = await Promise.all([
+      win.currentMonitor?.(),
+      win.outerSize?.(),
+      win.outerPosition?.(),
+    ]);
+    if (!mon || !size) return;
+    if (!prePos && pos && typeof pos.x === "number") prePos = { x: pos.x, y: pos.y };
+    const mx = mon.position?.x ?? 0;
+    const my = mon.position?.y ?? 0;
+    const mw = mon.size?.width ?? 0;
+    const mh = mon.size?.height ?? 0;
+    const x = Math.round(mx + (mw - size.width) / 2);
+    const y = Math.round(my + (mh - size.height) / 2);
+    await invoke("pet_set_position", { x, y });
+    winPos = { x, y };
+  } catch (_) {}
+}
+
+async function restorePosition() {
+  if (!prePos) return;
+  const target = prePos;
+  prePos = null;
+  try {
+    await invoke("pet_set_position", { x: target.x, y: target.y });
+    winPos = { x: target.x, y: target.y };
   } catch (_) {}
 }
 
@@ -463,10 +508,16 @@ function onSignal(sig) {
 function applyPhase(next) {
   if (!PHASE_LABELS[next]) return;
   const changed = next !== phase;
+  const prevPhase = phase;
   phase = next;
   el.shell.dataset.phase = next;
   el.label.textContent = PHASE_LABELS[next];
   updateControls(next);
+  // Hop to screen center on completion; hop back when leaving the finished state.
+  if (changed) {
+    if (next === "finished") centerOnScreen();
+    else if (prevPhase === "finished") restorePosition();
+  }
   // Completion message: shown only while finished (task name stays above it).
   if (el.msg) {
     if (next === "finished") {
@@ -783,6 +834,54 @@ function wireInput() {
   el.open.addEventListener("click", (e) => {
     e.stopPropagation();
     pokeApp();
+  });
+
+  // Scratchpad Note Handlers
+  let noteOpen = false;
+
+  const toggleNotePane = (show) => {
+    noteOpen = show;
+    el.notePane.hidden = !show;
+    el.timer.hidden = show;
+    el.task.hidden = show;
+    if (el.msg) el.msg.hidden = show || phase !== "finished";
+    
+    if (show) {
+      el.noteInput.value = "";
+      el.noteInput.focus();
+      setClickThrough(false); // capture keyboard focus
+    } else {
+      setClickThrough(!interactive);
+    }
+  };
+
+  el.noteToggle?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleNotePane(!noteOpen);
+  });
+
+  el.cancelNote?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleNotePane(false);
+  });
+
+  el.saveNote?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const txt = el.noteInput.value.trim();
+    if (txt) {
+      emit("pet://new-note", { text: txt });
+    }
+    toggleNotePane(false);
+  });
+
+  el.noteInput?.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      el.saveNote.click();
+    } else if (e.key === "Escape") {
+      el.cancelNote.click();
+    }
   });
 
   // Mascot interaction animations

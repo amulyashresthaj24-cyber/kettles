@@ -36,6 +36,7 @@ import { useNotification } from "@/components/ui/notification";
 import { AuthGuard } from "@/components/AuthGuard";
 import { getSupabaseClient } from "@/lib/supabase";
 import { isDesktop } from "@/lib/desktop";
+import { ALARM_SOUNDS } from "@/lib/constants";
 import type { Client, Project, ProjectColor } from "@/lib/types";
 import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
 
@@ -96,6 +97,9 @@ function SettingsContent() {
 
   const [profileLoading, setProfileLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  const [newReminderText, setNewReminderText] = useState("");
+  const [newReminderTime, setNewReminderTime] = useState("09:00");
 
   // Theme tracking
   const [currentTheme, setCurrentTheme] = useState<"light" | "dark">("dark");
@@ -687,9 +691,24 @@ function SettingsContent() {
                           Enable whistle alert sound
                         </label>
                         <p className="text-[12px] text-text-muted">
-                          Play a kettle whistle audio sound effect when a focus duration completes.
+                          Play an audio sound effect when a focus duration completes.
                         </p>
                       </div>
+                    </div>
+
+                    {/* Alarm Sound Picker */}
+                    <div className="flex flex-col gap-1.5" style={{ opacity: preferences?.whistleSoundEnabled === false ? 0.5 : 1 }}>
+                      <label className="text-[12px] font-semibold text-text-secondary">Alarm Sound</label>
+                      <select
+                        value={preferences?.alarmSound || "kettle"}
+                        onChange={(e) => setPreferences({ alarmSound: e.target.value })}
+                        disabled={preferences?.whistleSoundEnabled === false}
+                        className="flex w-full h-9 rounded-lg bg-surface-mid border border-border-subtle px-3 text-[14px] text-text-primary outline-none focus:ring-2 focus:ring-accent/40"
+                      >
+                        {ALARM_SOUNDS.map((s) => (
+                          <option key={s.id} value={s.id}>{s.label}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* Auto Start break Toggle */}
@@ -947,6 +966,12 @@ function SettingsContent() {
                 running_right: 9,
               };
 
+              const petBreakRemindersEnabled = !!preferences?.petBreakRemindersEnabled;
+              const petBreakIntervalMinutes = preferences?.petBreakIntervalMinutes ?? 45;
+              const petCustomRemindersEnabled = !!preferences?.petCustomRemindersEnabled;
+              const petCustomReminders = preferences?.petCustomReminders || [];
+              const petNotesIntegrationEnabled = !!preferences?.petNotesIntegrationEnabled;
+
               return (
                 <div className="flex flex-col gap-lg animate-fade-up">
                   {/* Reset Mascot Settings */}
@@ -1202,6 +1227,174 @@ function SettingsContent() {
                           </div>
                         );
                       })}
+                    </div>
+                  </section>
+
+                  {/* Break Reminders Settings */}
+                  <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
+                    <div className="flex items-center gap-3 mb-md">
+                      <Checkbox
+                        id="petBreakRemindersEnabled"
+                        checked={petBreakRemindersEnabled}
+                        onChange={(val) => setPreferences({ petBreakRemindersEnabled: val })}
+                      />
+                      <div className="flex flex-col gap-0.5 select-none" onClick={() => setPreferences({ petBreakRemindersEnabled: !petBreakRemindersEnabled })}>
+                        <label htmlFor="petBreakRemindersEnabled" className="text-[15px] font-semibold text-text-primary cursor-pointer">
+                          Enable Active Break Reminders
+                        </label>
+                        <p className="text-[12px] text-text-muted">
+                          Let your pet periodically remind you to take screen breaks, stand up, stretch, or drink water.
+                        </p>
+                      </div>
+                    </div>
+
+                    {petBreakRemindersEnabled && (
+                      <div className="flex flex-col gap-1.5 max-w-xs pl-8 mt-sm">
+                        <label className="text-[11px] font-semibold text-text-secondary">Reminder Interval (Minutes)</label>
+                        <div className="flex items-center gap-sm">
+                          <Input
+                            type="number"
+                            min="5"
+                            max="300"
+                            value={petBreakIntervalMinutes}
+                            onChange={(e) => setPreferences({ petBreakIntervalMinutes: Number(e.target.value) })}
+                            className="bg-surface-mid border-border-subtle text-[13px] w-24"
+                          />
+                          <span className="text-[13px] text-text-muted">minutes of active work</span>
+                        </div>
+                      </div>
+                    )}
+                  </section>
+
+                  {/* Custom Reminders Section */}
+                  <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
+                    <div className="flex items-center gap-3 mb-lg">
+                      <Checkbox
+                        id="petCustomRemindersEnabled"
+                        checked={petCustomRemindersEnabled}
+                        onChange={(val) => setPreferences({ petCustomRemindersEnabled: val })}
+                      />
+                      <div className="flex flex-col gap-0.5 select-none" onClick={() => setPreferences({ petCustomRemindersEnabled: !petCustomRemindersEnabled })}>
+                        <label htmlFor="petCustomRemindersEnabled" className="text-[15px] font-semibold text-text-primary cursor-pointer">
+                          Custom Pet Reminders
+                        </label>
+                        <p className="text-[12px] text-text-muted">
+                          Schedule specific messages for your pet mascot to say at designated times of the day.
+                        </p>
+                      </div>
+                    </div>
+
+                    {petCustomRemindersEnabled && (
+                      <div className="pl-8 flex flex-col gap-md">
+                        {/* New reminder form */}
+                        <div className="flex flex-col sm:flex-row gap-sm max-w-xl items-end">
+                          <div className="flex-1 flex flex-col gap-1.5">
+                            <label className="text-[11px] font-semibold text-text-secondary">Reminder Text</label>
+                            <Input
+                              type="text"
+                              value={newReminderText}
+                              onChange={(e) => setNewReminderText(e.target.value)}
+                              placeholder="Time to review daily schedule!"
+                              className="bg-surface-mid border-border-subtle text-[13px]"
+                            />
+                          </div>
+                          <div className="w-32 flex flex-col gap-1.5">
+                            <label className="text-[11px] font-semibold text-text-secondary">Time (HH:MM)</label>
+                            <Input
+                              type="time"
+                              value={newReminderTime}
+                              onChange={(e) => setNewReminderTime(e.target.value)}
+                              className="bg-surface-mid border-border-subtle text-[13px]"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            className="h-9 shrink-0"
+                            onClick={() => {
+                              if (!newReminderText.trim()) return;
+                              const updated = [
+                                ...petCustomReminders,
+                                { id: String(Date.now()), text: newReminderText.trim(), time: newReminderTime, active: true }
+                              ];
+                              setPreferences({ petCustomReminders: updated });
+                              setNewReminderText("");
+                              notify({
+                                title: "Reminder added",
+                                description: `Scheduled at ${newReminderTime}`,
+                                tone: "success",
+                              });
+                            }}
+                          >
+                            Add
+                          </Button>
+                        </div>
+
+                        {/* List of custom reminders */}
+                        {petCustomReminders.length > 0 ? (
+                          <div className="border border-border-subtle rounded-lg divide-y divide-border-subtle max-w-xl">
+                            {petCustomReminders.map((rem) => (
+                              <div key={rem.id} className="flex items-center justify-between p-sm hover:bg-surface-mid transition-colors">
+                                <div className="flex items-center gap-3">
+                                  <Checkbox
+                                    id={`rem-active-${rem.id}`}
+                                    checked={rem.active}
+                                    onChange={(checked) => {
+                                      const updated = petCustomReminders.map((r) =>
+                                        r.id === rem.id ? { ...r, active: checked } : r
+                                      );
+                                      setPreferences({ petCustomReminders: updated });
+                                    }}
+                                  />
+                                  <div className="flex flex-col select-none">
+                                    <span className="text-[13px] font-medium text-text-primary">{rem.text}</span>
+                                    <span className="text-[11px] text-accent font-semibold">{rem.time}</span>
+                                  </div>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  className="text-error"
+                                  onClick={() => {
+                                    const updated = petCustomReminders.filter((r) => r.id !== rem.id);
+                                    setPreferences({ petCustomReminders: updated });
+                                    notify({
+                                      title: "Reminder removed",
+                                      description: "The custom scheduled message was deleted.",
+                                      tone: "info",
+                                    });
+                                  }}
+                                >
+                                  <Trash size={14} />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[12px] text-text-faint italic">No custom reminders scheduled yet.</p>
+                        )}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* Notes / Scratchpad Integration */}
+                  <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="petNotesIntegrationEnabled"
+                        checked={petNotesIntegrationEnabled}
+                        onChange={(val) => setPreferences({ petNotesIntegrationEnabled: val })}
+                      />
+                      <div className="flex flex-col gap-0.5 select-none" onClick={() => setPreferences({ petNotesIntegrationEnabled: !petNotesIntegrationEnabled })}>
+                        <label htmlFor="petNotesIntegrationEnabled" className="text-[15px] font-semibold text-text-primary cursor-pointer">
+                          Quick Notes Scratchpad Mode
+                        </label>
+                        <p className="text-[12px] text-text-muted">
+                          Enables the notes icon inside the pet speech bubble. Tapping it opens a textbox allowing you to type and sync quick thoughts directly to the active session notes.
+                        </p>
+                      </div>
                     </div>
                   </section>
                 </div>

@@ -11,6 +11,7 @@
    ========================================================================== */
 
 import Image from "next/image";
+import { ContainerScroll } from "@/components/ui/container-scroll-animation";
 import {
   CaretRight,
   Export,
@@ -117,7 +118,7 @@ export function DeepDiveFeatures() {
         <Chip tone="accent" dot className="mb-5">
           Under the hood
         </Chip>
-        <h2 className="text-[clamp(28px,3.4vw,42px)] font-semibold tracking-[-0.03em] text-white">
+        <h2 className="text-[clamp(28px,3.4vw,42px)] font-semibold tracking-[-0.03em] text-[var(--k-ink)]">
           Four levels of an honest record.
         </h2>
         <p className="mx-auto mt-5 max-w-[56ch] text-[18px] text-[var(--k-muted)]">
@@ -148,7 +149,7 @@ export function DeepDiveFeatures() {
                   <span className="h-2 w-2 rounded-full" style={{ background: DOT[c] }} />
                   <span className="font-medium text-[var(--k-ink)]">{n}</span>
                 </div>
-                <span className="k-mono text-right text-white">{h}</span>
+                <span className="k-mono text-right text-[var(--k-ink)]">{h}</span>
                 <span className="flex justify-end">
                   <Chip tone={tone as "ok" | "warn"}>{status}</Chip>
                 </span>
@@ -157,7 +158,7 @@ export function DeepDiveFeatures() {
           </div>
           <div className="mt-5 flex items-baseline justify-between">
             <span className="text-[13px] text-[var(--k-muted)]">Ready to invoice</span>
-            <span className="k-mono text-[24px] font-medium tracking-[-0.02em] text-white k-glow-text">$3,840.00</span>
+            <span className="k-mono text-[24px] font-medium tracking-[-0.02em] text-[var(--k-ink)] k-glow-text">$3,840.00</span>
           </div>
         </FeatureCard>
 
@@ -230,7 +231,7 @@ export function DeepDiveFeatures() {
         {/* 4 — Live Sessions (Realtime Events) */}
         <FeatureCard icon={<ArrowsClockwise size={16} />} title="Live Sessions" badge="Realtime">
           <div className="mb-4 flex items-end gap-3">
-            <span className="k-mono text-[28px] font-medium tracking-[-0.02em] text-white">14:08</span>
+            <span className="k-mono text-[28px] font-medium tracking-[-0.02em] text-[var(--k-ink)]">14:08</span>
             <Chip tone="ok" dot className="mb-1.5">
               Syncing across 3 devices
             </Chip>
@@ -274,31 +275,31 @@ export function DeepDiveFeatures() {
    ========================================================================= */
 export function WorkflowPreview() {
   return (
-    <section className="relative">
-      <div className="mx-auto max-w-[1240px] px-6">
-        <div className="k-reveal mx-auto mb-14 max-w-[740px] text-center">
-          <Chip tone="accent" dot className="mb-5">
-            Your workspace
-          </Chip>
-          <h2 className="text-[clamp(28px,3.4vw,42px)] font-semibold tracking-[-0.03em] text-white">
-            The whole day, in one calm view.
-          </h2>
-          <p className="mx-auto mt-5 max-w-[56ch] text-[18px] text-[var(--k-muted)]">
-            This is the actual dashboard — tasks, brews, and billing already agreeing with each other.
-          </p>
-        </div>
-
-        {/* the app — real screenshot, filled data */}
-        <div className="k-reveal overflow-hidden rounded-[24px] border border-[var(--k-line2)] bg-[var(--k-card)] p-2 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.9)] md:p-3">
-          <Image
-            src="/images/dashboard-shot.png"
-            alt="Kettles dashboard — stats, today's tasks, work log, and project breakdown"
-            width={2507}
-            height={1343}
-            className="h-auto w-full rounded-[16px] border border-[var(--k-line)]"
-          />
-        </div>
-      </div>
+    <section className="relative -my-20 overflow-hidden md:-my-32">
+      <ContainerScroll
+        titleComponent={
+          <div className="mx-auto mb-2 max-w-[740px] px-6 text-center">
+            <h2 className="text-[clamp(28px,3.4vw,42px)] font-semibold tracking-[-0.03em] text-[var(--k-ink)]">
+              The whole day, in one calm view.
+            </h2>
+            <p className="mx-auto mt-5 max-w-[56ch] text-[18px] text-[var(--k-muted)]">
+              This is the actual dashboard — tasks, brews, and billing already agreeing with each other.
+            </p>
+          </div>
+        }
+      >
+        {/* the app — real screenshot, filled data, tilting up as you scroll */}
+        <Image
+          src="/images/dashboard-shot.png"
+          alt="Kettles dashboard — stats, today's tasks, work log, and project breakdown"
+          width={2507}
+          height={1343}
+          className="mx-auto h-full w-full object-cover object-left-top"
+          draggable={false}
+          loading="lazy"
+          sizes="(max-width: 768px) 100vw, 1424px"
+        />
+      </ContainerScroll>
     </section>
   );
 }

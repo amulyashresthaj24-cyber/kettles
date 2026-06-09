@@ -84,7 +84,7 @@ export function PerpetualKanban() {
       onMouseLeave={() => setIsHovered(false)}
     >
       {(["Todo", "Doing", "Done"] as const).map((col, ci) => (
-        <div key={col} className="min-h-[160px] rounded-[18px] border border-white/5 bg-white/[0.02] p-2.5">
+        <div key={col} className="min-h-[160px] rounded-[18px] border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] p-2.5">
           <h4 className="mb-3 text-[10.5px] font-semibold uppercase tracking-[0.07em] text-[var(--k-faint)]">{col}</h4>
           <div className="flex flex-col gap-2">
             {tasks.map((task, ti) => {
@@ -135,7 +135,7 @@ export function FloatingMockDashboard() {
     >
       {/* ... Dashboard mock UI that uses MockTaskCard ... */}
       <div className="mb-6 flex items-center justify-between">
-         <h3 className="text-xl font-semibold text-white">Up Next</h3>
+         <h3 className="text-xl font-semibold text-[var(--k-ink)]">Up Next</h3>
          <div className="flex gap-2">
             <div className="h-8 w-8 rounded-full border border-[var(--k-line2)] bg-[var(--k-bg2)]" />
             <div className="h-8 w-8 rounded-full border border-[var(--k-line2)] bg-[var(--k-bg2)]" />
@@ -150,126 +150,127 @@ export function FloatingMockDashboard() {
 }
 
 // ----- Hero Redesign Flanking Cards (Linkd reference) ---------------------
-import { User, Clock, Terminal, Globe, Lock, Shield, Cpu, CalendarBlank, Key, Crosshair, Tag, Plus } from "@phosphor-icons/react";
+import { User, Clock, Terminal, Globe, Lock, Shield, Cpu, CalendarBlank, Key, Crosshair, Tag, Plus, CheckCircle, Pause, Stop, ChartBar } from "@phosphor-icons/react";
 
 export function HeroVisuals() {
   return (
-    <div className="relative mt-16 grid grid-cols-1 gap-6 lg:grid-cols-12 items-start w-full max-w-[1240px] px-6">
+    <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-12 items-start w-full max-w-[1240px] px-6">
 
-      {/* Left Card: Recent focus logs (James Brighton reference) */}
-      <div className="k-card-fade lg:col-span-3 lg:mt-12 rounded-[20px] border border-white/[0.06] bg-[#181818]/80 backdrop-blur-xl p-5 text-left shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] min-h-[330px] flex flex-col justify-between overflow-hidden k-interactive-card k-sheen-code">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[var(--k-accent)] to-[var(--k-accent2)] flex items-center justify-center text-white font-semibold">
-            AV
-          </div>
-          <div>
-            <h4 className="text-[14px] font-semibold text-[var(--k-ink)]">Alexander Vance</h4>
-            <p className="text-[12px] text-[var(--k-muted)]">alex@vance.design</p>
-          </div>
-        </div>
-        
-        <div className="flex flex-col gap-3.5 flex-1 justify-center">
-          <div className="flex gap-3 p-1.5 rounded-lg border border-transparent">
-            <Clock size={16} className="text-[var(--k-muted)] mt-0.5" />
-            <div>
-              <div className="text-[12.5px] font-medium text-[var(--k-ink2)]">Design System Refactor</div>
-              <div className="text-[11px] text-[var(--k-faint)]">Jun 8 · 1h 42m · Flowmate</div>
-            </div>
+      {/* Left Card: Task Queue / Kanban */}
+      <div className="k-card-fade lg:col-span-3 lg:mt-12 rounded-[24px] border border-[var(--k-hairline)] bg-[var(--k-card)] p-6 text-left shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] min-h-[330px] flex flex-col justify-between overflow-hidden k-interactive-card">
+        <div>
+          <div className="flex items-center gap-2.5 mb-5">
+            <CheckCircle size={18} weight="fill" className="text-[#0066ff]" />
+            <h3 className="text-[14.5px] font-semibold text-[var(--k-ink)] tracking-tight">Today&apos;s Focus</h3>
           </div>
           
-          <div className="flex gap-3 p-1.5 rounded-lg border border-transparent">
-            <Clock size={16} className="text-[var(--k-muted)] mt-0.5" />
-            <div>
-              <div className="text-[12.5px] font-medium text-[var(--k-ink2)]">Landing Page Design</div>
-              <div className="text-[11px] text-[var(--k-faint)]">Jun 7 · 2h 15m · Flowmate</div>
+          <div className="flex flex-col gap-3">
+            {/* Task 1 */}
+            <div className="rounded-[14px] border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] p-3.5 flex flex-col gap-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[12.5px] font-medium text-[var(--k-ink2)] leading-snug">Landing Page Redesign</span>
+                <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0 mt-1 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+              </div>
+              <div className="flex gap-1.5">
+                <span className="h-1.5 w-5 rounded-full bg-[#0066ff]" />
+                <span className="h-1.5 w-5 rounded-full bg-[#0066ff]" />
+                <span className="h-1.5 w-5 rounded-full bg-[var(--k-line2)]" />
+              </div>
             </div>
-          </div>
+            
+            {/* Task 2 */}
+            <div className="rounded-[14px] border border-transparent bg-transparent px-3.5 py-2 flex flex-col gap-2.5 opacity-50">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[12.5px] font-medium text-[var(--k-faint)] line-through leading-snug">API Database Schema</span>
+                <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0 mt-1" />
+              </div>
+              <div className="flex gap-1.5">
+                <span className="h-1.5 w-5 rounded-full bg-emerald-500/50" />
+                <span className="h-1.5 w-5 rounded-full bg-emerald-500/50" />
+              </div>
+            </div>
 
-          <div className="flex gap-3 p-1.5 rounded-lg border border-transparent">
-            <Clock size={16} className="text-[var(--k-muted)] mt-0.5" />
-            <div>
-              <div className="text-[12.5px] font-medium text-[var(--k-ink2)]">API Schema Blueprint</div>
-              <div className="text-[11px] text-[var(--k-faint)]">Jun 5 · 3h 12m · Northwind</div>
+            {/* Task 3 */}
+            <div className="rounded-[14px] border border-transparent bg-transparent px-3.5 py-2 flex flex-col gap-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[12.5px] font-medium text-[var(--k-ink2)] leading-snug">Client Pitch Deck</span>
+                <span className="h-2 w-2 rounded-full bg-[var(--k-line3)] shrink-0 mt-1" />
+              </div>
+              <div className="flex gap-1.5">
+                <span className="h-1.5 w-5 rounded-full bg-[var(--k-line2)]" />
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div className="mt-4 pt-3 border-t border-white/5 flex gap-2 text-[10.5px] text-[var(--k-muted)] font-medium">
-          <span className="bg-white/5 px-2 py-0.5 rounded-full border border-white/5">macOS</span>
-          <span className="bg-white/5 px-2 py-0.5 rounded-full border border-white/5">Safari</span>
         </div>
       </div>
 
       {/* Center Card: Active Pomodoro / Kettle tracking visual */}
-      <div className="k-card-fade lg:col-span-6 self-start rounded-[20px] border border-white/[0.06] bg-[#181818]/80 backdrop-blur-xl p-8 text-center shadow-[0_30px_60px_-20px_rgba(0,0,0,0.7)] min-h-[300px] flex flex-col justify-between relative overflow-hidden k-interactive-card">
-        <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/5 bg-white/5 px-3 py-1 text-[11px] font-semibold text-[var(--k-ink2)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            ACTIVE SESSION
+      <div className="k-card-fade lg:col-span-6 self-start -translate-y-[10px] rounded-[24px] border border-[var(--k-hairline)] bg-[var(--k-card)] p-10 text-center shadow-[0_30px_70px_-20px_rgba(0,0,0,0.9)] min-h-[300px] flex flex-col justify-between relative overflow-hidden k-interactive-card">
+        {/* Glow behind timer */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-56 bg-[#0066ff]/10 rounded-full blur-[50px] opacity-60 pointer-events-none" />
+        
+        <div className="flex flex-col items-center relative z-10">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[var(--k-surface-soft)] px-3.5 py-1.5 text-[11.5px] font-medium text-[var(--k-muted)] border border-[var(--k-hairline)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)] animate-pulse" />
+            POMODORO RUNNING
           </span>
-          <h3 className="text-2xl font-bold mt-4 text-[var(--k-ink)] tracking-tight">Kettles Landing Page</h3>
-          <p className="text-[13px] text-[var(--k-muted)] mt-1.5">Focus period for marketing redesign</p>
+          <h3 className="text-[26px] font-bold mt-5 text-[var(--k-ink)] tracking-tight">Landing Page Redesign</h3>
+          <p className="text-[14px] text-[var(--k-muted)] mt-2">Session 2 of 4</p>
         </div>
 
-        <div className="my-6">
-          <span className="k-mono text-[52px] font-semibold tracking-[-0.04em] text-white k-glow-text">
-            18:42
-          </span>
-        </div>
-
-        <div className="flex justify-center gap-2 mb-4">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--k-tint)] px-3 py-1.5 text-[11.5px] font-medium text-[var(--k-accent2)] border border-[var(--k-tint2)]">
-            <Tag size={12} /> Flowmate
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-[11.5px] font-medium text-[var(--k-ok)] border border-emerald-500/20">
-            $90/hr
+        <div className="my-8 relative z-10">
+          <span className="k-mono text-[64px] font-bold tracking-tight text-[var(--k-ink)] drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]">
+            24:59
           </span>
         </div>
 
+        <div className="flex justify-center gap-3 mb-2 relative z-10">
+          <button className="h-11 w-11 rounded-full bg-[var(--k-surface-soft)] border border-[var(--k-hairline2)] flex items-center justify-center text-[var(--k-ink)] hover:bg-[var(--k-tint)] transition-colors shadow-lg">
+            <Pause size={16} weight="fill" />
+          </button>
+          <button className="h-11 w-11 rounded-full bg-[var(--k-surface-soft)] border border-[var(--k-hairline2)] flex items-center justify-center text-[#ff4b4b] hover:bg-[var(--k-tint)] transition-colors shadow-lg">
+            <Stop size={16} weight="fill" />
+          </button>
+        </div>
       </div>
 
-      {/* Right Card: Code block Snip (Figma SDK reference) */}
-      <div className="k-card-fade lg:col-span-3 lg:mt-12 rounded-[20px] border border-white/[0.06] bg-[#181818]/80 backdrop-blur-xl p-5 text-left shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] min-h-[330px] flex flex-col justify-between overflow-hidden k-interactive-card k-sheen-code">
+      {/* Right Card: Analytics & Reporting */}
+      <div className="k-card-fade lg:col-span-3 lg:mt-12 rounded-[24px] border border-[var(--k-hairline)] bg-[var(--k-card)] p-6 text-left shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] min-h-[330px] flex flex-col justify-between overflow-hidden k-interactive-card">
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Terminal size={14} className="text-[var(--k-accent2)]" />
-            <span className="text-[11.5px] font-semibold tracking-[0.05em] text-[var(--k-muted)] uppercase">flowmate SDK</span>
+          <div className="flex items-center gap-2.5 mb-5">
+            <ChartBar size={18} weight="fill" className="text-[#0066ff]" />
+            <h3 className="text-[14.5px] font-semibold text-[var(--k-ink)] tracking-tight">Weekly Analytics</h3>
           </div>
-          <pre className="text-[11px] leading-[1.5] text-indigo-200/90 font-mono overflow-x-auto">
-            <code>
-{`import { Billing } from "flowmate";
- 
-const ledger = new Billing({
-  apiKey: "FM_API_KEY"
-});
- 
-const report = await ledger.reports.get({
-  project: "marketing-v3",
-  billedOnly: true
-});
- 
-// Hours Billed: 34.8h
-// Amount Due:  $2,784.00`}
-            </code>
-          </pre>
+          
+          <div className="flex items-end gap-2.5 h-32 mt-6 px-1">
+            {/* Bar chart columns */}
+            <div className="flex-1 bg-[var(--k-surface-soft)] rounded-t-md h-[40%]" />
+            <div className="flex-1 bg-[var(--k-surface-soft)] rounded-t-md h-[60%]" />
+            <div className="flex-1 bg-[var(--k-surface-soft)] rounded-t-md h-[30%]" />
+            <div className="flex-1 bg-gradient-to-t from-[#0066ff]/20 to-[#0066ff] rounded-t-md h-[90%] relative shadow-[0_0_15px_rgba(0,102,255,0.3)]">
+               <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[#0066ff]">6h</div>
+            </div>
+            <div className="flex-1 bg-[var(--k-surface-soft)] rounded-t-md h-[50%]" />
+            <div className="flex-1 bg-[var(--k-surface-soft)] rounded-t-md h-[20%]" />
+            <div className="flex-1 bg-[var(--k-surface-soft)] rounded-t-md h-[40%]" />
+          </div>
+          <div className="flex justify-between mt-3 text-[10px] text-[var(--k-faint)] font-medium px-2">
+            <span>M</span><span>T</span><span>W</span><span className="text-[var(--k-ink)]">T</span><span>F</span><span>S</span><span>S</span>
+          </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-[var(--k-muted)] font-medium">
-          <span className="inline-flex items-center gap-1.5">
-            <Shield size={12} className="text-[var(--k-muted)]" /> SOC2 Verified
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Lock size={12} className="text-[var(--k-muted)]" /> GDPR Protected
-          </span>
+        <div className="mt-6 pt-4 border-t border-[var(--k-hairline)] flex items-center justify-between">
+          <div>
+            <div className="text-[11px] text-[var(--k-muted)] font-medium">Total Tracked</div>
+            <div className="text-[16px] font-bold text-[var(--k-ink)] mt-0.5 tracking-tight">34h 15m</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[11px] text-[var(--k-muted)] font-medium">Billable</div>
+            <div className="text-[16px] font-bold text-emerald-400 mt-0.5 tracking-tight">$2,850</div>
+          </div>
         </div>
       </div>
 
-      {/* Trust badges — centered row below the center card */}
-      <div className="lg:col-span-12 flex items-center justify-center gap-7 text-[11.5px] text-[var(--k-muted)] font-medium -mt-2">
-        <span className="inline-flex items-center gap-1.5"><Globe size={13} className="text-[var(--k-muted)]" /> GDPR</span>
-        <span className="inline-flex items-center gap-1.5"><Lock size={13} className="text-[var(--k-muted)]" /> SOC2</span>
-        <span className="inline-flex items-center gap-1.5"><Shield size={13} className="text-[var(--k-muted)]" /> ISO 27001</span>
-      </div>
 
     </div>
   );
@@ -281,9 +282,9 @@ export function MockCreateTaskModal() {
     <div className="w-full max-w-[700px] rounded-3xl border border-[var(--k-line2)] bg-[var(--k-card)] p-8 text-left shadow-[0_30px_60px_-15px_rgba(0,0,0,0.85)] relative overflow-hidden k-glass-panel z-10">
       
       {/* Heading */}
-      <div className="flex items-center gap-2.5 mb-6 border-b border-white/5 pb-4">
+      <div className="flex items-center gap-2.5 mb-6 border-b border-[var(--k-hairline)] pb-4">
         <Plus size={18} className="text-[var(--k-accent2)]" />
-        <h3 className="text-[17px] font-bold text-white tracking-tight">Create New Task</h3>
+        <h3 className="text-[17px] font-bold text-[var(--k-ink)] tracking-tight">Create New Task</h3>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -346,7 +347,7 @@ export function MockCreateTaskModal() {
       </div>
 
       {/* Bottom Option Badges (Password, Targeting, Expiration match) */}
-      <div className="mt-6 flex flex-wrap gap-2.5 pt-5 border-t border-white/5">
+      <div className="mt-6 flex flex-wrap gap-2.5 pt-5 border-t border-[var(--k-hairline)]">
         <div className="flex items-center gap-2 rounded-lg bg-[var(--k-bg2)] border border-[var(--k-line2)] px-3.5 py-2 text-[12px] font-medium text-[var(--k-ink2)]">
           <Key size={14} className="text-[var(--k-muted)]" /> Passcode Lock
         </div>
@@ -358,7 +359,7 @@ export function MockCreateTaskModal() {
         </div>
         
         {/* Action Button */}
-        <button className="ml-auto bg-white text-black rounded-full font-bold px-6 py-2 text-[13.5px] hover:bg-white/90 transition active:scale-[0.98] shadow-md">
+        <button className="ml-auto bg-[var(--k-ink)] text-[var(--k-bg)] rounded-full font-bold px-6 py-2 text-[13.5px] hover:opacity-90 transition active:scale-[0.98] shadow-md">
           Start Active Brew
         </button>
       </div>

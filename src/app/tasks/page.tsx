@@ -12,6 +12,8 @@ import { Select } from "@/components/ui/select";
 import { PageLayout, PageHeader, PageToolbar, PageContent } from "@/components/layout";
 import type { Task, TaskStatus, Urgency } from "@/lib/types";
 
+const NO_PROJECT = "__none__";
+
 export default function TasksPage() {
   const tasks = useApp((s) => s.tasks);
   const projects = useApp((s) => s.projects);
@@ -33,7 +35,11 @@ export default function TasksPage() {
       }
       if (t.archived) return false;
       if (t.deletedAt) return false;
-      if (selectedProjectId && t.projectId !== selectedProjectId) return false;
+      if (selectedProjectId === NO_PROJECT) {
+        if (t.projectId) return false;
+      } else if (selectedProjectId && t.projectId !== selectedProjectId) {
+        return false;
+      }
       if (selectedUrgency !== "all" && t.urgency !== selectedUrgency)
         return false;
       return true;
@@ -95,6 +101,7 @@ export default function TasksPage() {
                 size="sm"
               >
                 <option value="">All projects</option>
+                <option value={NO_PROJECT}>No project</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}

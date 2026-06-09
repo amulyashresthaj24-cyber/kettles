@@ -59,3 +59,13 @@ export const PROJECT_COLOR_OPTIONS = PROJECT_COLORS.map((c) => ({
   value: c.id,
   bg: c.bg,
 }));
+
+export type AlarmSound = "bell" | "chime" | "digital" | "gentle" | "pulse" | "kettle";
+export const ALARM_SOUNDS: { id: AlarmSound; label: string }[] = [
+  { id: "bell", label: "Bell" },
+  { id: "chime", label: "Chime" },
+  { id: "digital", label: "Digital" },
+  { id: "gentle", label: "Gentle" },
+  { id: "pulse", label: "Pulse" },
+  { id: "kettle", label: "Kettle" },
+];

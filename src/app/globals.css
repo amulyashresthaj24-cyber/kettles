@@ -365,6 +365,45 @@ input[type="number"] {
   animation: slide-out-right 200ms var(--ease-in) both;
 }
 
+@keyframes kettle-jump {
+  100% { background-position-x: -1536px; }
+}
+.animate-pet-jump-kettle {
+  width: 192px;
+  height: 208px;
+  background-image: url('/pet/assets/spritesheet.orig.webp');
+  background-position: 0px -624px;
+  background-size: 1536px 1872px;
+  background-repeat: no-repeat;
+  animation: kettle-jump 1.2s steps(8) infinite;
+}
+
+@keyframes sprite2-jump {
+  100% { background-position-x: -944px; }
+}
+.animate-pet-jump-sprite2 {
+  width: 118px;
+  height: 197px;
+  background-image: url('/pet/assets/sprite-2.clean.webp');
+  background-position: 0px -788px;
+  background-size: 944px 1773px;
+  background-repeat: no-repeat;
+  animation: sprite2-jump 1.2s steps(8) infinite;
+}
+
+@keyframes female-jump {
+  100% { background-position-x: -475px; }
+}
+.animate-pet-jump-female {
+  width: 95px;
+  height: 151px;
+  background-image: url('/pet/assets/sprite-female.clean.webp');
+  background-position: 0px -1057px;
+  background-size: 950px 1661px;
+  background-repeat: no-repeat;
+  animation: female-jump 0.8s steps(5) infinite;
+}
+
 @keyframes toast-progress {
   from { transform: scaleX(1); }
   to { transform: scaleX(0); }

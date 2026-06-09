@@ -46,7 +46,7 @@ export interface Task {
   id: string;
   title: string;
   description?: string;
-  projectId: string;
+  projectId?: string | null;
   urgency: Urgency;
   status: TaskStatus;
   estimateMinutes?: number;
@@ -74,4 +74,5 @@ export interface Session {
   isDraft?: boolean;
   notes?: SessionNote[];
   frozenAt?: number;
+  estimateMinutes?: number;
 }

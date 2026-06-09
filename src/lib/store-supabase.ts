@@ -36,6 +36,7 @@ function normalizeSession(session: Session): Session {
     state,
     notes: session.notes ?? [],
     isDraft: session.isDraft ?? (state === "draft" || !session.taskId || !session.projectId),
+    estimateMinutes: session.estimateMinutes,
   };
 }
 
@@ -93,18 +94,28 @@ function reportableSession(session: Session) {
 }
 
 function mergeSessionLists(remoteSessions: Session[], localSessions: Session[]) {
+  const localSessionsMap = new Map(localSessions.map((s) => [s.id, s]));
   const remoteIds = new Set(remoteSessions.map((session) => session.id));
+  
+  const mergedRemote = remoteSessions.map((remote) => {
+    const local = localSessionsMap.get(remote.id);
+    if (local && local.estimateMinutes) {
+      return { ...remote, estimateMinutes: local.estimateMinutes };
+    }
+    return remote;
+  });
+
   const localOnly = localSessions.filter(
     (session) => !remoteIds.has(session.id) && !isRemoteId(session.id) && !reportableSession(session)
   );
-  return [...remoteSessions, ...localOnly].map(normalizeSession);
+  return [...mergedRemote, ...localOnly].map(normalizeSession);
 }
 
 function withTaskDisplayFallbacks(tasks: Task[]) {
   return tasks.map((task) => ({
     ...task,
     title: task.title?.trim() || `New test task ${task.id.slice(0, 8)}`,
-    projectId: task.projectId || "unassigned",
+    projectId: task.projectId || null,
     urgency: task.urgency || "normal",
     status: task.status || "todo",
   }));
@@ -178,8 +189,8 @@ interface State {
   restoreTask: (id: string) => Promise<void>;
   setTaskStatus: (id: string, status: TaskStatus) => Promise<void>;
 
-  startSession: (taskId: string, billable?: boolean) => Promise<Session | null>;
-  startDraftSession: (projectId?: string, billable?: boolean) => Promise<Session | null>;
+  startSession: (taskId: string, billable?: boolean, estimateMinutes?: number) => Promise<Session | null>;
+  startDraftSession: (projectId?: string, billable?: boolean, estimateMinutes?: number) => Promise<Session | null>;
   pauseSession: () => Promise<void>;
   resumeSession: () => Promise<void>;
   finishSession: () => Promise<void>;
@@ -212,9 +223,10 @@ interface State {
   preferences?: {
     defaultFocusDuration: number;
     whistleSoundEnabled: boolean;
+    alarmSound?: string;
     autoBreakEnabled: boolean;
     autoPauseOnIdleEnabled: boolean;
-    activeMascot?: "kettle" | "sprite2" | "custom";
+    activeMascot?: "kettle" | "sprite2" | "female" | "custom";
     customMascotSpritesheet?: string;
     customMascotWidth?: number;
     customMascotHeight?: number;
@@ -238,6 +250,11 @@ interface State {
       running_left: number;
       running_right: number;
     };
+    petBreakRemindersEnabled?: boolean;
+    petBreakIntervalMinutes?: number;
+    petCustomRemindersEnabled?: boolean;
+    petCustomReminders?: Array<{ id: string; text: string; time: string; active: boolean }>;
+    petNotesIntegrationEnabled?: boolean;
   };
   setPreferences: (patch: Partial<NonNullable<State["preferences"]>>) => void;
 }
@@ -261,6 +278,7 @@ persist((set, get) => ({
   preferences: {
     defaultFocusDuration: 25,
     whistleSoundEnabled: true,
+    alarmSound: "kettle",
     autoBreakEnabled: false,
     autoPauseOnIdleEnabled: true,
     activeMascot: "kettle",
@@ -287,6 +305,11 @@ persist((set, get) => ({
       running_left: 10,
       running_right: 9,
     },
+    petBreakRemindersEnabled: false,
+    petBreakIntervalMinutes: 45,
+    petCustomRemindersEnabled: false,
+    petCustomReminders: [],
+    petNotesIntegrationEnabled: false,
   },
 
   setPreferences: (patch) => set({
@@ -319,6 +342,11 @@ persist((set, get) => ({
         running_left: 10,
         running_right: 9,
       },
+      petBreakRemindersEnabled: false,
+      petBreakIntervalMinutes: 45,
+      petCustomRemindersEnabled: false,
+      petCustomReminders: [],
+      petNotesIntegrationEnabled: false,
       ...(get().preferences ?? {}),
       ...patch,
     }
@@ -619,7 +647,7 @@ persist((set, get) => ({
     }
   },
 
-  startSession: async (taskId, billable) => {
+  startSession: async (taskId, billable, estimateMinutes) => {
     if (get().activeSessionId) return null;
     const task = get().tasks.find((t) => t.id === taskId);
     if (!task) return null;
@@ -640,9 +668,14 @@ persist((set, get) => ({
         notes: [],
       });
 
+      const sessionWithEstimate = {
+        ...session,
+        estimateMinutes: estimateMinutes ?? task.estimateMinutes,
+      };
+
       set({
-        sessions: [...get().sessions, session],
-        activeSessionId: session.id,
+        sessions: [...get().sessions, sessionWithEstimate],
+        activeSessionId: sessionWithEstimate.id,
       });
       
       // Auto-update task status to doing if it was todo
@@ -650,7 +683,7 @@ persist((set, get) => ({
         await get().setTaskStatus(taskId, "doing");
       }
       
-      return session;
+      return sessionWithEstimate;
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to start session' });
       return null;
@@ -659,7 +692,7 @@ persist((set, get) => ({
     }
   },
 
-  startDraftSession: async (projectId = "", billable = false) => {
+  startDraftSession: async (projectId = "", billable = false, estimateMinutes) => {
     if (get().activeSessionId) return null;
     const session: Session = {
       id: uid(),
@@ -672,6 +705,7 @@ persist((set, get) => ({
       state: "running",
       isDraft: true,
       notes: [],
+      estimateMinutes,
     };
     set({
       sessions: [...get().sessions, session],

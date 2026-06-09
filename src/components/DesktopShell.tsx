@@ -64,18 +64,21 @@ export function DesktopShell() {
   const lastMessageTriggerTimeRef = useRef<number>(Date.now());
   const customMessageRef = useRef<string | null>(null);
   const messageTimeRef = useRef<number>(0);
+  const lastBreakTriggerTimeRef = useRef<number>(0);
+  const lastCustomReminderMinuteRef = useRef<string>("");
 
   const playKettleWhistle = useCallback(() => {
     const enabled = useApp.getState().preferences?.whistleSoundEnabled !== false;
     if (!enabled) return;
     try {
-      const audio = new Audio("/sounds/kettle-whistle.ogg");
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const audio = new Audio(`${origin}/sounds/kettle-whistle.ogg`);
       audio.volume = 0.22;
       void audio.play();
       window.setTimeout(() => {
         audio.pause();
         audio.currentTime = 0;
-      }, 1800);
+      }, 2500);
     } catch (e) {
       console.warn("Audio play failed:", e);
     }
@@ -92,10 +95,11 @@ export function DesktopShell() {
       notifiedCompletedRef.current = false;
     }
 
-    const task = tasks.find((t) => t.id === activeSession.taskId);
-    if (!task || !task.estimateMinutes) return;
+    const task = activeSession.taskId ? tasks.find((t) => t.id === activeSession.taskId) : undefined;
+    const estimateMinutes = activeSession.estimateMinutes ?? task?.estimateMinutes;
+    if (!estimateMinutes) return;
 
-    const estimateSec = task.estimateMinutes * 60;
+    const estimateSec = estimateMinutes * 60;
 
     const checkCompletion = () => {
       const elapsed = sessionElapsed(activeSession);
@@ -103,13 +107,19 @@ export function DesktopShell() {
         notifiedCompletedRef.current = true;
         playKettleWhistle();
 
-        const taskTitle = task.title || "Focus session";
+        const taskTitle = task?.title || "Focus session";
         const name = useApp.getState().user?.name ?? "there";
         const title = "Focus session complete!";
-        const body = `Incredible job, ${name}! Your ${task.estimateMinutes}m on "${taskTitle}" is done — let's stand up and stretch together!`;
+        const body = `Incredible job, ${name}! Your ${estimateMinutes}m on "${taskTitle}" is done — let's stand up and stretch together!`;
 
         if (isDesktop()) {
-          showDesktopNotification(title, body);
+          petSignal({
+            event: "timerFinish",
+            phase: "finished",
+            source: taskTitle,
+            detail: `${estimateMinutes}m complete`,
+            notify: { title, body },
+          });
         } else {
           if (typeof Notification !== "undefined" && Notification.permission === "granted") {
             new Notification(title, { body });
@@ -217,6 +227,36 @@ export function DesktopShell() {
       });
       if (cancelled) { unControl(); return; }
       unlistenRefs.current.push(unControl);
+
+      const unNote = await listen<{ text: string }>("pet://new-note", async (event) => {
+        const text = event?.text;
+        if (!text) return;
+        
+        const currentActive = useApp.getState().activeSessionId;
+        if (currentActive) {
+          useApp.getState().addSessionNote(text);
+          petSignal({
+            event: "hover" as any,
+            quote: "Note saved to active session!",
+            notify: { title: "Note Captured", body: `"${text}" added to focus session.` }
+          });
+        } else {
+          const activeProj = useApp.getState().projects[0]?.id || "unassigned";
+          await useApp.getState().addTask({
+            title: text,
+            projectId: activeProj,
+            urgency: "normal",
+            status: "todo"
+          });
+          petSignal({
+            event: "hover" as any,
+            quote: "Note saved as a new task!",
+            notify: { title: "Task Created", body: `"${text}" saved as a new task.` }
+          });
+        }
+      });
+      if (cancelled) { unNote(); return; }
+      unlistenRefs.current.push(unNote);
     };
 
     setup();
@@ -299,9 +339,48 @@ export function DesktopShell() {
       const now = Date.now();
       const isRunning = activeSession && activeSession.state === "running" && !activeSession.paused;
       const intervalMs = isRunning ? 180000 : 120000; // 3 mins (running), 2 mins (idle)
+      const prefs = useApp.getState().preferences;
+      let triggerWave = false;
+
+      // 1. Break Reminders Trigger Check
+      if (prefs?.petBreakRemindersEnabled && isRunning && activeSession) {
+        const elapsed = sessionElapsed(activeSession);
+        const breakIntervalSec = (prefs.petBreakIntervalMinutes || 45) * 60;
+        if (elapsed > 0 && elapsed % breakIntervalSec === 0 && now - lastBreakTriggerTimeRef.current > 60000) {
+          lastBreakTriggerTimeRef.current = now;
+          customMessageRef.current = "Time to stretch and take a break!";
+          messageTimeRef.current = now;
+          triggerWave = true;
+          petSignal({
+            event: "timerBreak",
+            phase: "paused",
+            quote: "Time to stretch and take a break!",
+            notify: { title: "Break Reminder", body: "You have been focusing for a while. Let's take a quick stretch break!" }
+          });
+        }
+      }
+
+      // 2. Custom Scheduled Reminders Check
+      if (prefs?.petCustomRemindersEnabled && prefs.petCustomReminders && prefs.petCustomReminders.length > 0) {
+        const date = new Date(now);
+        const currentMinStr = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        if (currentMinStr !== lastCustomReminderMinuteRef.current) {
+          const matchingRem = prefs.petCustomReminders.find(r => r.active && r.time === currentMinStr);
+          if (matchingRem) {
+            lastCustomReminderMinuteRef.current = currentMinStr;
+            customMessageRef.current = matchingRem.text;
+            messageTimeRef.current = now;
+            triggerWave = true;
+            petSignal({
+              event: "hover" as any,
+              quote: matchingRem.text,
+              notify: { title: "Pet Reminder", body: matchingRem.text }
+            });
+          }
+        }
+      }
 
       let activeMsg = customMessageRef.current;
-      let triggerWave = false;
 
       if (activeMsg && now - messageTimeRef.current > 8000) {
         customMessageRef.current = null;

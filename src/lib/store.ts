@@ -97,7 +97,7 @@ export const useApp = create<State>()(
         const s: Session = {
           id: uid(),
           taskId,
-          projectId: task.projectId,
+          projectId: task.projectId ?? "",
           billable: billable ?? project?.billable ?? false,
           startedAt: Date.now(),
           durationSeconds: 0,

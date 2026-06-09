@@ -77,7 +77,7 @@ serve(async (req) => {
 
       case 'POST': {
         const body = await req.json();
-        const validation = validateRequired(body, ['title', 'projectId']);
+        const validation = validateRequired(body, ['title']);
         if (validation) {
           return new Response(JSON.stringify({ error: validation }), {
             status: 400,
@@ -85,7 +85,8 @@ serve(async (req) => {
           });
         }
 
-        if (!validateUUID(body.projectId)) {
+        // Project is optional — tasks may have no project. Validate only if provided.
+        if (body.projectId && !validateUUID(body.projectId)) {
           return new Response(JSON.stringify({ error: 'Invalid project ID' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -101,7 +102,7 @@ serve(async (req) => {
           .from('tasks')
           .insert({
             user_id: user.id,
-            project_id: body.projectId,
+            project_id: body.projectId || null,
             data: taskData,
           })
           .select()

@@ -24,6 +24,16 @@
         <p id="msg" class="msg" hidden>You have completed task!</p>
         <p id="timer" class="timer" aria-live="polite">00:00:00</p>
 
+        <!-- Quick note scratchpad interface -->
+        <button type="button" id="noteToggle" class="note-toggle" aria-label="Quick Note" hidden>✍️</button>
+        <div id="notePane" class="note-pane" hidden>
+          <textarea id="noteInput" class="note-input" placeholder="Type a quick note here..."></textarea>
+          <div class="note-actions">
+            <button type="button" id="saveNote" class="btn btn-primary">Save</button>
+            <button type="button" id="cancelNote" class="btn">Cancel</button>
+          </div>
+        </div>
+
         <!-- Kept in the DOM (hidden) so pet.js listeners don't crash. -->
         <header class="bubble-head" hidden>
           <span id="dot" class="dot" aria-hidden="true"></span>

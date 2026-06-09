@@ -158,7 +158,7 @@ export function AddTaskModal({
       if (editingTask) {
         await updateTask(editingTask.id, {
           title: title.trim(),
-          projectId: projectId || projects[0]?.id || "none",
+          projectId: projectId || null,
           urgency,
           estimateMinutes: estimate ? Number(estimate) : undefined,
           description: description.trim() || undefined,
@@ -167,7 +167,7 @@ export function AddTaskModal({
       } else {
         await addTask({
           title: title.trim(),
-          projectId: projectId || projects[0]?.id || "none",
+          projectId: projectId || null,
           urgency,
           status: defaultStatus,
           estimateMinutes: estimate ? Number(estimate) : undefined,
@@ -181,7 +181,7 @@ export function AddTaskModal({
     } finally {
       setIsSubmitting(false);
     }
-  }, [title, description, projectId, urgency, estimate, dateRange, editingTask, addTask, updateTask, onClose, projects, defaultStatus]);
+  }, [title, description, projectId, urgency, estimate, dateRange, editingTask, addTask, updateTask, onClose, defaultStatus]);
 
   useEffect(() => {
     if (!open) return;
@@ -193,7 +193,10 @@ export function AddTaskModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose, handleSubmit]);
 
-  const projectOptions = projects.map((p) => ({ label: p.name, value: p.id }));
+  const projectOptions = [
+    { label: "No project", value: "" },
+    ...projects.map((p) => ({ label: p.name, value: p.id })),
+  ];
 
   if (!open) return null;
 
