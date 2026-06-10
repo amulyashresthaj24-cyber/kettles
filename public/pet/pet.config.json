@@ -30,6 +30,7 @@
     "timerResume":  "review",
     "timerPause":   "review",
     "timerBreak":   "waiting",
+    "breakEnd":     { "play": "jumping",  "then": "review" },
     "timerFinish":  { "play": "jumping",  "then": "waiting" },
     "timerAbandon": { "play": "failed",   "then": "waiting" }
   },

@@ -279,10 +279,10 @@ export function WorkflowPreview() {
       <ContainerScroll
         titleComponent={
           <div className="mx-auto mb-2 max-w-[740px] px-6 text-center">
-            <h2 className="text-[clamp(28px,3.4vw,42px)] font-semibold tracking-[-0.03em] text-[var(--k-ink)]">
+            <h2 className="k-reveal text-[clamp(28px,3.4vw,42px)] font-semibold tracking-[-0.03em] text-[var(--k-ink)]">
               The whole day, in one calm view.
             </h2>
-            <p className="mx-auto mt-5 max-w-[56ch] text-[18px] text-[var(--k-muted)]">
+            <p className="k-reveal mx-auto mt-5 max-w-[56ch] text-[18px] text-[var(--k-muted)]">
               This is the actual dashboard — tasks, brews, and billing already agreeing with each other.
             </p>
           </div>

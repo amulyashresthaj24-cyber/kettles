@@ -961,10 +961,8 @@ function FinishOverlay(props: {
   const [finishNote, setFinishNote] = useState("");
 
   const jumpClass = props.activeMascot === "sprite2" ? "animate-pet-jump-sprite2" :
-                    props.activeMascot === "female" ? "animate-pet-jump-female" :
                     "animate-pet-jump-kettle";
   const jumpScale = props.activeMascot === "kettle" ? "scale-[0.55]" :
-                    props.activeMascot === "female" ? "scale-[0.9]" :
                     "scale-[0.75]";
 
   if (props.savedDraft) {
@@ -1001,7 +999,10 @@ function FinishOverlay(props: {
   return (
     <div className="animate-modal-in mx-auto flex w-full max-w-[480px] flex-col gap-5 rounded-2xl p-6 shadow-2xl" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
       <div className="relative flex items-center justify-center -mb-6 overflow-visible" aria-hidden>
-        <div className={`${jumpClass} pointer-events-none transform ${jumpScale} origin-bottom`} />
+        <div className="pet-stage pointer-events-none" data-mascot={props.activeMascot}>
+          <div className={`${jumpClass} transform ${jumpScale} origin-bottom`} />
+          <div className="pet-shadow" />
+        </div>
       </div>
 
       <div className="flex flex-col gap-1.5 text-center">
@@ -1342,9 +1343,8 @@ function AlarmModal({
   
   const activeMascot = preferences?.activeMascot || "kettle";
   const jumpClass = activeMascot === "sprite2" ? "animate-pet-jump-sprite2" :
-                    activeMascot === "female" ? "animate-pet-jump-female" :
                     "animate-pet-jump-kettle";
-  const jumpScale = activeMascot === "kettle" ? "scale-[0.6]" : activeMascot === "female" ? "scale-[1]" : "scale-[0.85]";
+  const jumpScale = activeMascot === "kettle" ? "scale-[0.6]" : "scale-[0.85]";
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1406,7 +1406,10 @@ function AlarmModal({
       <div className="relative w-full max-w-[440px] mx-lg animate-modal-in flex flex-col items-center gap-6 rounded-xl p-8 shadow-2xl bg-surface-raised border border-border text-center overflow-hidden">
         
         <div className="relative flex items-center justify-center -mb-8 mt-2 overflow-visible">
-          <div className={`${jumpClass} pointer-events-none transform ${jumpScale} origin-bottom`} />
+          <div className="pet-stage pointer-events-none" data-mascot={activeMascot}>
+            <div className={`${jumpClass} transform ${jumpScale} origin-bottom`} />
+            <div className="pet-shadow" />
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5 relative z-10">

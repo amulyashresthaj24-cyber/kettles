@@ -13,8 +13,10 @@ export type PetEvent =
   | "timerResume"
   | "timerPause"
   | "timerBreak"
+  | "breakEnd"
   | "timerFinish"
-  | "timerAbandon";
+  | "timerAbandon"
+  | "hover";
 
 /** Coarse timer phase — drives the overlay card styling + finished panel. */
 export type PetPhase = "idle" | "running" | "paused" | "finished";

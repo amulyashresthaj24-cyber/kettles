@@ -65,6 +65,7 @@ export function DesktopShell() {
   const customMessageRef = useRef<string | null>(null);
   const messageTimeRef = useRef<number>(0);
   const lastBreakTriggerTimeRef = useRef<number>(0);
+  const breakEndTimeoutRef = useRef<number | null>(null);
   const lastCustomReminderMinuteRef = useRef<string>("");
 
   const playKettleWhistle = useCallback(() => {
@@ -357,6 +358,23 @@ export function DesktopShell() {
             quote: "Time to stretch and take a break!",
             notify: { title: "Break Reminder", body: "You have been focusing for a while. Let's take a quick stretch break!" }
           });
+          // Standard 5-minute stretch break, then the pet calls the user back —
+          // but only if the session is still alive when the break is over.
+          if (breakEndTimeoutRef.current) window.clearTimeout(breakEndTimeoutRef.current);
+          breakEndTimeoutRef.current = window.setTimeout(() => {
+            breakEndTimeoutRef.current = null;
+            const state = useApp.getState();
+            const session = state.sessions.find((s) => s.id === state.activeSessionId);
+            if (!session || session.state !== "running") return;
+            customMessageRef.current = "Break's over! Ready to dive back in?";
+            messageTimeRef.current = Date.now();
+            petSignal({
+              event: "breakEnd",
+              phase: session.paused ? "paused" : "running",
+              quote: "Break's over! Ready to dive back in?",
+              notify: { title: "Break Over", body: "Break's done — let's dive back into the task!" }
+            });
+          }, 5 * 60 * 1000);
         }
       }
 
@@ -464,6 +482,11 @@ export function DesktopShell() {
     const intervalId = window.setInterval(syncPetStatus, 1000);
     return () => window.clearInterval(intervalId);
   }, [activeSession, tasks]);
+
+  // Pending break-end nudge survives session re-renders; clear it on unmount.
+  useEffect(() => () => {
+    if (breakEndTimeoutRef.current) window.clearTimeout(breakEndTimeoutRef.current);
+  }, []);
 
   // This component renders nothing
   return null;

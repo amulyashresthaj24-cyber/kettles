@@ -67,6 +67,20 @@ export const FLOWMATE_PET_MOMENTS: Record<PetEvent, PetMomentInstruction> = {
     state: "coffee_break",
     purpose: "Pomodoro break — sip coffee while the clock rests (clickthrough off).",
   },
+  breakEnd: {
+    event: "breakEnd",
+    phase: "running",
+    state: "waving_jumping",
+    then: "sitting_laptop",
+    notify: true,
+    purpose: "Call the user back from a stretch break into focused work.",
+  },
+  hover: {
+    event: "hover",
+    phase: "idle",
+    state: "waving_jumping",
+    purpose: "Light acknowledgement — reminders and quick nudges.",
+  },
   timerFinish: {
     event: "timerFinish",
     phase: "finished",

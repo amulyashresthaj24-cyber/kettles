@@ -365,17 +365,21 @@ input[type="number"] {
   animation: slide-out-right 200ms var(--ease-in) both;
 }
 
+/* Kettle celebration: the jump row is atlas row 4 (y -832px) and only has 5
+ * drawn frames — the old -624px/steps(8) values sampled the 4-frame waving row
+ * and left the mascot blank for half the loop. 0.75s keeps ~6.7fps cadence. */
 @keyframes kettle-jump {
-  100% { background-position-x: -1536px; }
+  100% { background-position-x: -960px; }
 }
 .animate-pet-jump-kettle {
   width: 192px;
   height: 208px;
   background-image: url('/pet/assets/spritesheet.orig.webp');
-  background-position: 0px -624px;
+  background-position: 0px -832px;
   background-size: 1536px 1872px;
   background-repeat: no-repeat;
-  animation: kettle-jump 1.2s steps(8) infinite;
+  animation: kettle-jump 0.75s steps(5) infinite;
+  filter: drop-shadow(0 0 12px var(--accent-dim));
 }
 
 @keyframes sprite2-jump {
@@ -389,20 +393,48 @@ input[type="number"] {
   background-size: 944px 1773px;
   background-repeat: no-repeat;
   animation: sprite2-jump 1.2s steps(8) infinite;
+  filter: drop-shadow(0 0 12px var(--accent-dim));
 }
 
-@keyframes female-jump {
-  100% { background-position-x: -475px; }
+/* Stage wrapper for the inline celebration mascot: a soft ground shadow that
+ * pulses in time with the jump cycle, so the sprite reads as airborne above a
+ * floor instead of floating in the card. */
+.pet-stage {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
-.animate-pet-jump-female {
-  width: 95px;
-  height: 151px;
-  background-image: url('/pet/assets/sprite-female.clean.webp');
-  background-position: 0px -1057px;
-  background-size: 950px 1661px;
-  background-repeat: no-repeat;
-  animation: female-jump 0.8s steps(5) infinite;
+
+.pet-stage .pet-shadow {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  width: 64px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--text-primary) 16%, transparent), transparent 70%);
+  transform: translateX(-50%);
+  animation: pet-shadow-pulse 0.75s ease-in-out infinite;
+  pointer-events: none;
 }
+
+.pet-stage[data-mascot="sprite2"] .pet-shadow {
+  animation-duration: 1.2s;
+}
+
+@keyframes pet-shadow-pulse {
+  0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 0.85; }
+  50%      { transform: translateX(-50%) scaleX(0.78); opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pet-jump-kettle,
+  .animate-pet-jump-sprite2 { animation-iteration-count: 3; }
+  .pet-stage .pet-shadow { animation: none; }
+}
+
+
 
 @keyframes toast-progress {
   from { transform: scaleX(1); }

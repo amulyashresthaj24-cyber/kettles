@@ -7,10 +7,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./pet.css?v=2.6" />
+    <link rel="stylesheet" href="./pet.css?v=2.8" />
   </head>
   <body>
     <main id="shell" class="shell" data-phase="idle" data-collapsed="false">
@@ -54,6 +54,13 @@
         </div>
       </section>
 
+      <!-- Speech bubble — reminders & timer messages. Swaps in over the timer
+           card while visible (pet.js sets data-speaking on the shell). -->
+      <p id="speech" class="speech" role="status" aria-live="polite"></p>
+
+      <!-- Thought-bubble trail connecting the mascot to the timer card. -->
+      <div class="trail" aria-hidden="true"><span></span><span></span></div>
+
       <!-- Animated mascot sprite. -->
       <div id="mascot" class="mascot" aria-hidden="true"></div>
 
@@ -62,6 +69,6 @@
         <span class="chev down" aria-hidden="true"></span>
       </button>
     </main>
-    <script src="./pet.js?v=2.6"></script>
+    <script src="./pet.js?v=2.7"></script>
   </body>
 </html>

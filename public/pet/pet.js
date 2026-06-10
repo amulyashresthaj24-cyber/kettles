@@ -23,6 +23,7 @@ const el = {
   shell: document.getElementById("shell"),
   mascot: document.getElementById("mascot"),
   bubble: document.getElementById("bubble"),
+  speech: document.getElementById("speech"),
   dot: document.getElementById("dot"),
   label: document.getElementById("label"),
   timer: document.getElementById("timer"),
@@ -54,6 +55,17 @@ const PHASE_LABELS = {
   running: "Focusing",
   paused: "Paused",
   finished: "Complete",
+};
+
+// Default speech lines per timer event. A `quote` in the signal payload wins;
+// `anim` is an optional one-shot layered on top of the event's mapped state.
+const SPEECH_LINES = {
+  timerStart:   { text: "Time to focus! Let's start work.", anim: "waving" },
+  timerResume:  { text: "Back at it — let's go!", anim: "waving" },
+  timerBreak:   { text: "Time to stretch and take a break!" },
+  breakEnd:     { text: "Break's over! Ready to dive back in?", anim: "jumping" },
+  timerFinish:  { text: "Great work! Session complete 🎉" },
+  timerAbandon: { text: "Session ended — we'll get it next time." },
 };
 
 const MASCOT_HEIGHT = 128; // px; the mascot box height, matches pet.css
@@ -96,51 +108,6 @@ const SPRITE2_PRESET = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// Third mascot ("female") — baked preset for assets/sprite-female.clean.webp.
-//
-// Source art (sprite-update-female.png/.webp) shipped on an opaque near-white
-// checker, same family of problem as sprite-2. sprite-female.clean.webp is the
-// processed atlas: background border-flood-filled to transparent (the white
-// dress is preserved because it isn't connected to the border bg). Grid is a
-// uniform 10x8 (cols) x 11 (rows) packing at cell 95x151 (minor bottom hair
-// bleed only). Row meanings (raw read of the sheet, left->right):
-//
-//   row 0  idle standing front (~10f)        row 1  walk side (last frames back/bag)
-//   row 2  both-arms cheer / small jump       row 3  arms-raised / pointing variants
-//   row 4  holding laptop -> standing          row 5  standing -> crouch-run w/ speed lines
-//   row 6  stool-sit -> sprint -> sparkle cheer row 7  run leap -> back-view -> lie-down
-//   row 8  lying / sleeping (afk)              row 9  standing + mug/phone variants
-//   row 10 idle + emote icons (anger marks)
-//
-// State NAMES kept identical to the kettle sheet so all event / phase / mapping
-// / fps logic keeps working untouched. frames/col offsets below are STARTING
-// values for the well-behaved rows; the mixed rows (1,4,5,6,7) carry a `col`
-// window to avoid the off-action frames and will be dialed in per the agreed
-// state+condition table.
-// ---------------------------------------------------------------------------
-const FEMALE_PRESET = {
-  spritesheet: "assets/sprite-female.clean.webp",
-  cell: { width: 95, height: 151 },
-  sheet: { cols: 10, rows: 11 },
-  scale: 0.85,
-  states: {
-    idle:          { row: 0,  frames: 8, fps: 5,  loop: true },
-    working:       { row: 4,  col: 0, frames: 5, fps: 6,  loop: true },
-    running_left:  { row: 3,  frames: 10, fps: 10, loop: true },
-    waving:        { row: 2,  frames: 6, fps: 6,  loop: false },
-    jumping:       { row: 7,  frames: 5, fps: 10, loop: false },
-    failed:        { row: 10, frames: 6, fps: 6,  loop: false },
-    waiting:       { row: 0,  frames: 8, fps: 4,  loop: true },
-    review:        { row: 9,  frames: 6, fps: 5,  loop: true },
-    sitting:       { row: 6,  col: 0, frames: 2, fps: 2, loop: true, scale: 0.95 },
-    running_right: { row: 1,  frames: 10, fps: 10, loop: true },
-    reading:       { row: 9,  frames: 6,  fps: 5,  loop: true },
-    // drag: row 1 = side walk-right, row 3 = leaping run (used as run-left).
-    drag_right:    { row: 1,  frames: 10, fps: 11, loop: true },
-    drag_left:     { row: 3,  frames: 10, fps: 11, loop: true },
-  },
-};
 
 // ---------------------------------------------------------------------------
 // runtime state
@@ -182,6 +149,10 @@ const SHAKE_DEADZONE = 2;    // px; ignore sub-pixel jitter
 // petting (press-and-hold on the mascot)
 let petting = false;
 let petTimer = null;
+let petBurst = null;         // interval spawning hearts while held
+let zzzTimer = null;         // interval drifting 💤 while dozing
+const reducedMotion =
+  window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // ---------------------------------------------------------------------------
 // preferences sync
@@ -201,8 +172,9 @@ function loadPreferences() {
 
 function applyPreferences() {
   if (!cfg) return;
-  const prefs = loadPreferences();
-  if (!prefs) return;
+  // No saved preferences (fresh install / cleared storage) still needs the
+  // visual setup below — only the override sections are skipped.
+  const prefs = loadPreferences() || {};
 
   // 1. Character Swapping Config Overrides
   if (prefs.activeMascot === "sprite2") {
@@ -212,13 +184,7 @@ function applyPreferences() {
     cfg.sheet = { ...SPRITE2_PRESET.sheet };
     cfg.scale = SPRITE2_PRESET.scale;
     cfg.states = JSON.parse(JSON.stringify(SPRITE2_PRESET.states));
-  } else if (prefs.activeMascot === "female") {
-    // Baked third mascot: swap the sheet AND remap rows to its layout.
-    cfg.spritesheet = FEMALE_PRESET.spritesheet;
-    cfg.cell = { ...FEMALE_PRESET.cell };
-    cfg.sheet = { ...FEMALE_PRESET.sheet };
-    cfg.scale = FEMALE_PRESET.scale;
-    cfg.states = JSON.parse(JSON.stringify(FEMALE_PRESET.states));
+
   } else if (prefs.activeMascot === "custom") {
     cfg.spritesheet = prefs.customMascotSpritesheet || "assets/spritesheet.orig.webp";
     cfg.cell = {
@@ -321,11 +287,15 @@ async function boot() {
   setInterval(refreshWinPos, 1000);
 
   // 5-minute AFK doze — only when idle (not running / dragging / petting).
+  // While dozing a 💤 drifts up every few seconds so the sleep reads at a glance.
   setInterval(() => {
     if (Date.now() - lastCursorTime > 5 * 60 * 1000) {
       if (!afk && !dragging && !petting && phase !== "running" && cfg.states.sitting) {
         afk = true;
         applyState("sitting");
+        spawnParticle("💤");
+        clearInterval(zzzTimer);
+        zzzTimer = setInterval(() => spawnParticle("💤"), 4000);
       }
     }
   }, 10000);
@@ -397,6 +367,8 @@ function onCursor(gx, gy) {
   // Any movement wakes the pet from its AFK doze.
   if (afk) {
     afk = false;
+    clearInterval(zzzTimer);
+    zzzTimer = null;
     syncAnimToPhase(phase);
   }
 
@@ -436,6 +408,7 @@ function onCursor(gx, gy) {
         if (shakeFlips.length >= SHAKE_FLIPS && !protesting && cfg.states.sitting) {
           protesting = true;
           applyState("sitting");
+          spawnParticle("💢"); // visible "hey, stop that" puff
           clearTimeout(window._shakeTimeout);
           window._shakeTimeout = setTimeout(() => {
             protesting = false;
@@ -471,10 +444,31 @@ function eventTarget(name) {
   return typeof v === "string" ? { play: v } : v;
 }
 
+// Show a message in the speech bubble. The bubble sizes to its text (CSS
+// max-content) and fades/springs in and out; the timer card steps aside while
+// the pet is talking (shell[data-speaking]).
+let speechTimer = null;
+
+function say(text, ms = 6000) {
+  if (!el.speech || !text) return;
+  el.speech.textContent = text;
+  el.shell.dataset.speaking = "true";
+  clearTimeout(speechTimer);
+  speechTimer = setTimeout(() => {
+    el.shell.dataset.speaking = "false";
+  }, ms);
+}
+
 function onSignal(sig) {
   if (typeof sig.source === "string") el.task.textContent = sig.source || "Ready to focus";
   if (typeof sig.detail === "string") el.timer.textContent = sig.detail || "00:00:00";
   if (typeof sig.phase === "string") applyPhase(sig.phase);
+
+  // Speech: an explicit quote always wins; timer events fall back to their
+  // built-in line. Spoken even mid-drag — words are not animations.
+  const line = sig.event ? SPEECH_LINES[sig.event] : null;
+  if (typeof sig.quote === "string" && sig.quote) say(sig.quote);
+  else if (line) say(line.text);
 
   if (dragging) return; // If dragging, ignore incoming animation changes!
 
@@ -492,12 +486,19 @@ function onSignal(sig) {
   }
 
   if (cfg.flashOn && sig.event && cfg.flashOn.includes(sig.event)) pop();
+  if (sig.event === "timerFinish") confettiBurst();
 
   if (play) {
     if (then) baseState = then;
     applyState(play);
   } else if (typeof sig.phase === "string") {
     syncAnimToPhase(sig.phase);
+  }
+
+  // Positive one-shot layered on top (e.g. a wave when the session starts);
+  // it settles back into whatever looping state was just applied.
+  if (line && line.anim && cfg.states[line.anim] && line.anim !== play) {
+    applyState(line.anim);
   }
 }
 
@@ -710,11 +711,18 @@ function wireInput() {
   let startY = 0;
   let lastDragX = null;
 
+  // Tilt the sprite a few degrees into the travel direction (pet.css).
+  const setDragDirection = (direction) => {
+    el.shell.classList.toggle("drag-left", direction === "left");
+    el.shell.classList.toggle("drag-right", direction === "right");
+  };
+
   const beginDrag = (direction) => {
     dragging = true;
     isHovered = false; // cursor left mascot when drag started
     lastDragX = startX;
     el.shell.classList.add("dragging");
+    setDragDirection(direction);
     const prefs = loadPreferences();
     const dragLeftAnim = prefs?.mascotMappings?.dragLeft || "drag_left";
     const dragRightAnim = prefs?.mascotMappings?.dragRight || "drag_right";
@@ -726,7 +734,12 @@ function wireInput() {
     if (!dragging) return;
     dragging = false;
     lastDragX = null;
-    el.shell.classList.remove("dragging");
+    el.shell.classList.remove("dragging", "drag-left", "drag-right");
+    // Squash-and-stretch landing; the class is cleared on animationend so the
+    // idle breathing animation can resume.
+    el.mascot.classList.remove("land");
+    void el.mascot.offsetWidth;
+    el.mascot.classList.add("land");
     void refreshWinPos();   // window landed somewhere new — resync its origin
     syncAnimToPhase(phase); // settle back to the phase's looping state
   };
@@ -760,8 +773,10 @@ function wireInput() {
         const dragRightAnim = prefs?.mascotMappings?.dragRight || "running_right";
         if (currentX < lastDragX - 1) {
           applyState(dragLeftAnim);
+          setDragDirection("left");
         } else if (currentX > lastDragX + 1) {
           applyState(dragRightAnim);
+          setDragDirection("right");
         }
       }
       lastDragX = currentX;
@@ -921,6 +936,14 @@ function wireInput() {
     pokeApp();
   });
 
+  // One-shot transform classes block the idle breathing animation while
+  // present — drop them as soon as their keyframes finish.
+  el.mascot.addEventListener("animationend", (e) => {
+    if (e.animationName === "land" || e.animationName === "pop") {
+      el.mascot.classList.remove("land", "pop");
+    }
+  });
+
   // Reset dragging/hover states on window focus/blur
   window.addEventListener("blur", () => {
     isHovered = false;
@@ -948,20 +971,27 @@ function startPetting() {
   if (petting || collapsed || dragging) return;
   petting = true;
   if (cfg.states.sitting) applyState("sitting"); // press-and-hold → sit down
+  // Affection feedback: a quick burst, then a steady drip of hearts while held.
+  burstPets(3);
+  clearInterval(petBurst);
+  petBurst = setInterval(() => spawnParticle(), reducedMotion ? 600 : 280);
 }
 
 function stopPetting() {
   if (!petting) return;
   petting = false;
+  clearInterval(petBurst);
+  petBurst = null;
   if (!dragging && !oneShot) syncAnimToPhase(phase);
 }
 
-// A single floating heart/star that drifts up from the mascot and fades.
-function spawnParticle() {
+// A single floating emoji that drifts up from the mascot and fades.
+// Defaults to affection (hearts/stars); callers can pass 💤 / 💢 / etc.
+function spawnParticle(char) {
   if (!el.shell) return;
   const p = document.createElement("span");
   p.className = "particle";
-  p.textContent = Math.random() < 0.5 ? "❤️" : "⭐";
+  p.textContent = char || (Math.random() < 0.5 ? "❤️" : "⭐");
   p.style.setProperty("--pdx", `${(Math.random() * 36 - 18).toFixed(0)}px`);
   const mh = parseFloat(getComputedStyle(el.mascot).height) || 150;
   p.style.bottom = `${mh * 0.7}px`;
@@ -972,6 +1002,27 @@ function spawnParticle() {
 
 function burstPets(n) {
   for (let i = 0; i < n; i++) setTimeout(() => spawnParticle(), i * 70);
+}
+
+// Celebration confetti — fired on timerFinish alongside the jump + pop.
+const CONFETTI_COLORS = ["#3385ff", "#10b981", "#f5b14c", "#ef6aa5", "#8b5cf6"];
+
+function confettiBurst() {
+  if (!el.shell) return;
+  const count = reducedMotion ? 6 : 16;
+  for (let i = 0; i < count; i++) {
+    const c = document.createElement("span");
+    c.className = "confetti-piece";
+    c.style.setProperty("--cp-color", CONFETTI_COLORS[i % CONFETTI_COLORS.length]);
+    c.style.setProperty("--cp-dx", `${(Math.random() * 170 - 85).toFixed(0)}px`);
+    c.style.setProperty("--cp-up", `${(-(55 + Math.random() * 70)).toFixed(0)}px`);
+    c.style.setProperty("--cp-down", `${(25 + Math.random() * 45).toFixed(0)}px`);
+    c.style.setProperty("--cp-rot", `${(Math.random() * 540 - 270).toFixed(0)}deg`);
+    c.style.animationDelay = `${(Math.random() * 140).toFixed(0)}ms`;
+    el.shell.appendChild(c);
+    c.addEventListener("animationend", () => c.remove());
+    setTimeout(() => c.remove(), 2200);
+  }
 }
 
 function pokeApp() {

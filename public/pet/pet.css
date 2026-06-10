@@ -12,7 +12,8 @@
 }
 
 :root {
-  --font: "Urbanist", "Segoe UI", system-ui, sans-serif;
+  /* Nunito is loaded in pet.html — rounded and friendly, fits the companion. */
+  --font: "Nunito", "Urbanist", "Segoe UI", system-ui, sans-serif;
 
   /* Dark palette (default — overlays read best dark). Mirrors globals.css. */
   --surface: rgba(24, 25, 27, 0.94);
@@ -31,6 +32,10 @@
 
   --shadow: none;
   --radius: 16px;
+
+  /* Motion tokens — one spring + one soft-out, shared by every interaction. */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-soft: cubic-bezier(0.22, 0.7, 0.3, 1);
 
   /* Glassmorphism custom tokens */
   --surface-glass: rgba(18, 19, 21, 0.78);
@@ -107,7 +112,28 @@ body {
   cursor: grab;
   z-index: 3;
   transform: translateZ(0);       /* own compositor layer → always painted */
+  transform-origin: 50% 100%;
   will-change: background-position;
+  transition: transform 0.18s var(--ease-soft), filter 0.2s ease;
+  /* Idle breathing — barely-there scale from the feet, so the sprite never
+   * feels like a frozen image between frames. One-shot classes (pop/land)
+   * temporarily take over the animation slot, then breathing resumes. */
+  animation: breathe 4.5s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: translateZ(0) scale(1); }
+  50%      { transform: translateZ(0) scaleY(1.014) scaleX(0.995); }
+}
+
+/* Hover — a soft lift, like the pet noticed you. */
+.shell:not(.dragging) .mascot:hover {
+  filter: brightness(1.06) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.18));
+}
+
+/* Accent drop-shadow glow when a focus session is active */
+.shell[data-phase="running"] .mascot {
+  filter: drop-shadow(0 0 10px var(--accent-glow));
 }
 
 /* Soft ground shadow so the mascot doesn't float. Scales proportionally. */
@@ -122,11 +148,26 @@ body {
   border-radius: 50%;
   background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.22), transparent 72%);
   z-index: -1;
+  transition: transform 0.2s var(--ease-soft), opacity 0.2s ease;
 }
 
+/* Picked up — pause breathing, tilt into the drag direction, and shrink the
+ * ground shadow so the pet visibly leaves the floor. */
+.shell.dragging .mascot { animation: none; cursor: grabbing; }
+.shell.dragging .mascot::after { transform: translateX(-50%) scaleX(0.6); opacity: 0.4; }
+.shell.drag-left .mascot  { transform: translateZ(0) rotate(-6deg); }
+.shell.drag-right .mascot { transform: translateZ(0) rotate(6deg); }
 
+/* Released — squash-and-stretch landing, removed by pet.js on animationend. */
+.mascot.land { animation: land 0.45s var(--ease-soft) 1; }
 
-.mascot.pop { animation: pop 0.7s ease 2; }
+@keyframes land {
+  0%   { transform: translateZ(0) scaleY(0.84) scaleX(1.1); }
+  55%  { transform: translateZ(0) scaleY(1.05) scaleX(0.97); }
+  100% { transform: translateZ(0) scale(1); }
+}
+
+.mascot.pop { animation: pop 0.7s var(--ease-spring) 2; }
 
 @keyframes pop {
   0%, 100% { transform: translateZ(0) translateY(0) scale(1); }
@@ -177,6 +218,88 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .particle { animation-duration: 0.6s; }
+}
+
+/* Confetti — spawned by pet.js on timerFinish. Each piece launches up and out,
+ * tumbles, and fades on the way back down. Colors/offsets set inline as vars. */
+.confetti-piece {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--mascot-height, 128px) * 0.6);
+  width: 6px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--cp-color, var(--accent));
+  pointer-events: none;
+  z-index: 7;
+  opacity: 0;
+  animation: confetti 1.3s var(--ease-soft) forwards;
+}
+
+@keyframes confetti {
+  0%   { opacity: 0; transform: translate(-50%, 0) rotate(0deg) scale(0.5); }
+  12%  { opacity: 1; }
+  35%  { transform: translate(calc(-50% + var(--cp-dx, 0px) * 0.7), var(--cp-up, -80px)) rotate(calc(var(--cp-rot, 180deg) * 0.5)) scale(1); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--cp-dx, 0px)), var(--cp-down, 30px)) rotate(var(--cp-rot, 180deg)) scale(0.9); }
+}
+
+/* ===================== speech bubble ====================================== */
+
+/* Pet messages (reminders, "time to focus", break nudges). Sized by content —
+ * width: max-content grows with short lines, max-width wraps long ones. While
+ * visible the timer card fades back so the two never overlap in the small
+ * overlay window (shell[data-speaking] drives the swap). */
+.speech {
+  position: absolute;
+  bottom: calc(var(--mascot-height, 128px) + 16px);
+  left: 50%;
+  margin: 0;
+  width: max-content;
+  max-width: 225px;
+  padding: 8px 13px;
+  font-family: var(--font);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text-highlight);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent),
+    var(--surface-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  pointer-events: none;
+  z-index: 6;
+  opacity: 0;
+  transform: translateX(-50%) translateY(5px) scale(0.92);
+  transform-origin: 50% 100%;
+  transition: opacity 0.22s ease, transform 0.3s var(--ease-spring);
+}
+
+/* Little tail pointing down at the mascot. */
+.speech::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -6px;
+  border: 6px solid transparent;
+  border-top-color: var(--surface-glass);
+  border-bottom: none;
+}
+
+.shell[data-speaking="true"] .speech {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+/* While the pet talks, the timer card steps aside. */
+.shell[data-speaking="true"] .bubble {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ===================== thought bubble ===================================== */
@@ -328,15 +451,13 @@ body {
 
 .timer {
   margin: 0;
-  font-family: "VT323", monospace;
-  font-size: 40px;
-  font-weight: 700;
+  font-family: var(--font);
+  font-size: 34px;
+  font-weight: 800;
   line-height: 1.0;
-  letter-spacing: 2px;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: var(--text-highlight);
-  /* VT323 ships a single weight — thicken the glyphs with a matching stroke. */
-  -webkit-text-stroke: 0.7px currentColor;
   transition: color 0.2s ease;
 }
 
@@ -358,10 +479,11 @@ body {
 .msg {
   margin: 0;
   max-width: 232px;
-  font-family: "Press Start 2P", monospace;
-  font-size: 7px;
-  line-height: 12px;
-  letter-spacing: 0.5px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0;
   text-align: center;
   color: var(--finished);
 }
@@ -373,6 +495,22 @@ body {
 .shell[data-phase="paused"]    .timer { color: var(--paused); }
 .shell[data-phase="finished"]  .dot   { background: var(--finished); }
 .shell[data-phase="finished"]  .timer { color: var(--finished); }
+
+/* The card border quietly takes on the phase color too. */
+.bubble { transition: opacity 0.2s ease, transform 0.2s var(--ease-spring), border-color 0.3s ease; }
+.shell[data-phase="running"]  .bubble { border-color: rgba(51, 133, 255, 0.30); }
+.shell[data-phase="paused"]   .bubble { border-color: rgba(245, 177, 76, 0.32); }
+.shell[data-phase="finished"] .bubble { border-color: rgba(16, 185, 129, 0.34); }
+
+/* Session complete → the card itself does a little cheer. */
+.shell[data-phase="finished"]:not([data-collapsed="true"]) .bubble {
+  animation: bubble-cheer 0.55s var(--ease-spring) 1;
+}
+
+@keyframes bubble-cheer {
+  0%   { transform: translateX(-50%) scale(0.88); }
+  100% { transform: translateX(-50%) scale(1); }
+}
 
 /* ===================== controls (play / pause / open) ===================== */
 
@@ -464,8 +602,20 @@ body {
 
 /* ===================== thought trail ===================================== */
 
+/* Two glass dots between the mascot's head and the card — reads as a thought
+ * bubble, and visually ties the floating timer to the pet. */
 .trail {
-  display: none !important;
+  position: absolute;
+  bottom: calc(var(--mascot-height, 128px) - 4px);
+  left: 50%;
+  margin-left: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  z-index: 2;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
 }
 
 .trail span {
@@ -475,15 +625,13 @@ body {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
-.trail span:nth-child(1) { width: 10px; height: 10px; }
-.trail span:nth-child(2) { width: 7px;  height: 7px; }
-.trail span:nth-child(3) { width: 4px;  height: 4px; }
+.trail span:nth-child(1) { width: 8px; height: 8px; }
+.trail span:nth-child(2) { width: 5px; height: 5px; }
 
 .shell[data-phase="running"] .trail span {
   animation: think 1.6s ease-in-out infinite;
 }
 .trail span:nth-child(2) { animation-delay: 0.18s !important; }
-.trail span:nth-child(3) { animation-delay: 0.36s !important; }
 
 @keyframes think {
   0%, 100% { opacity: 0.5; transform: scale(0.9); }
@@ -523,7 +671,11 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .bubble, .trail span, .mascot::before, .dot { animation: none !important; }
+  .mascot { animation: none; }              /* no breathing */
+  .mascot.pop, .mascot.land { animation-duration: 0.3s; animation-iteration-count: 1; }
+  .confetti-piece { animation-duration: 0.7s; }
   .bubble { transition: opacity 0.15s ease; }
+  .speech { transition: opacity 0.15s ease; }
 }
 
 /* ===================== quick notes / scratchpad ========================== */

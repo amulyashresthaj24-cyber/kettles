@@ -53,10 +53,10 @@
 .kettles *:focus-visible { outline: 2px solid var(--k-accent2); outline-offset: 3px; border-radius: 8px; }
 .k-mono { font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace; font-feature-settings: "tnum" 1; letter-spacing: -0.02em; }
 
-.k-reveal { opacity: 0; transform: translateY(16px); transition: opacity .5s var(--k-ease), transform .5s var(--k-ease); }
-.k-reveal.k-in { opacity: 1; transform: none; }
-.k-stagger > * { opacity: 0; transform: translateY(16px); transition: opacity .45s var(--k-ease), transform .45s var(--k-ease); transition-delay: calc(var(--i, 0) * 50ms); }
-.k-stagger.k-in > * { opacity: 1; transform: none; }
+.k-reveal { opacity: 0; filter: blur(12px); transform: scale(1.08); transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), filter 1.2s cubic-bezier(0.16, 1, 0.3, 1); }
+.k-reveal.k-in { opacity: 1; filter: blur(0px); transform: scale(1); }
+.k-stagger > * { opacity: 0; filter: blur(12px); transform: scale(1.08); transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), filter 1.2s cubic-bezier(0.16, 1, 0.3, 1); transition-delay: calc(var(--i, 0) * 100ms); }
+.k-stagger.k-in > * { opacity: 1; filter: blur(0px); transform: scale(1); }
 
 /* ---------- tactile press + magnetic ---------- */
 .k-press { transition: transform .12s var(--k-ease), box-shadow .24s var(--k-ease), background .2s var(--k-ease), border-color .2s var(--k-ease); }

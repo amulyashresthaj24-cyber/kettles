@@ -30,7 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 dev.log
+next-dev.log
 tauri-*.log
+*.log
 
 # Analysis artifacts
 .graphify_python
@@ -52,4 +54,6 @@ next-env.d.ts
 # OS
 .DS_Store
 Thumbs.db
-.....
+
+# Supabase
+supabase/.temp/
