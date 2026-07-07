@@ -12,6 +12,8 @@
     "global-shortcut:default",
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
-    "core:tray:default"
+    "core:tray:default",
+    "updater:default",
+    "process:default"
   ]
 }

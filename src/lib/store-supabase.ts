@@ -99,8 +99,12 @@ function mergeSessionLists(remoteSessions: Session[], localSessions: Session[]) 
   
   const mergedRemote = remoteSessions.map((remote) => {
     const local = localSessionsMap.get(remote.id);
-    if (local && local.estimateMinutes) {
-      return { ...remote, estimateMinutes: local.estimateMinutes };
+    if (local && (local.estimateMinutes || local.completionAckMinutes)) {
+      return {
+        ...remote,
+        estimateMinutes: local.estimateMinutes ?? remote.estimateMinutes,
+        completionAckMinutes: local.completionAckMinutes ?? remote.completionAckMinutes,
+      };
     }
     return remote;
   });
@@ -206,6 +210,12 @@ interface State {
   stopSession: () => Promise<Session | null>;
   adjustSessionDuration: (id: string, seconds: number) => Promise<void>;
 
+  /** Session id whose completion alarm is currently ringing (transient). */
+  completionAlarmSessionId: string | null;
+  markCompletionAlarm: (sessionId: string, estimateMinutes: number) => void;
+  dismissCompletionAlarm: () => void;
+  extendSession: (minutes: number) => Promise<void>;
+
   setSelectedProject: (id: string | null) => void;
   setSelectedUrgency: (u: Urgency | "all") => void;
   selectedTaskId: string | null;
@@ -222,38 +232,22 @@ interface State {
 
   preferences?: {
     defaultFocusDuration: number;
+    weeklyTargetHours?: number;
     whistleSoundEnabled: boolean;
     alarmSound?: string;
     autoBreakEnabled: boolean;
     autoPauseOnIdleEnabled: boolean;
-    activeMascot?: "kettle" | "sprite2" | "female" | "custom";
-    customMascotSpritesheet?: string;
-    customMascotWidth?: number;
-    customMascotHeight?: number;
-    customMascotCols?: number;
-    customMascotRows?: number;
-    customMascotScale?: number;
-    mascotMappings?: {
-      idle: string;
-      hover: string;
-      dragLeft: string;
-      dragRight: string;
-      complete: string;
-      toggle: string;
-    };
-    mascotFps?: {
-      idle: number;
-      waving: number;
-      jumping: number;
-      waiting: number;
-      review: number;
-      running_left: number;
-      running_right: number;
-    };
+    /** "kettle" = default male mascot. "sprite2" is a legacy persisted alias for "female". */
+    activeMascot?: "kettle" | "sprite2" | "female";
+    /** How often the mascot plays a spontaneous idle gesture. */
+    mascotAnimationFrequency?: "off" | "calm" | "normal" | "lively";
+    /** Looping animation the mascot rests in (state name from pet.config.json). */
+    mascotDefaultAnimation?: string;
     petBreakRemindersEnabled?: boolean;
     petBreakIntervalMinutes?: number;
     petCustomRemindersEnabled?: boolean;
-    petCustomReminders?: Array<{ id: string; text: string; time: string; active: boolean }>;
+    /** days: 0 (Sun) – 6 (Sat); omitted/empty = every day. */
+    petCustomReminders?: Array<{ id: string; text: string; time: string; active: boolean; days?: number[] }>;
     petNotesIntegrationEnabled?: boolean;
   };
   setPreferences: (patch: Partial<NonNullable<State["preferences"]>>) => void;
@@ -267,6 +261,7 @@ persist((set, get) => ({
   tasks: [],
   sessions: [],
   activeSessionId: null,
+  completionAlarmSessionId: null,
   selectedProjectId: null,
   selectedTaskId: null,
   selectedUrgency: "all",
@@ -277,34 +272,14 @@ persist((set, get) => ({
 
   preferences: {
     defaultFocusDuration: 25,
+    weeklyTargetHours: 40,
     whistleSoundEnabled: true,
     alarmSound: "kettle",
     autoBreakEnabled: false,
     autoPauseOnIdleEnabled: true,
     activeMascot: "kettle",
-    customMascotSpritesheet: "assets/spritesheet.orig.webp",
-    customMascotWidth: 192,
-    customMascotHeight: 208,
-    customMascotCols: 8,
-    customMascotRows: 9,
-    customMascotScale: 0.58,
-    mascotMappings: {
-      idle: "waiting",
-      hover: "waving",
-      dragLeft: "running_left",
-      dragRight: "running_right",
-      complete: "jumping",
-      toggle: "review",
-    },
-    mascotFps: {
-      idle: 5,
-      waving: 6,
-      jumping: 10,
-      waiting: 4,
-      review: 5,
-      running_left: 10,
-      running_right: 9,
-    },
+    mascotAnimationFrequency: "normal",
+    mascotDefaultAnimation: "waiting",
     petBreakRemindersEnabled: false,
     petBreakIntervalMinutes: 45,
     petCustomRemindersEnabled: false,
@@ -315,33 +290,13 @@ persist((set, get) => ({
   setPreferences: (patch) => set({
     preferences: {
       defaultFocusDuration: 25,
+      weeklyTargetHours: 40,
       whistleSoundEnabled: true,
       autoBreakEnabled: false,
       autoPauseOnIdleEnabled: true,
       activeMascot: "kettle",
-      customMascotSpritesheet: "assets/spritesheet.orig.webp",
-      customMascotWidth: 192,
-      customMascotHeight: 208,
-      customMascotCols: 8,
-      customMascotRows: 9,
-      customMascotScale: 0.58,
-      mascotMappings: {
-        idle: "waiting",
-        hover: "waving",
-        dragLeft: "running_left",
-        dragRight: "running_right",
-        complete: "jumping",
-        toggle: "review",
-      },
-      mascotFps: {
-        idle: 5,
-        waving: 6,
-        jumping: 10,
-        waiting: 4,
-        review: 5,
-        running_left: 10,
-        running_right: 9,
-      },
+      mascotAnimationFrequency: "normal",
+      mascotDefaultAnimation: "waiting",
       petBreakRemindersEnabled: false,
       petBreakIntervalMinutes: 45,
       petCustomRemindersEnabled: false,
@@ -737,6 +692,45 @@ persist((set, get) => ({
     } finally {
       set({ isLoading: false });
     }
+  },
+
+  markCompletionAlarm: (sessionId, estimateMinutes) => {
+    set({
+      sessions: get().sessions.map((s) =>
+        s.id === sessionId ? { ...s, completionAckMinutes: estimateMinutes } : s
+      ),
+      completionAlarmSessionId: sessionId,
+    });
+  },
+
+  dismissCompletionAlarm: () => {
+    if (get().completionAlarmSessionId) set({ completionAlarmSessionId: null });
+  },
+
+  extendSession: async (minutes) => {
+    const id = get().activeSessionId;
+    if (!id || !minutes || minutes <= 0) return;
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) return;
+    const normalized = normalizeSession(session);
+    if (normalized.state !== "running" && normalized.state !== "paused") return;
+
+    const task = get().tasks.find((t) => t.id === normalized.taskId);
+    const base =
+      normalized.estimateMinutes ??
+      task?.estimateMinutes ??
+      Math.ceil(elapsedFor(normalized) / 60);
+
+    // estimateMinutes stays local-only (matches startSession); the new target
+    // exceeds completionAckMinutes, so the completion detector re-arms.
+    set({
+      sessions: get().sessions.map((s) =>
+        s.id === id ? { ...s, estimateMinutes: base + minutes } : s
+      ),
+      completionAlarmSessionId: null,
+    });
+
+    if (normalized.state === "paused") await get().resumeSession();
   },
 
   resumeSession: async () => {
@@ -1180,6 +1174,7 @@ persist((set, get) => ({
     tasks: [],
     sessions: [],
     activeSessionId: null,
+    completionAlarmSessionId: null,
     user: null,
     error: null,
     lastDailyArchiveDate: undefined,

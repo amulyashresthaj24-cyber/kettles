@@ -24,6 +24,8 @@ const el = {
   mascot: document.getElementById("mascot"),
   bubble: document.getElementById("bubble"),
   speech: document.getElementById("speech"),
+  speechText: document.getElementById("speechText"),
+  speechActions: document.getElementById("speechActions"),
   dot: document.getElementById("dot"),
   label: document.getElementById("label"),
   timer: document.getElementById("timer"),
@@ -39,11 +41,14 @@ const el = {
   open: document.getElementById("open"),
   collapse: document.getElementById("collapse"),
   reopen: document.getElementById("reopen"),
-  noteToggle: document.getElementById("noteToggle"),
-  notePane: document.getElementById("notePane"),
+  completeActions: document.getElementById("completeActions"),
+  finishNow: document.getElementById("finishNow"),
+  notepad: document.getElementById("notepad"),
+  notepadTitle: document.getElementById("notepadTitle"),
   noteInput: document.getElementById("noteInput"),
   saveNote: document.getElementById("saveNote"),
   cancelNote: document.getElementById("cancelNote"),
+  closeNote: document.getElementById("closeNote"),
 };
 
 window.addEventListener("error", (e) =>
@@ -71,22 +76,23 @@ const SPEECH_LINES = {
 const MASCOT_HEIGHT = 128; // px; the mascot box height, matches pet.css
 
 // ---------------------------------------------------------------------------
-// Second mascot ("sprite2") — baked preset for assets/sprite-2.clean.webp.
+// Female mascot ("female") — baked preset for assets/sprite-2.clean.webp.
+// (The newer sprite-female sheet rendered with bugs, so the female slot uses
+// the proven companion atlas. "sprite2" is a legacy persisted id that
+// resolves to this preset too.)
 //
 // The source art (sprite-2 design.webp) shipped opaque, with an opaque checker
-// background and frames packed un-centered in their 8x9 grid (which bled the
-// next row's head into a cell). assets/sprite-2.clean.webp is the processed
-// atlas: background flood-filled to transparent and every frame re-centered in
-// a uniform 118x197 cell, so cells never bleed and the overlay stays see-through.
-// Row meanings differ from the kettle sheet, so this preset also remaps `states`
-// to the correct rows. State NAMES are kept identical to the kettle's so all
-// existing event / phase / mapping / fps logic keeps working untouched.
+// background and frames packed un-centered in their 8x9 grid. The .clean.webp
+// atlas has the background flood-filled to transparent and every frame
+// re-centered in a uniform 118x197 cell. Row meanings differ from the default
+// sheet, so this preset remaps `states` while keeping the state NAMES
+// identical so all event / phase / default-animation logic works untouched.
 //
 //   row 0 idle (standing)      row 1 walk-right        row 2 walk-left
 //   row 3 waving               row 4 jumping           row 5 standing (neutral)
 //   row 6 arms-crossed         row 7 laptop (working)  row 8 thinking (chin)
 // ---------------------------------------------------------------------------
-const SPRITE2_PRESET = {
+const FEMALE_PRESET = {
   spritesheet: "assets/sprite-2.clean.webp",
   cell: { width: 118, height: 197 },
   sheet: { cols: 8, rows: 9 },
@@ -140,6 +146,7 @@ let lastCursorGx = null;
 let lastCursorGy = null;
 let sprinting = false;
 let afk = false;
+let runIdleNudged = false;   // true after the "still working?" nudge fires, until the cursor moves
 let shakeDir = 0;            // last horizontal travel sign (-1 | 0 | 1)
 let shakeFlips = [];         // timestamps of recent direction reversals
 let protesting = false;      // true while playing the shake-protest pose
@@ -170,60 +177,43 @@ function loadPreferences() {
   }
 }
 
+// Spontaneous-gesture cadence per the "Animation Frequency" setting.
+// 0 = off (the mascot only reacts to the timer and the mouse).
+const GESTURE_INTERVALS = { off: 0, calm: 150000, normal: 60000, lively: 25000 };
+let gestureEveryMs = GESTURE_INTERVALS.normal;
+
 function applyPreferences() {
   if (!cfg) return;
   // No saved preferences (fresh install / cleared storage) still needs the
   // visual setup below — only the override sections are skipped.
   const prefs = loadPreferences() || {};
 
-  // 1. Character Swapping Config Overrides
-  if (prefs.activeMascot === "sprite2") {
-    // Baked second mascot: swap the sheet AND remap rows to its layout.
-    cfg.spritesheet = SPRITE2_PRESET.spritesheet;
-    cfg.cell = { ...SPRITE2_PRESET.cell };
-    cfg.sheet = { ...SPRITE2_PRESET.sheet };
-    cfg.scale = SPRITE2_PRESET.scale;
-    cfg.states = JSON.parse(JSON.stringify(SPRITE2_PRESET.states));
-
-  } else if (prefs.activeMascot === "custom") {
-    cfg.spritesheet = prefs.customMascotSpritesheet || "assets/spritesheet.orig.webp";
-    cfg.cell = {
-      width: prefs.customMascotWidth ?? 192,
-      height: prefs.customMascotHeight ?? 208
-    };
-    cfg.sheet = {
-      cols: prefs.customMascotCols ?? 8,
-      rows: prefs.customMascotRows ?? 9
-    };
-    cfg.scale = prefs.customMascotScale ?? 0.58;
+  // 1. Character swap — two mascots only: the default male (kettle config) and
+  //    the female preset. Legacy ids ("sprite2", "custom") resolve sensibly.
+  const preset =
+    prefs.activeMascot === "female" || prefs.activeMascot === "sprite2"
+      ? FEMALE_PRESET
+      : null;
+  if (preset) {
+    cfg.spritesheet = preset.spritesheet;
+    cfg.cell = { ...preset.cell };
+    cfg.sheet = { ...preset.sheet };
+    cfg.scale = preset.scale;
+    cfg.states = JSON.parse(JSON.stringify(preset.states));
   }
 
-  // 2. Action Animation Mapping Overrides
-  if (prefs.mascotMappings) {
+  // 2. Default resting animation (dropdown in settings) — the looping state
+  //    the mascot holds while nothing is happening.
+  const rest = prefs.mascotDefaultAnimation;
+  if (rest && cfg.states[rest] && cfg.states[rest].loop) {
     cfg.phaseStates = cfg.phaseStates || {};
-    cfg.phaseStates.idle = prefs.mascotMappings.idle || "waiting";
-    cfg.phaseStates.running = prefs.mascotMappings.toggle || "review";
-    cfg.phaseStates.paused = prefs.mascotMappings.toggle || "review";
-    cfg.phaseStates.finished = prefs.mascotMappings.idle || "waiting";
-
-    cfg.events = cfg.events || {};
-    cfg.events.hover = prefs.mascotMappings.hover || "waving";
-    cfg.events.click = prefs.mascotMappings.hover || "waving";
-    cfg.events.timerStart = prefs.mascotMappings.toggle || "review";
-    cfg.events.timerResume = prefs.mascotMappings.toggle || "review";
-    cfg.events.timerPause = prefs.mascotMappings.toggle || "review";
-    cfg.events.timerBreak = prefs.mascotMappings.idle || "waiting";
-    cfg.events.timerFinish = { play: prefs.mascotMappings.complete || "jumping", then: prefs.mascotMappings.idle || "waiting" };
+    cfg.phaseStates.idle = rest;
+    cfg.phaseStates.finished = rest;
   }
 
-  // 3. FPS Speeds Overrides
-  if (prefs.mascotFps) {
-    for (const [key, fpsVal] of Object.entries(prefs.mascotFps)) {
-      if (cfg.states[key]) {
-        cfg.states[key].fps = fpsVal;
-      }
-    }
-  }
+  // 3. Spontaneous gesture cadence.
+  gestureEveryMs =
+    GESTURE_INTERVALS[prefs.mascotAnimationFrequency] ?? GESTURE_INTERVALS.normal;
 
   // Apply visual sheet sizes and styles dynamically
   scale = cfg.scale || 0.58;
@@ -238,11 +228,6 @@ function applyPreferences() {
   el.mascot.style.marginLeft = `${-cw / 2}px`;
   el.mascot.style.backgroundImage = `url("${cfg.spritesheet}")`;
   el.mascot.style.backgroundSize = `${cfg.sheet.cols * cw}px ${cfg.sheet.rows * ch}px`;
-  
-  // 4. Notes Integration Toggle
-  if (el.noteToggle) {
-    el.noteToggle.hidden = !prefs.petNotesIntegrationEnabled;
-  }
   
   // Clear layout cache to force re-render
   lastActiveScale = null;
@@ -289,7 +274,24 @@ async function boot() {
   // 5-minute AFK doze — only when idle (not running / dragging / petting).
   // While dozing a 💤 drifts up every few seconds so the sleep reads at a glance.
   setInterval(() => {
-    if (Date.now() - lastCursorTime > 5 * 60 * 1000) {
+    const idleMs = Date.now() - lastCursorTime;
+
+    // Running + mouse idle > 1 min → wave and nudge. Fires once per idle
+    // stretch (the latch clears the moment the cursor moves again).
+    if (
+      idleMs > 60 * 1000 &&
+      phase === "running" &&
+      !runIdleNudged &&
+      !dragging &&
+      !petting
+    ) {
+      runIdleNudged = true;
+      if (cfg.states.waving) applyState("waving");
+      say("Are you doing your work?", { kind: "reminder" });
+    }
+
+    // 5-minute AFK doze — only when idle (not running / dragging / petting).
+    if (idleMs > 5 * 60 * 1000) {
       if (!afk && !dragging && !petting && phase !== "running" && cfg.states.sitting) {
         afk = true;
         applyState("sitting");
@@ -299,6 +301,18 @@ async function boot() {
       }
     }
   }, 10000);
+
+  // Gentle sign of life: a brief gesture on the user's chosen cadence
+  // ("Animation Frequency" in settings), so the overlay is never fully frozen
+  // but also never continuously animates. 0 = off.
+  let lastGestureAt = Date.now();
+  setInterval(() => {
+    if (!gestureEveryMs || Date.now() - lastGestureAt < gestureEveryMs) return;
+    if (collapsed || dragging || petting || afk || oneShot || isHovered) return;
+    if (phase === "finished") return; // don't disturb the centered celebration
+    lastGestureAt = Date.now();
+    if (cfg.states.waving) applyState("waving");
+  }, 5000);
 
   wireInput();
   applyPhase("idle");
@@ -362,14 +376,19 @@ function setClickThrough(next) {
 function onCursor(gx, gy) {
   if (typeof gx !== "number" || typeof gy !== "number") return;
   const now = Date.now();
-  const dt = now - lastCursorTime;
+  // The cursor thread emits ~60Hz even when the mouse is still, so "idle" is
+  // measured by an actual position change — not just receiving an event.
+  const moved = lastCursorGx === null || gx !== lastCursorGx || gy !== lastCursorGy;
 
-  // Any movement wakes the pet from its AFK doze.
-  if (afk) {
-    afk = false;
-    clearInterval(zzzTimer);
-    zzzTimer = null;
-    syncAnimToPhase(phase);
+  // Any movement wakes the pet from its AFK doze / clears the idle nudge latch.
+  if (moved) {
+    runIdleNudged = false;
+    if (afk) {
+      afk = false;
+      clearInterval(zzzTimer);
+      zzzTimer = null;
+      syncAnimToPhase(phase);
+    }
   }
 
   // Window-relative CSS px (subtract window origin, divide by DPR).
@@ -377,51 +396,22 @@ function onCursor(gx, gy) {
   const relX = (gx - winPos.x) / dpr;
   const relY = (gy - winPos.y) / dpr;
 
-  // Hit-test the mascot + bubble + chevron; capture the mouse only over them.
-  const over = hitTest(el.mascot, relX, relY) || hitTest(el.bubble, relX, relY) || hitTest(el.hideToggle, relX, relY);
+  // Hit-test the mascot + bubble + chevron + open notepad (+ speech bubble
+  // while it has actions showing); capture the mouse only over them.
+  const over =
+    hitTest(el.mascot, relX, relY) ||
+    hitTest(el.bubble, relX, relY) ||
+    hitTest(el.hideToggle, relX, relY) ||
+    (el.notepad && !el.notepad.hidden && hitTest(el.notepad, relX, relY)) ||
+    (el.shell.dataset.speaking === "true" &&
+      el.speechActions && !el.speechActions.hidden &&
+      hitTest(el.speech, relX, relY));
   interactive = over;
   if (!dragging) setClickThrough(!over);
 
-  // Cursor-driven moods only when active (not hidden / dragged / petted).
-  if (!collapsed && !dragging && !petting && lastCursorGx !== null && dt > 0) {
-    const dx = gx - lastCursorGx;
-    const dist = Math.hypot(dx, gy - lastCursorGy);
-    const speed = dist / dt; // px per ms
+  // (No fast-flick or shake reactions — cursor speed no longer triggers poses.)
 
-    // Fast flick (> ~3 px/ms) → the pet waves at you.
-    if (speed > 3.0 && !sprinting && cfg.states.waving) {
-      sprinting = true;        // reused as a "just waved" cooldown latch
-      applyState("waving");
-      clearTimeout(window._sprintTimeout);
-      window._sprintTimeout = setTimeout(() => {
-        sprinting = false;
-        if (!oneShot) syncAnimToPhase(phase);
-      }, 700);
-    }
-
-    // Frantic shake (>= 4 direction reversals in 600ms) → sit down.
-    if (Math.abs(dx) > SHAKE_DEADZONE) {
-      const dir = dx < 0 ? -1 : 1;
-      if (shakeDir !== 0 && dir !== shakeDir) {
-        shakeFlips.push(now);
-        shakeFlips = shakeFlips.filter((t) => now - t < SHAKE_WINDOW);
-        if (shakeFlips.length >= SHAKE_FLIPS && !protesting && cfg.states.sitting) {
-          protesting = true;
-          applyState("sitting");
-          spawnParticle("💢"); // visible "hey, stop that" puff
-          clearTimeout(window._shakeTimeout);
-          window._shakeTimeout = setTimeout(() => {
-            protesting = false;
-            shakeFlips = [];
-            syncAnimToPhase(phase);
-          }, 2000);
-        }
-      }
-      shakeDir = dir;
-    }
-  }
-
-  lastCursorTime = now;
+  if (moved) lastCursorTime = now; // only real movement resets the idle clock
   lastCursorGx = gx;
   lastCursorGy = gy;
 }
@@ -449,26 +439,77 @@ function eventTarget(name) {
 // the pet is talking (shell[data-speaking]).
 let speechTimer = null;
 
-function say(text, ms = 6000) {
+// Reminders stay up much longer than ambient chatter — they carry actions.
+const SPEECH_DURATIONS = { chat: 6000, reminder: 15000, break: 25000 };
+
+// Break nudges get inline actions: snooze routes back to the host.
+const BREAK_ACTIONS = [
+  { label: "Snooze 5m", action: "snoozeBreak" },
+  { label: "OK" },
+];
+
+function hideSpeech() {
+  el.shell.dataset.speaking = "false";
+  if (el.speechActions) {
+    el.speechActions.hidden = true;
+    el.speechActions.innerHTML = "";
+  }
+}
+
+function say(text, opts = {}) {
   if (!el.speech || !text) return;
-  el.speech.textContent = text;
+  const kind = opts.kind || "chat";
+  el.speechText.textContent = text;
+  el.speech.dataset.kind = kind;
+
+  if (el.speechActions) {
+    el.speechActions.innerHTML = "";
+    const actions = opts.actions || [];
+    for (const a of actions) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn speech-btn";
+      btn.textContent = a.label;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (a.action) emit("pet://control", { action: a.action, at: Date.now() });
+        hideSpeech();
+      });
+      el.speechActions.appendChild(btn);
+    }
+    el.speechActions.hidden = actions.length === 0;
+  }
+
   el.shell.dataset.speaking = "true";
   clearTimeout(speechTimer);
-  speechTimer = setTimeout(() => {
-    el.shell.dataset.speaking = "false";
-  }, ms);
+  speechTimer = setTimeout(hideSpeech, opts.ms || SPEECH_DURATIONS[kind] || 6000);
 }
 
 function onSignal(sig) {
   if (typeof sig.source === "string") el.task.textContent = sig.source || "Ready to focus";
   if (typeof sig.detail === "string") el.timer.textContent = sig.detail || "00:00:00";
   if (typeof sig.phase === "string") applyPhase(sig.phase);
+  // Extend chips: the host re-asserts this every second, so a pet opened
+  // mid-alarm converges and the chips hide again after finish/extend.
+  if (typeof sig.showExtend === "boolean") {
+    setExtendVisible(sig.showExtend && phase === "finished");
+  }
 
   // Speech: an explicit quote always wins; timer events fall back to their
-  // built-in line. Spoken even mid-drag — words are not animations.
+  // built-in line. Spoken even mid-drag — words are not animations. While the
+  // extend chips are up the card must stay visible (speech hides it), so the
+  // completion line is skipped — the card's own message covers it.
   const line = sig.event ? SPEECH_LINES[sig.event] : null;
-  if (typeof sig.quote === "string" && sig.quote) say(sig.quote);
-  else if (line) say(line.text);
+  const quoteKind = sig.quoteKind || (sig.event === "timerBreak" ? "break" : "chat");
+  const quoteActions = quoteKind === "break" ? BREAK_ACTIONS : null;
+  if (sig.event === "timerFinish" && sig.showExtend === true) {
+    hideSpeech();
+    clearTimeout(speechTimer);
+  } else if (typeof sig.quote === "string" && sig.quote) {
+    say(sig.quote, { kind: quoteKind, actions: quoteActions });
+  } else if (line) {
+    say(line.text, { kind: quoteKind, actions: quoteActions });
+  }
 
   if (dragging) return; // If dragging, ignore incoming animation changes!
 
@@ -490,7 +531,9 @@ function onSignal(sig) {
 
   if (play) {
     if (then) baseState = then;
-    applyState(play);
+    // timerFinish's jump is deferred to applyPhase so it fires AFTER the pet
+    // reaches screen center — the celebration lands in the middle, not mid-slide.
+    if (sig.event !== "timerFinish") applyState(play);
   } else if (typeof sig.phase === "string") {
     syncAnimToPhase(sig.phase);
   }
@@ -514,15 +557,24 @@ function applyPhase(next) {
   el.shell.dataset.phase = next;
   el.label.textContent = PHASE_LABELS[next];
   updateControls(next);
-  // Hop to screen center on completion; hop back when leaving the finished state.
+  // The extend chips only exist inside the finished state.
+  if (next !== "finished") setExtendVisible(false);
+  // Hop to screen center on completion, THEN jump — so the celebration lands
+  // in the middle of the screen and the flow reads cleanly. Hop back when
+  // leaving the finished state.
   if (changed) {
-    if (next === "finished") centerOnScreen();
-    else if (prevPhase === "finished") restorePosition();
+    if (next === "finished") {
+      centerOnScreen().then(() => {
+        if (phase === "finished" && cfg.states.jumping) applyState("jumping");
+      });
+    } else if (prevPhase === "finished") {
+      restorePosition();
+    }
   }
   // Completion message: shown only while finished (task name stays above it).
   if (el.msg) {
     if (next === "finished") {
-      el.msg.textContent = "You have completed task!";
+      el.msg.textContent = extendVisible ? "Time's up! Keep going?" : "You have completed task!";
       el.msg.hidden = false;
     } else {
       el.msg.hidden = true;
@@ -531,6 +583,25 @@ function applyPhase(next) {
   // Surface a freshly-finished session — but only on the transition, so the
   // user can still collapse it afterwards (this fires every second otherwise).
   if (changed && next === "finished" && collapsed) setCollapsed(false);
+}
+
+// Show/hide the timer-complete extend chips. While shown, force the window
+// clickable so the chips work the instant the pet lands mid-screen.
+let extendVisible = false;
+
+function setExtendVisible(show) {
+  if (!el.completeActions || extendVisible === show) return;
+  extendVisible = show;
+  el.completeActions.hidden = !show;
+  if (show) {
+    if (el.msg && phase === "finished") {
+      el.msg.textContent = "Time's up! Keep going?";
+      el.msg.hidden = false;
+    }
+    setClickThrough(false);
+  } else {
+    setClickThrough(!interactive);
+  }
 }
 
 // Pause while running, Play while paused; hidden when idle/finished.
@@ -626,15 +697,16 @@ function draw(now) {
 
   const frameMs = 1000 / s.fps;
 
-  // Frozen while collapsed: hold the current frame (no animation). The sprite
-  // still gets its position written each rAF so the layer stays painted.
-  // Also freeze loop animations at frame 0 when idle (not hovered, not dragging) and collapsed
-  // — this gives complete stillness when the user isn't interacting and collapsed.
-  const isIdle = collapsed && !isHovered && !dragging && !oneShot && s.loop;
-  if (isIdle) {
+  // At rest, loop states hold a still frame — the overlay stays calm instead
+  // of churning frames continuously (which reads as distracting). Only
+  // interaction (hover, drag, petting) and one-shots (wave / jump / a
+  // once-a-minute gesture) actually animate. The sprite still gets its
+  // position written each rAF so the layer stays painted.
+  const atRest = !isHovered && !dragging && !petting && !oneShot && s.loop;
+  if (atRest) {
     // Pin to frame 0 — the mascot holds a still pose
     frame = 0;
-  } else if (!collapsed && now - lastTick >= frameMs) {
+  } else if (now - lastTick >= frameMs) {
     lastTick = now;
     frame += 1;
     if (frame >= s.frames) {
@@ -709,39 +781,29 @@ function wireInput() {
   let onMascot = false;
   let startX = 0;
   let startY = 0;
-  let lastDragX = null;
 
-  // Tilt the sprite a few degrees into the travel direction (pet.css).
-  const setDragDirection = (direction) => {
-    el.shell.classList.toggle("drag-left", direction === "left");
-    el.shell.classList.toggle("drag-right", direction === "right");
-  };
-
-  const beginDrag = (direction) => {
+  // Drag = grab-and-move the window while the pet stays SEATED (no walk/tilt).
+  const beginDrag = () => {
+    if (dragging) return;
     dragging = true;
     isHovered = false; // cursor left mascot when drag started
-    lastDragX = startX;
+    if (!petting && cfg.states.sitting) applyState("sitting"); // ensure seated
     el.shell.classList.add("dragging");
-    setDragDirection(direction);
-    const prefs = loadPreferences();
-    const dragLeftAnim = prefs?.mascotMappings?.dragLeft || "drag_left";
-    const dragRightAnim = prefs?.mascotMappings?.dragRight || "drag_right";
-    applyState(direction === "left" ? dragLeftAnim : dragRightAnim);
     getCurrentWindow?.()?.startDragging?.();
   };
 
   const endDrag = () => {
     if (!dragging) return;
     dragging = false;
-    lastDragX = null;
-    el.shell.classList.remove("dragging", "drag-left", "drag-right");
+    pressed = false;
+    el.shell.classList.remove("dragging");
     // Squash-and-stretch landing; the class is cleared on animationend so the
     // idle breathing animation can resume.
     el.mascot.classList.remove("land");
     void el.mascot.offsetWidth;
     el.mascot.classList.add("land");
     void refreshWinPos();   // window landed somewhere new — resync its origin
-    syncAnimToPhase(phase); // settle back to the phase's looping state
+    if (petting) stopPetting(); else syncAnimToPhase(phase);
   };
 
   el.shell.addEventListener("mousedown", (e) => {
@@ -752,11 +814,12 @@ function wireInput() {
     onMascot = e.target === el.mascot;
     startX = e.screenX;
     startY = e.screenY;
-    // Press-and-hold on the mascot = petting (joy pose + particles). If the
-    // pointer then travels past the drag threshold it becomes a drag instead.
+    // Press-and-hold on the mascot = sit. A short delay lets a quick click /
+    // double-click pass through without flashing the sit pose. Once seated,
+    // moving the mouse drags the window (still seated).
     if (onMascot) {
       clearTimeout(petTimer);
-      petTimer = setTimeout(() => { if (pressed && !dragged) startPetting(); }, 220);
+      petTimer = setTimeout(() => { if (pressed) startPetting(); }, 150);
     }
   });
 
@@ -765,31 +828,14 @@ function wireInput() {
       endDrag();
       return;
     }
-    if (dragging) {
-      const currentX = e.screenX;
-      if (lastDragX !== null) {
-        const prefs = loadPreferences();
-        const dragLeftAnim = prefs?.mascotMappings?.dragLeft || "running_left";
-        const dragRightAnim = prefs?.mascotMappings?.dragRight || "running_right";
-        if (currentX < lastDragX - 1) {
-          applyState(dragLeftAnim);
-          setDragDirection("left");
-        } else if (currentX > lastDragX + 1) {
-          applyState(dragRightAnim);
-          setDragDirection("right");
-        }
-      }
-      lastDragX = currentX;
-      return;
-    }
+    if (dragging) return; // seated drag — the OS moves the window, pose stays put
     if (!pressed) return;
     if (Math.hypot(e.screenX - startX, e.screenY - startY) > DRAG_THRESHOLD) {
       pressed = false;
       dragged = true;
-      clearTimeout(petTimer);   // moved too far — this is a drag, not a pet
-      if (petting) stopPetting();
-      const direction = (e.screenX < startX) ? "left" : "right";
-      beginDrag(direction);
+      clearTimeout(petTimer);
+      if (!petting) startPetting(); // sit first, then drag from the seated pose
+      beginDrag();
     }
   });
 
@@ -851,17 +897,39 @@ function wireInput() {
     pokeApp();
   });
 
-  // Scratchpad Note Handlers
+  // Timer-complete chips: extend the session or finish it from the pet.
+  el.completeActions?.querySelectorAll("[data-extend]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const minutes = Number(btn.dataset.extend) || 5;
+      emit("pet://control", { action: "extend", minutes, at: Date.now() });
+      setExtendVisible(false); // optimistic — the host confirms via pet://state
+    });
+  });
+
+  el.finishNow?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    emit("pet://control", { action: "complete", at: Date.now() });
+    setExtendVisible(false);
+  });
+
+  // Notepad handlers — right-click opens a full notepad panel that replaces
+  // the timer card while open (shell[data-noting] hides the card via CSS).
   let noteOpen = false;
 
   const toggleNotePane = (show) => {
     noteOpen = show;
-    el.notePane.hidden = !show;
-    el.timer.hidden = show;
-    el.task.hidden = show;
-    if (el.msg) el.msg.hidden = show || phase !== "finished";
-    
+    if (!el.notepad) return;
+    el.notepad.hidden = !show;
+    el.shell.dataset.noting = String(show);
+
     if (show) {
+      hideSpeech(); // the notepad owns the space above the mascot
+      // Title mirrors where the host will file the note (session vs new task).
+      if (el.notepadTitle) {
+        el.notepadTitle.textContent =
+          phase === "running" || phase === "paused" ? "Session note" : "Quick note";
+      }
       el.noteInput.value = "";
       el.noteInput.focus();
       setClickThrough(false); // capture keyboard focus
@@ -870,12 +938,22 @@ function wireInput() {
     }
   };
 
-  el.noteToggle?.addEventListener("click", (e) => {
+  // Right-click the mascot to jot a quick note (when the setting is on).
+  el.mascot.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
     e.stopPropagation();
+    if (dragging) return;
+    const prefs = loadPreferences();
+    if (!prefs?.petNotesIntegrationEnabled) return;
     toggleNotePane(!noteOpen);
   });
 
   el.cancelNote?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleNotePane(false);
+  });
+
+  el.closeNote?.addEventListener("click", (e) => {
     e.stopPropagation();
     toggleNotePane(false);
   });
@@ -903,9 +981,8 @@ function wireInput() {
   el.mascot.addEventListener("mouseenter", () => {
     if (collapsed || dragging) return;
     isHovered = true;
-    const prefs = loadPreferences();
-    const hoverAnim = prefs?.mascotMappings?.hover || "review"; // open the book
-    applyState(hoverAnim); // Hovering always plays hover mapped anim
+    const t = eventTarget("hover");
+    if (t && cfg.states[t.play]) applyState(t.play);
   });
 
   el.mascot.addEventListener("mouseleave", () => {
@@ -919,8 +996,8 @@ function wireInput() {
   el.mascot.addEventListener("click", () => {
     if (dragging) return;
     const prefs = loadPreferences();
-    if (prefs?.activeMascot === "sprite2") {
-      // Companion mascot: clicking blows a flying kiss (hand-up pose + 💋).
+    if (prefs?.activeMascot === "sprite2" || prefs?.activeMascot === "female") {
+      // Companion mascots: clicking blows a flying kiss (hand-up pose + 💋).
       flyKiss();
       if (cfg.states.waving) applyState("waving");
     }
@@ -959,9 +1036,6 @@ function wireInput() {
 // Which pose to play while being petted — prefer the click event's state,
 // fall back to a happy wave.
 function joyState() {
-  const prefs = loadPreferences();
-  const m = prefs?.mascotMappings?.click;
-  if (m && cfg.states[m]) return m;
   const t = eventTarget("click");
   if (t && cfg.states[t.play]) return t.play;
   return cfg.states.waving ? "waving" : "idle";
@@ -970,11 +1044,8 @@ function joyState() {
 function startPetting() {
   if (petting || collapsed || dragging) return;
   petting = true;
-  if (cfg.states.sitting) applyState("sitting"); // press-and-hold → sit down
-  // Affection feedback: a quick burst, then a steady drip of hearts while held.
-  burstPets(3);
-  clearInterval(petBurst);
-  petBurst = setInterval(() => spawnParticle(), reducedMotion ? 600 : 280);
+  // Press-and-hold simply sits the pet down — no hearts/particles.
+  if (cfg.states.sitting) applyState("sitting");
 }
 
 function stopPetting() {

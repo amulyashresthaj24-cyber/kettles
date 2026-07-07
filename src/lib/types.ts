@@ -75,4 +75,6 @@ export interface Session {
   notes?: SessionNote[];
   frozenAt?: number;
   estimateMinutes?: number;
+  /** Estimate value the completion alarm already fired at (local-only latch). */
+  completionAckMinutes?: number;
 }

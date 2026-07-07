@@ -15,7 +15,6 @@ import {
   CheckCircle,
 } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
-import { petSignal } from "@/lib/pet";
 import { formatDuration, formatHMS, formatMinSec, formatMSS, formatWallTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,104 +24,11 @@ import { AddTaskModal } from "@/components/AddTaskModal";
 import { AddProjectModal } from "@/components/AddProjectModal";
 import { TaskFinishedState } from "@/components/TaskFinishedState";
 import type { Project, Session, Task } from "@/lib/types";
-import { AlarmSound, ALARM_SOUNDS } from "@/lib/constants";
 
 const URGENCY_ORDER = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
 const FOCUS_RING_SIZE = 320;
 const FOCUS_RING_R = 150;
 const FOCUS_RING_CIRC = 2 * Math.PI * FOCUS_RING_R;
-
-function playBell(ctx: AudioContext) {
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.connect(gain); gain.connect(ctx.destination);
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(880, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 1.5);
-  gain.gain.setValueAtTime(0.4, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
-  osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 1.5);
-}
-
-function playChime(ctx: AudioContext) {
-  [523, 659, 784, 1047].forEach((freq, i) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.type = "sine"; osc.frequency.value = freq;
-    const t = ctx.currentTime + i * 0.2;
-    gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(0.3, t + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
-    osc.start(t); osc.stop(t + 0.8);
-  });
-}
-
-function playDigital(ctx: AudioContext) {
-  for (let i = 0; i < 3; i++) {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.type = "square"; osc.frequency.value = 880;
-    const t = ctx.currentTime + i * 0.25;
-    gain.gain.setValueAtTime(0.15, t);
-    gain.gain.setValueAtTime(0, t + 0.15);
-    osc.start(t); osc.stop(t + 0.15);
-  }
-}
-
-function playGentle(ctx: AudioContext) {
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.connect(gain); gain.connect(ctx.destination);
-  osc.type = "sine"; osc.frequency.value = 528;
-  gain.gain.setValueAtTime(0, ctx.currentTime);
-  gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.5);
-  gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 1.5);
-  gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 2.5);
-  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 3);
-  osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 3);
-}
-
-function playPulse(ctx: AudioContext) {
-  for (let i = 0; i < 4; i++) {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.type = "sine"; osc.frequency.value = 660;
-    const t = ctx.currentTime + i * 0.4;
-    gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-    osc.start(t); osc.stop(t + 0.35);
-  }
-}
-
-function triggerAlarmSound(ctx: AudioContext, type: AlarmSound, kettleAudioRef?: React.MutableRefObject<HTMLAudioElement | null>) {
-  if (type === "kettle") {
-    if (kettleAudioRef) {
-      if (!kettleAudioRef.current) {
-        const origin = typeof window !== "undefined" ? window.location.origin : "";
-        kettleAudioRef.current = new Audio(`${origin}/sounds/kettle-whistle.ogg`);
-        kettleAudioRef.current.loop = true;
-        kettleAudioRef.current.volume = 0.4;
-      }
-      kettleAudioRef.current.play().catch(() => {});
-    }
-    return;
-  } else {
-    if (kettleAudioRef && kettleAudioRef.current) {
-      kettleAudioRef.current.pause();
-    }
-  }
-  switch (type) {
-    case "bell": playBell(ctx); break;
-    case "chime": playChime(ctx); break;
-    case "digital": playDigital(ctx); break;
-    case "gentle": playGentle(ctx); break;
-    case "pulse": playPulse(ctx); break;
-  }
-}
 
 function toTimeInput(ms: number) {
   const d = new Date(ms);
@@ -239,6 +145,9 @@ export default function TimerPage() {
   const deleteSessionNote = useApp((s) => s.deleteSessionNote);
   const addTask = useApp((s) => s.addTask);
   const setTaskStatus = useApp((s) => s.setTaskStatus);
+  const completionAlarmSessionId = useApp((s) => s.completionAlarmSessionId);
+  const dismissCompletionAlarm = useApp((s) => s.dismissCompletionAlarm);
+  const extendSession = useApp((s) => s.extendSession);
 
   const [taskId, setTaskId] = useState("");
   const [projectId, setProjectId] = useState("");
@@ -250,7 +159,6 @@ export default function TimerPage() {
   const [showQuickNote, setShowQuickNote] = useState(false);
   const [noteInput, setNoteInput] = useState("");
   const [noteWarning, setNoteWarning] = useState("");
-  const [estimateJustComplete, setEstimateJustComplete] = useState(false);
   const [adjustEditing, setAdjustEditing] = useState(false);
   const [adjustStart, setAdjustStart] = useState("");
   const [adjustEnd, setAdjustEnd] = useState("");
@@ -277,8 +185,6 @@ export default function TimerPage() {
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [, setTick] = useState(0);
   const audioReady = useRef(false);
-  const kettleAudio = useRef<HTMLAudioElement | null>(null);
-  const estimateCompletedRef = useRef(false);
   const idleWarningShown = useRef(false);
   const processedFinishParam = useRef(false);
   const lastSyncedTaskRef = useRef<string | null>(null);
@@ -336,7 +242,11 @@ export default function TimerPage() {
   }, [finishSession, session]);
 
   const elapsed = session ? elapsedForSession(session) : 0;
-  const estimateSec = Number(estimateMin || activeTask?.estimateMinutes || 0) * 60;
+  // Active sessions use the persisted session estimate (survives reloads and
+  // draft sessions); the picker's local input only matters pre-start.
+  const estimateSec = session
+    ? (session.estimateMinutes ?? activeTask?.estimateMinutes ?? 0) * 60
+    : Number(estimateMin || activeTask?.estimateMinutes || 0) * 60;
   const isFinishing = session?.state === "finishing";
   const isPaused = session?.state === "paused";
   const isDraft = !!session?.isDraft || !session?.taskId || !session?.projectId;
@@ -347,19 +257,8 @@ export default function TimerPage() {
   const noteCount = session?.notes?.length ?? 0;
   const draftSessions = sessions.filter((item) => item.state === "draft");
 
-  useEffect(() => {
-    if (!session) {
-      estimateCompletedRef.current = false;
-      return;
-    }
-    if (estimateSec <= 0 || estimateCompletedRef.current) return;
-    if (remaining === 0 && session.state === "running") {
-      estimateCompletedRef.current = true;
-      setEstimateJustComplete(true);
-      pauseSession();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estimateSec, remaining, session, pauseSession]);
+  // Completion detection, auto-pause, and alarm audio are owned globally by
+  // DesktopShell — this page only renders the AlarmModal surface.
 
   useEffect(() => {
     if (!session || session.state !== "running") return;
@@ -428,7 +327,6 @@ export default function TimerPage() {
       setShowNotes(true);
       return;
     }
-    setEstimateJustComplete(false);
     finishSession();
   };
 
@@ -571,7 +469,6 @@ export default function TimerPage() {
           setTaskId("");
           setProjectId("");
           setEstimateMin("");
-          estimateCompletedRef.current = false;
           router.push("/timer");
         }}
         onViewWorkLog={() => router.push("/report")}
@@ -783,12 +680,13 @@ export default function TimerPage() {
             onDelete={deleteSessionNote}
           />
         </section>
-        {estimateJustComplete && !isFinishing && (
+        {completionAlarmSessionId === session.id && !isFinishing && (
           <AlarmModal
             plannedMinutes={Math.round(estimateSec / 60)}
             taskTitle={activeTask?.title}
-            onContinue={() => { setEstimateJustComplete(false); resumeSession(); }}
-            onFinish={() => { setEstimateJustComplete(false); handleFinish(); }}
+            onExtend={(minutes) => extendSession(minutes)}
+            onContinue={() => { dismissCompletionAlarm(); resumeSession(); }}
+            onFinish={() => { dismissCompletionAlarm(); handleFinish(); }}
           />
         )}
         <ModalShell open={isFinishing}>
@@ -960,10 +858,11 @@ function FinishOverlay(props: {
 }) {
   const [finishNote, setFinishNote] = useState("");
 
-  const jumpClass = props.activeMascot === "sprite2" ? "animate-pet-jump-sprite2" :
-                    "animate-pet-jump-kettle";
-  const jumpScale = props.activeMascot === "kettle" ? "scale-[0.55]" :
-                    "scale-[0.75]";
+  // "sprite2" is a legacy persisted id for the female mascot.
+  const isFemale = props.activeMascot === "female" || props.activeMascot === "sprite2";
+  const mascotKind = isFemale ? "female" : "kettle";
+  const jumpClass = isFemale ? "animate-pet-jump-female" : "animate-pet-jump-kettle";
+  const jumpScale = isFemale ? "scale-[0.75]" : "scale-[0.55]";
 
   if (props.savedDraft) {
     return (
@@ -999,7 +898,7 @@ function FinishOverlay(props: {
   return (
     <div className="animate-modal-in mx-auto flex w-full max-w-[480px] flex-col gap-5 rounded-2xl p-6 shadow-2xl" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
       <div className="relative flex items-center justify-center -mb-6 overflow-visible" aria-hidden>
-        <div className="pet-stage pointer-events-none" data-mascot={props.activeMascot}>
+        <div className="pet-stage pointer-events-none" data-mascot={mascotKind}>
           <div className={`${jumpClass} transform ${jumpScale} origin-bottom`} />
           <div className="pet-shadow" />
         </div>
@@ -1329,84 +1228,33 @@ function LabelInput({ label, value, onChange, type = "text", suffix }: { label: 
 function AlarmModal({
   plannedMinutes,
   taskTitle,
+  onExtend,
   onContinue,
   onFinish,
 }: {
   plannedMinutes: number;
   taskTitle?: string;
+  onExtend: (minutes: number) => void;
   onContinue: () => void;
   onFinish: () => void;
 }) {
+  // Visual surface only — alarm audio and pet signals are owned by
+  // DesktopShell, which keeps ringing until the alarm state clears.
   const preferences = useApp((s) => s.preferences);
-  const alarmSound = preferences?.alarmSound || "kettle";
-  const whistleEnabled = preferences?.whistleSoundEnabled !== false;
-  
   const activeMascot = preferences?.activeMascot || "kettle";
-  const jumpClass = activeMascot === "sprite2" ? "animate-pet-jump-sprite2" :
-                    "animate-pet-jump-kettle";
-  const jumpScale = activeMascot === "kettle" ? "scale-[0.6]" : "scale-[0.85]";
-
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const kettleAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  const getCtx = () => {
-    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-      audioCtxRef.current = new AudioContext();
-    }
-    return audioCtxRef.current;
-  };
-
-  const playOnce = useCallback(() => {
-    if (!whistleEnabled) return;
-    try { triggerAlarmSound(getCtx(), alarmSound as AlarmSound, kettleAudioRef); } catch {}
-  }, [alarmSound, whistleEnabled]);
-
-  useEffect(() => {
-    playOnce();
-    intervalRef.current = setInterval(playOnce, 4000);
-    petSignal({
-      event: "timerFinish",
-      phase: "finished",
-      source: taskTitle || "Focus session",
-      detail: `${plannedMinutes}m complete`,
-      notify: { title: "Time's up!", body: taskTitle ? `${plannedMinutes}m on "${taskTitle}" done.` : `${plannedMinutes}m session complete.` },
-    });
-    return () => {
-      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-      if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
-        audioCtxRef.current.close().catch(() => {});
-      }
-      if (kettleAudioRef.current) {
-        kettleAudioRef.current.pause();
-        kettleAudioRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playOnce]);
-
-  const dismiss = (action: () => void, resume?: boolean) => {
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-    if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
-      audioCtxRef.current.close().catch(() => {});
-    }
-    if (kettleAudioRef.current) {
-      kettleAudioRef.current.pause();
-      kettleAudioRef.current = null;
-    }
-    if (resume) {
-      petSignal({ event: "timerResume", phase: "running", source: taskTitle || "Focus session" });
-    }
-    action();
-  };
+  // "sprite2" is a legacy persisted id for the female mascot.
+  const isFemale = activeMascot === "female" || activeMascot === "sprite2";
+  const mascotKind = isFemale ? "female" : "kettle";
+  const jumpClass = isFemale ? "animate-pet-jump-female" : "animate-pet-jump-kettle";
+  const jumpScale = isFemale ? "scale-[0.85]" : "scale-[0.6]";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[18vh]">
       <div className="absolute inset-0 bg-base/50 backdrop-blur-sm animate-fade-in" />
       <div className="relative w-full max-w-[440px] mx-lg animate-modal-in flex flex-col items-center gap-6 rounded-xl p-8 shadow-2xl bg-surface-raised border border-border text-center overflow-hidden">
-        
+
         <div className="relative flex items-center justify-center -mb-8 mt-2 overflow-visible">
-          <div className="pet-stage pointer-events-none" data-mascot={activeMascot}>
+          <div className="pet-stage pointer-events-none" data-mascot={mascotKind}>
             <div className={`${jumpClass} transform ${jumpScale} origin-bottom`} />
             <div className="pet-shadow" />
           </div>
@@ -1421,10 +1269,22 @@ function AlarmModal({
         </div>
 
         <div className="flex w-full flex-col gap-2.5 mt-2 relative z-10">
-          <Button variant="primary" className="w-full justify-center" onClick={() => dismiss(onFinish, false)}>
+          <div className="flex w-full items-center justify-center gap-2">
+            {[5, 10, 25].map((minutes) => (
+              <button
+                key={minutes}
+                type="button"
+                onClick={() => onExtend(minutes)}
+                className="flex items-center gap-1 rounded-full border border-border bg-surface px-3.5 py-1.5 text-[13px] font-medium text-text-secondary transition-colors hover:border-accent hover:text-text-primary"
+              >
+                <Plus size={12} />{minutes}m
+              </button>
+            ))}
+          </div>
+          <Button variant="primary" className="w-full justify-center" onClick={onFinish}>
             <CheckCircle size={15} />Finish session
           </Button>
-          <Button variant="secondary" className="w-full justify-center" onClick={() => dismiss(onContinue, true)}>
+          <Button variant="secondary" className="w-full justify-center" onClick={onContinue}>
             <Play size={15} />Keep going
           </Button>
         </div>

@@ -18,6 +18,7 @@ import {
   Moon,
   Gear,
   Lightning,
+  Bell,
 } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { useAuth } from "@/lib/auth";
@@ -35,6 +36,7 @@ const NAV = [
   { href: "/tasks",     label: "Tasks",     Icon: CheckSquare },
   { href: "/calendar",  label: "Calendar",  Icon: CalendarBlank },
   { href: "/timer",     label: "Timer",     Icon: Timer },
+  { href: "/reminders", label: "Reminders", Icon: Bell },
   { href: "/report",    label: "Report",    Icon: ChartBar },
   { href: "/projects",  label: "Projects",  Icon: FolderOpen },
   { href: "/settings",  label: "Settings",  Icon: Gear },

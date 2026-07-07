@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { PageLayout, PageHeader, PageContent } from "@/components/layout";
 import type { Urgency, ProjectColor } from "@/lib/types";
 import { getProjectColor } from "@/lib/constants";
+import { getWeekRange } from "@/lib/report-dates";
 
 const URGENCY_ORDER: Record<Urgency, number> = {
   urgent: 0,
@@ -54,11 +55,9 @@ function todayBounds() {
 }
 
 function weekBounds() {
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek).getTime();
-  const end = start + 7 * 86_400_000;
-  return { start, end };
+  // ISO week (Monday-first), shared with the report page.
+  const range = getWeekRange(0);
+  return { start: range.start.getTime(), end: range.end.getTime() + 1 };
 }
 
 function sessionReferenceTime(session: { startedAt: number; endedAt?: number; frozenAt?: number }) {

@@ -382,17 +382,19 @@ input[type="number"] {
   filter: drop-shadow(0 0 12px var(--accent-dim));
 }
 
-@keyframes sprite2-jump {
+/* Female mascot jump — sprite-2.clean.webp is 944x1773, an 8x9 grid of
+ * 118x197 cells; the jump lives on row 4 (y -788px). */
+@keyframes female-jump {
   100% { background-position-x: -944px; }
 }
-.animate-pet-jump-sprite2 {
+.animate-pet-jump-female {
   width: 118px;
   height: 197px;
   background-image: url('/pet/assets/sprite-2.clean.webp');
   background-position: 0px -788px;
   background-size: 944px 1773px;
   background-repeat: no-repeat;
-  animation: sprite2-jump 1.2s steps(8) infinite;
+  animation: female-jump 1.2s steps(8) infinite;
   filter: drop-shadow(0 0 12px var(--accent-dim));
 }
 
@@ -419,7 +421,7 @@ input[type="number"] {
   pointer-events: none;
 }
 
-.pet-stage[data-mascot="sprite2"] .pet-shadow {
+.pet-stage[data-mascot="female"] .pet-shadow {
   animation-duration: 1.2s;
 }
 
@@ -430,7 +432,7 @@ input[type="number"] {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-pet-jump-kettle,
-  .animate-pet-jump-sprite2 { animation-iteration-count: 3; }
+  .animate-pet-jump-female { animation-iteration-count: 3; }
   .pet-stage .pet-shadow { animation: none; }
 }
 

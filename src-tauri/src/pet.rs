@@ -111,6 +111,15 @@ pub struct PetSignal {
     /// Force a desktop notification regardless of `event`.
     #[serde(default)]
     pub notify: Option<NotifyOpts>,
+    /// Speech-bubble quote text (reminders, break nudges, chatter).
+    #[serde(default)]
+    pub quote: Option<String>,
+    /// Kind of quote for bubble styling: chat | break | reminder.
+    #[serde(default, rename = "quoteKind")]
+    pub quote_kind: Option<String>,
+    /// Show the timer-complete extend chips (+5/+10/+25/Finish) on the card.
+    #[serde(default, rename = "showExtend")]
+    pub show_extend: Option<bool>,
 }
 
 /// Build the pet overlay window (hidden). MUST run on the main thread — call

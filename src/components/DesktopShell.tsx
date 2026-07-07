@@ -11,14 +11,20 @@ import {
 import { useApp } from "@/lib/store-supabase";
 import type { Session } from "@/lib/types";
 import { petSignal, onPetPoke, onPetControl, petTracking } from "@/lib/pet";
+import { checkForDesktopUpdate } from "@/lib/updater";
 import { formatHMS } from "@/lib/format";
+import { createAlarmLooper } from "@/lib/alarm";
+import type { AlarmSound } from "@/lib/constants";
 
 /** Coarse timer phase used to drive pet overlay animations. */
 type PetPhase = "none" | "running" | "paused" | "finishing";
 
-function petPhase(s?: Session): PetPhase {
+function petPhase(s: Session | undefined, alarmActive: boolean): PetPhase {
   if (!s) return "none";
   if (s.state === "finishing") return "finishing";
+  // Paused-at-estimate with the completion alarm ringing presents as finished
+  // so the pet centers itself and shows the extend chips.
+  if (alarmActive) return "finishing";
   if (s.paused || s.state === "paused") return "paused";
   if (s.state === "running") return "running";
   return "none"; // confirmed / draft
@@ -51,88 +57,106 @@ export function DesktopShell() {
   const confirmSession = useApp((s) => s.confirmSession);
   const discardSession = useApp((s) => s.discardSession);
   const autoPauseOnIdleEnabled = useApp((s) => s.preferences?.autoPauseOnIdleEnabled !== false);
+  const completionAlarmSessionId = useApp((s) => s.completionAlarmSessionId);
   const unlistenRefs = useRef<Array<() => void>>([]);
   const prevPhaseRef = useRef<PetPhase>("none");
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
 
   // -----------------------------------------------------------------------
-  // Global timer completion (Sound + Notification)
+  // Global timer completion — single owner of detection, auto-pause, alarm
+  // audio, and pet signaling. Runs on web too (nothing desktop-gated except
+  // the pet signal itself).
   // -----------------------------------------------------------------------
-  const notifiedSessionIdRef = useRef<string | null>(null);
-  const notifiedCompletedRef = useRef<boolean>(false);
   const lastMessageTriggerTimeRef = useRef<number>(Date.now());
   const customMessageRef = useRef<string | null>(null);
   const messageTimeRef = useRef<number>(0);
   const lastBreakTriggerTimeRef = useRef<number>(0);
   const breakEndTimeoutRef = useRef<number | null>(null);
-  const lastCustomReminderMinuteRef = useRef<string>("");
-
-  const playKettleWhistle = useCallback(() => {
-    const enabled = useApp.getState().preferences?.whistleSoundEnabled !== false;
-    if (!enabled) return;
-    try {
-      const origin = typeof window !== "undefined" ? window.location.origin : "";
-      const audio = new Audio(`${origin}/sounds/kettle-whistle.ogg`);
-      audio.volume = 0.22;
-      void audio.play();
-      window.setTimeout(() => {
-        audio.pause();
-        audio.currentTime = 0;
-      }, 2500);
-    } catch (e) {
-      console.warn("Audio play failed:", e);
-    }
-  }, []);
+  const snoozeTimeoutRef = useRef<number | null>(null);
+  // The watcher only dismisses a "running" alarm session after it has been
+  // observed paused once — distinguishes a user resume from the brief window
+  // while the auto-pause API call is still in flight.
+  const alarmEngagedRef = useRef(false);
 
   useEffect(() => {
-    if (!activeSession || activeSession.state !== "running" || activeSession.paused) {
-      notifiedCompletedRef.current = false;
-      return;
-    }
-
-    if (notifiedSessionIdRef.current !== activeSession.id) {
-      notifiedSessionIdRef.current = activeSession.id;
-      notifiedCompletedRef.current = false;
-    }
+    if (!activeSession || activeSession.state !== "running" || activeSession.paused) return;
 
     const task = activeSession.taskId ? tasks.find((t) => t.id === activeSession.taskId) : undefined;
     const estimateMinutes = activeSession.estimateMinutes ?? task?.estimateMinutes;
-    if (!estimateMinutes) return;
+    if (!estimateMinutes || estimateMinutes <= 0) return;
+    // Latch: this target already alarmed (e.g. user chose "Keep going").
+    if (estimateMinutes <= (activeSession.completionAckMinutes ?? 0)) return;
 
     const estimateSec = estimateMinutes * 60;
+    let fired = false;
 
-    const checkCompletion = () => {
-      const elapsed = sessionElapsed(activeSession);
-      if (elapsed >= estimateSec && !notifiedCompletedRef.current) {
-        notifiedCompletedRef.current = true;
-        playKettleWhistle();
+    const checkCompletion = async () => {
+      if (fired || sessionElapsed(activeSession) < estimateSec) return;
+      fired = true;
 
-        const taskTitle = task?.title || "Focus session";
-        const name = useApp.getState().user?.name ?? "there";
-        const title = "Focus session complete!";
-        const body = `Incredible job, ${name}! Your ${estimateMinutes}m on "${taskTitle}" is done — let's stand up and stretch together!`;
+      // Mark first so the phase-transition effect presents "finishing" without
+      // an intermediate timerPause emit while the pause request is in flight.
+      useApp.getState().markCompletionAlarm(activeSession.id, estimateMinutes);
 
-        if (isDesktop()) {
-          petSignal({
-            event: "timerFinish",
-            phase: "finished",
-            source: taskTitle,
-            detail: `${estimateMinutes}m complete`,
-            notify: { title, body },
-          });
-        } else {
-          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-            new Notification(title, { body });
-          }
-        }
+      const taskTitle = task?.title || "Focus session";
+      const name = useApp.getState().user?.name ?? "there";
+      const title = "Focus session complete!";
+      const body = `Incredible job, ${name}! Your ${estimateMinutes}m on "${taskTitle}" is done — let's stand up and stretch together!`;
+
+      if (isDesktop()) {
+        petSignal({
+          event: "timerFinish",
+          phase: "finished",
+          source: taskTitle,
+          detail: `${estimateMinutes}m complete`,
+          showExtend: true,
+          notify: { title, body },
+        });
+      } else if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        new Notification(title, { body });
       }
+
+      // Global auto-pause: freezes durationSeconds at the estimate.
+      await pauseSession();
     };
 
     checkCompletion();
     const intervalId = window.setInterval(checkCompletion, 1000);
     return () => window.clearInterval(intervalId);
-  }, [activeSession, tasks, playKettleWhistle]);
+  }, [activeSession, tasks, pauseSession]);
+
+  // Looping alarm audio — rings until the alarm is dismissed from any surface.
+  useEffect(() => {
+    if (!completionAlarmSessionId) return;
+    const prefs = useApp.getState().preferences;
+    if (prefs?.whistleSoundEnabled === false) return;
+    const looper = createAlarmLooper();
+    looper.start((prefs?.alarmSound ?? "kettle") as AlarmSound);
+    return () => looper.stop();
+  }, [completionAlarmSessionId]);
+
+  // Auto-dismiss watcher — the single kill-switch. Clears the ringing alarm
+  // whenever its session is resumed, finished, discarded, or swapped out,
+  // regardless of which surface (timer page, pet, shortcut) changed the state.
+  useEffect(() => {
+    if (!completionAlarmSessionId) {
+      alarmEngagedRef.current = false;
+      return;
+    }
+    const s = sessions.find((x) => x.id === completionAlarmSessionId);
+    const isActive = !!s && activeSessionId === completionAlarmSessionId;
+
+    if (isActive && s!.state === "paused") {
+      alarmEngagedRef.current = true; // ringing legitimately
+      return;
+    }
+    if (isActive && s!.state === "running" && !alarmEngagedRef.current) {
+      return; // auto-pause still in flight — not a user resume
+    }
+    alarmEngagedRef.current = false;
+    useApp.getState().dismissCompletionAlarm();
+  }, [completionAlarmSessionId, sessions, activeSessionId]);
 
   // -----------------------------------------------------------------------
   // Global shortcut handler (from Rust backend)
@@ -208,10 +232,13 @@ export function DesktopShell() {
       if (cancelled) { unPoke(); return; }
       unlistenRefs.current.push(unPoke);
 
-      const unControl = await onPetControl(async (action) => {
-        switch (action) {
+      const unControl = await onPetControl(async (payload) => {
+        switch (payload.action) {
           case "toggle":
             await handleShortcut("toggle_timer");
+            break;
+          case "extend":
+            await useApp.getState().extendSession(payload.minutes ?? 5);
             break;
           case "complete":
             await finishSession();
@@ -222,6 +249,29 @@ export function DesktopShell() {
           case "discard":
             await discardSession();
             break;
+          case "snoozeBreak": {
+            // Cancel the stale "Break's over!" nudge and re-fire the break
+            // reminder in 5 minutes if a session is still alive.
+            if (breakEndTimeoutRef.current) {
+              window.clearTimeout(breakEndTimeoutRef.current);
+              breakEndTimeoutRef.current = null;
+            }
+            if (snoozeTimeoutRef.current) window.clearTimeout(snoozeTimeoutRef.current);
+            snoozeTimeoutRef.current = window.setTimeout(() => {
+              snoozeTimeoutRef.current = null;
+              const state = useApp.getState();
+              const session = state.sessions.find((s) => s.id === state.activeSessionId);
+              if (!session || session.state !== "running") return;
+              petSignal({
+                event: "timerBreak",
+                phase: session.paused ? "paused" : "running",
+                quote: "Snooze is up — time for that stretch break!",
+                quoteKind: "break",
+                notify: { title: "Break Reminder", body: "Snooze is up — let's take that stretch break!" },
+              });
+            }, 5 * 60 * 1000);
+            break;
+          }
           default:
             break;
         }
@@ -278,6 +328,14 @@ export function DesktopShell() {
   }, [autoPauseOnIdleEnabled]);
 
   // -----------------------------------------------------------------------
+  // Auto-update: check the release feed once on launch, install silently
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    if (!isDesktop()) return;
+    checkForDesktopUpdate();
+  }, []);
+
+  // -----------------------------------------------------------------------
   // Global cursor tracking — drives the pet's sightline + click-through gate
   // -----------------------------------------------------------------------
   useEffect(() => {
@@ -308,7 +366,8 @@ export function DesktopShell() {
   // -----------------------------------------------------------------------
   useEffect(() => {
     if (!isDesktop()) return;
-    const next = petPhase(activeSession);
+    const alarmActive = !!activeSession && completionAlarmSessionId === activeSession.id;
+    const next = petPhase(activeSession, alarmActive);
     const prev = prevPhaseRef.current;
     if (next === prev) return;
 
@@ -321,14 +380,18 @@ export function DesktopShell() {
     } else if (prev === "running" && next === "paused") {
       petSignal({ event: "timerPause", phase: "paused" });
     } else if (next === "finishing" && (prev === "running" || prev === "paused")) {
-      petSignal({ event: "timerFinish", phase: "finished", source: taskTitle || "Focus session", detail: taskTitle });
+      // Alarm-driven completion already signalled timerFinish (with the
+      // extend chips) from the detector — don't double-fire the animation.
+      if (!alarmActive) {
+        petSignal({ event: "timerFinish", phase: "finished", source: taskTitle || "Focus session", detail: taskTitle });
+      }
     } else if (next === "none" && (prev === "running" || prev === "paused")) {
       petSignal({ event: "timerAbandon", phase: "idle" });
     }
     // finishing → none: silent — timerFinish already signalled
 
     prevPhaseRef.current = next;
-  }, [activeSession, tasks]);
+  }, [activeSession, tasks, completionAlarmSessionId]);
 
   // -----------------------------------------------------------------------
   // Keep the compact pet status bubble live while mini mode is open
@@ -346,16 +409,20 @@ export function DesktopShell() {
       // 1. Break Reminders Trigger Check
       if (prefs?.petBreakRemindersEnabled && isRunning && activeSession) {
         const elapsed = sessionElapsed(activeSession);
-        const breakIntervalSec = (prefs.petBreakIntervalMinutes || 45) * 60;
-        if (elapsed > 0 && elapsed % breakIntervalSec === 0 && now - lastBreakTriggerTimeRef.current > 60000) {
+        // Guard against a 0/NaN preference silently killing reminders, and use
+        // a 2s fire window so a skipped tick can't miss the exact second.
+        const intervalMin = Number(prefs.petBreakIntervalMinutes);
+        const breakIntervalSec = (Number.isFinite(intervalMin) && intervalMin >= 1 ? intervalMin : 45) * 60;
+        if (elapsed > 0 && elapsed % breakIntervalSec < 2 && now - lastBreakTriggerTimeRef.current > 60000) {
           lastBreakTriggerTimeRef.current = now;
           customMessageRef.current = "Time to stretch and take a break!";
           messageTimeRef.current = now;
           triggerWave = true;
           petSignal({
             event: "timerBreak",
-            phase: "paused",
+            phase: activeSession.paused ? "paused" : "running",
             quote: "Time to stretch and take a break!",
+            quoteKind: "break",
             notify: { title: "Break Reminder", body: "You have been focusing for a while. Let's take a quick stretch break!" }
           });
           // Standard 5-minute stretch break, then the pet calls the user back —
@@ -372,31 +439,14 @@ export function DesktopShell() {
               event: "breakEnd",
               phase: session.paused ? "paused" : "running",
               quote: "Break's over! Ready to dive back in?",
+              quoteKind: "reminder",
               notify: { title: "Break Over", body: "Break's done — let's dive back into the task!" }
             });
           }, 5 * 60 * 1000);
         }
       }
 
-      // 2. Custom Scheduled Reminders Check
-      if (prefs?.petCustomRemindersEnabled && prefs.petCustomReminders && prefs.petCustomReminders.length > 0) {
-        const date = new Date(now);
-        const currentMinStr = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-        if (currentMinStr !== lastCustomReminderMinuteRef.current) {
-          const matchingRem = prefs.petCustomReminders.find(r => r.active && r.time === currentMinStr);
-          if (matchingRem) {
-            lastCustomReminderMinuteRef.current = currentMinStr;
-            customMessageRef.current = matchingRem.text;
-            messageTimeRef.current = now;
-            triggerWave = true;
-            petSignal({
-              event: "hover" as any,
-              quote: matchingRem.text,
-              notify: { title: "Pet Reminder", body: matchingRem.text }
-            });
-          }
-        }
-      }
+      // Custom scheduled reminders now fire from ReminderAgent (all surfaces).
 
       let activeMsg = customMessageRef.current;
 
@@ -452,11 +502,12 @@ export function DesktopShell() {
       }
 
       const task = tasks.find((t) => t.id === activeSession.taskId);
-      const isComplete = activeSession.state === "finishing";
+      const alarmRinging = completionAlarmSessionId === activeSession.id;
+      const isComplete = activeSession.state === "finishing" || alarmRinging;
       const isPaused = activeSession.paused || activeSession.state === "paused";
 
       const elapsed = sessionElapsed(activeSession);
-      const estimateMinutes = task?.estimateMinutes || 0;
+      const estimateMinutes = activeSession.estimateMinutes ?? task?.estimateMinutes ?? 0;
       const estimateSec = estimateMinutes * 60;
 
       let detailStr = "";
@@ -474,6 +525,9 @@ export function DesktopShell() {
         phase: isComplete ? "finished" : isPaused ? "paused" : "running",
         source: activeMsg || (task?.title || "Focus session"),
         detail: detailStr,
+        // Self-healing every second: a pet opened mid-alarm gets the chips,
+        // and after Finish/extend they're hidden again.
+        showExtend: alarmRinging,
         event: triggerWave ? ("hover" as any) : undefined,
       });
     };
@@ -481,11 +535,12 @@ export function DesktopShell() {
     syncPetStatus();
     const intervalId = window.setInterval(syncPetStatus, 1000);
     return () => window.clearInterval(intervalId);
-  }, [activeSession, tasks]);
+  }, [activeSession, tasks, completionAlarmSessionId]);
 
-  // Pending break-end nudge survives session re-renders; clear it on unmount.
+  // Pending break-end/snooze nudges survive session re-renders; clear on unmount.
   useEffect(() => () => {
     if (breakEndTimeoutRef.current) window.clearTimeout(breakEndTimeoutRef.current);
+    if (snoozeTimeoutRef.current) window.clearTimeout(snoozeTimeoutRef.current);
   }, []);
 
   // This component renders nothing

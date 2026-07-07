@@ -34,6 +34,10 @@ export interface PetSignal {
   detail?: string;
   /** Quote/reminder text — renders the floating bubble + pointing pose (Row 4). */
   quote?: string;
+  /** Kind of quote — styles the bubble + picks display duration/actions. */
+  quoteKind?: "chat" | "break" | "reminder";
+  /** Show the timer-complete extend chips (+5/+10/+25/Finish) on the card. */
+  showExtend?: boolean;
   /** Force a desktop notification regardless of event. */
   notify?: { title: string; body: string };
 }
@@ -63,8 +67,15 @@ export const petTracking = (enabled: boolean) =>
 export const onPetPoke = (handler: () => void) =>
   listen<{ at: number }>("pet://poke", () => handler());
 
-/** Listen for the pet's play/pause control button. Returns an unlisten fn. */
-export const onPetControl = (handler: (action: string) => void) =>
-  listen<{ action: string; at: number }>("pet://control", (p) =>
-    handler(p?.action ?? "toggle")
+/** Payload from the pet's control buttons (play/pause, extend chips, snooze). */
+export interface PetControlPayload {
+  action: string;
+  minutes?: number;
+  at?: number;
+}
+
+/** Listen for the pet's control buttons. Returns an unlisten fn. */
+export const onPetControl = (handler: (payload: PetControlPayload) => void) =>
+  listen<PetControlPayload>("pet://control", (p) =>
+    handler(p ?? { action: "toggle" })
   );

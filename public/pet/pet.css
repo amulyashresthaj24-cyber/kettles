@@ -94,9 +94,17 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  /* Anchored at the feet so the completion swell grows up into the empty top
+   * of the overlay window instead of clipping past the bottom edge. */
+  transform-origin: 50% 100%;
+  transition: transform 0.4s var(--ease-spring);
 }
 
 .shell.dragging { cursor: grabbing; }
+
+/* On completion the pet is centered on screen and the whole widget swells to
+ * grab attention. Shrinks back when the session resumes / clears. */
+.shell[data-phase="finished"] { transform: scale(1.18); }
 
 /* ===================== mascot ============================================= */
 
@@ -129,11 +137,6 @@ body {
 /* Hover — a soft lift, like the pet noticed you. */
 .shell:not(.dragging) .mascot:hover {
   filter: brightness(1.06) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.18));
-}
-
-/* Accent drop-shadow glow when a focus session is active */
-.shell[data-phase="running"] .mascot {
-  filter: drop-shadow(0 0 10px var(--accent-glow));
 }
 
 /* Soft ground shadow so the mascot doesn't float. Scales proportionally. */
@@ -296,6 +299,40 @@ body {
   transform: translateX(-50%) translateY(0) scale(1);
 }
 
+/* Reminder/break bubbles look distinct from ambient chatter: an icon prefix
+ * and a tinted border, and they stay up longer (durations in pet.js). */
+.speech[data-kind="break"] {
+  border-color: rgba(245, 177, 76, 0.5);
+}
+.speech[data-kind="break"] #speechText::before {
+  content: "⏰ ";
+}
+.speech[data-kind="reminder"] {
+  border-color: rgba(51, 133, 255, 0.5);
+}
+.speech[data-kind="reminder"] #speechText::before {
+  content: "🔔 ";
+}
+
+/* Inline actions on actionable reminders (e.g. break snooze). The bubble
+ * itself stays pointer-transparent; only the buttons capture the mouse. */
+.speech-actions {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 7px;
+  pointer-events: auto;
+}
+
+.speech-actions[hidden] { display: none; }
+
+.speech-actions .speech-btn {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  font-size: 10.5px;
+  border-radius: 999px;
+}
+
 /* While the pet talks, the timer card steps aside. */
 .shell[data-speaking="true"] .bubble {
   opacity: 0;
@@ -351,6 +388,10 @@ body {
 .shell[data-collapsed="true"] .bubble .timer { display: none; }
 .shell[data-collapsed="true"] .bubble-toggle {
   position: static;
+  background: transparent;
+  border: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .bubble-head {
@@ -434,12 +475,12 @@ body {
   color: var(--text-muted);
   background: var(--surface-glass);
   border: 1px solid var(--border-glass);
-  border-radius: 6px;
+  border-radius: 50%;
   cursor: pointer;
   z-index: 5;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  transition: color 0.14s ease, transform 0.14s ease;
+  transition: color 0.14s ease, transform 0.14s ease, background 0.14s ease, border-color 0.14s ease;
 }
 
 .bubble-toggle:hover { color: var(--text-highlight); transform: scale(1.08); }
@@ -586,6 +627,27 @@ body {
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
 }
 
+/* ===================== timer-complete extend chips ======================== */
+/* Shown inside the card while the completion alarm rings: +5/+10/+25/Finish.
+ * Deliberately NOT `.controls` — that row is retired via display:none above. */
+
+.complete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.complete-actions[hidden] { display: none; }
+
+.complete-actions .chip {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  font-size: 11px;
+  border-radius: 999px;
+}
+
 /* play triangle / pause bars */
 .ico { display: inline-block; }
 #toggle[data-act="play"] .ico {
@@ -678,62 +740,154 @@ body {
   .speech { transition: opacity 0.15s ease; }
 }
 
-/* ===================== quick notes / scratchpad ========================== */
+/* ===================== notepad ============================================ */
+/* Opened by right-clicking the mascot (pet.js contextmenu handler). A proper
+ * note pad — noticeably bigger than the mascot — floating where the timer
+ * card normally sits. While open the card + trail step aside
+ * (shell[data-noting] drives the swap, mirroring the speech bubble). */
 
-.note-toggle {
+.shell[data-noting="true"] .bubble,
+.shell[data-noting="true"] .trail,
+.shell[data-noting="true"] .speech {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.notepad {
   position: absolute;
-  top: -9px;
-  left: -9px;
+  bottom: calc(var(--mascot-height, 128px) + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  width: 264px;
+  color: var(--text);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent),
+    var(--surface-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  overflow: hidden;
+  transform-origin: 50% 100%;
+  animation: notepad-in 0.25s var(--ease-spring) 1;
+  z-index: 6;
+}
+
+@keyframes notepad-in {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(6px) scale(0.94); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+.notepad-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px 8px;
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.notepad-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+.notepad-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.notepad-close {
+  flex: none;
   display: grid;
   place-items: center;
   width: 20px;
   height: 20px;
+  margin: -3px -4px -3px 0;
   padding: 0;
-  font-size: 10px;
-  background: var(--surface-glass);
-  border: 1px solid var(--border-glass);
-  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
   cursor: pointer;
-  z-index: 5;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: transform 0.14s ease;
+  transition: color 0.14s ease, background 0.14s ease;
 }
 
-.note-toggle:hover {
-  transform: scale(1.08);
+.notepad-close:hover {
+  color: var(--text-highlight);
+  background: var(--btn-hover-bg);
 }
 
-.note-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 180px;
-  margin-top: 4px;
-}
-
-.note-input {
+/* Ruled-paper writing area — like the session notes list in the app. */
+.notepad-input {
   width: 100%;
-  height: 60px;
-  padding: 6px;
+  height: 148px;
+  padding: 4px 12px;
   font-family: var(--font);
-  font-size: 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 22px;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-glass);
-  border-radius: 8px;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 21px,
+      var(--border-glass) 21px,
+      var(--border-glass) 22px
+    );
+  border: none;
   outline: none;
   resize: none;
 }
 
-.note-actions {
-  display: flex;
-  gap: 5px;
-  justify-content: flex-end;
+.notepad-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
-.note-actions .btn {
-  padding: 4px 8px;
-  font-size: 10px;
-  border-radius: 6px;
+.notepad-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--border-glass);
+}
+
+.notepad-hint {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.notepad-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.notepad-actions .btn {
+  flex: 0 0 auto;
+  padding: 5px 12px;
+  font-size: 10.5px;
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notepad { animation-duration: 0.12s; }
 }

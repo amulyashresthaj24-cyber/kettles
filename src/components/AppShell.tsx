@@ -30,6 +30,10 @@ const DesktopShell = dynamic(
   () => import("./DesktopShell").then((mod) => mod.DesktopShell),
   { ssr: false }
 );
+const ReminderAgent = dynamic(
+  () => import("./ReminderAgent").then((mod) => mod.ReminderAgent),
+  { ssr: false }
+);
 const SyncStatusBadge = dynamic(
   () => import("./SyncStatusBadge").then((mod) => mod.SyncStatusBadge),
   { ssr: false }
@@ -141,6 +145,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <NotificationProvider>
         <DesktopShell />
+        <ReminderAgent />
         {children}
       </NotificationProvider>
     );
@@ -149,6 +154,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <NotificationProvider>
       <DesktopShell />
+      <ReminderAgent />
       <div className="flex h-screen overflow-hidden bg-surface">
         <Sidebar
           onSearchClick={() => setCmdOpen(true)}

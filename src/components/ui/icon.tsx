@@ -69,6 +69,10 @@ import {
   CurrencyDollar,
   Download,
   Link,
+  Funnel,
+  FilePdf,
+  FileXls,
+  ShareNetwork,
   // Edit
   PencilSimple,
   Archive,
@@ -80,6 +84,8 @@ import {
   Sun,
   Moon,
   Gear,
+  Bell,
+  BellRinging,
   // Empty state / decorative
   Checks,
   ClockCounterClockwise,
@@ -162,6 +168,10 @@ export const Icons = {
   dollar:       CurrencyDollar,
   download:     Download,
   link:         Link,
+  funnel:       Funnel,
+  filePdf:      FilePdf,
+  fileXls:      FileXls,
+  share:        ShareNetwork,
 
   // Edit / destructive
   edit:         PencilSimple,
@@ -175,6 +185,8 @@ export const Icons = {
   sun:          Sun,
   moon:         Moon,
   settings:     Gear,
+  bell:         Bell,
+  bellRinging:  BellRinging,
 
   // Decorative / empty
   checks:       Checks,
@@ -267,6 +279,10 @@ export {
   CurrencyDollar,
   Download,
   Link,
+  Funnel,
+  FilePdf,
+  FileXls,
+  ShareNetwork,
   PencilSimple,
   Archive,
   Trash,
@@ -276,6 +292,8 @@ export {
   Sun,
   Moon,
   Gear,
+  Bell,
+  BellRinging,
   Checks,
   ClockCounterClockwise,
 };

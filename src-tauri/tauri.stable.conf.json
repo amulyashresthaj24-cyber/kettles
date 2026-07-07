@@ -1,5 +1,29 @@
 {
+  "productName": "Kettles",
+  "identifier": "com.kettles.app",
   "build": {
     "beforeBuildCommand": "cmd /c echo Web export already built"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Kettles",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "center": true
+      }
+    ],
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true,
+      "tooltip": "Kettles – Task Timer"
+    }
   }
 }

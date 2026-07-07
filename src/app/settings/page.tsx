@@ -98,9 +98,6 @@ function SettingsContent() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
 
-  const [newReminderText, setNewReminderText] = useState("");
-  const [newReminderTime, setNewReminderTime] = useState("09:00");
-
   // Theme tracking
   const [currentTheme, setCurrentTheme] = useState<"light" | "dark">("dark");
   const [desktopAvailable, setDesktopAvailable] = useState(false);
@@ -679,6 +676,27 @@ function SettingsContent() {
                       </select>
                     </div>
 
+                    {/* Weekly Target Hours */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[12px] font-semibold text-text-secondary">Weekly Target Hours</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={preferences?.weeklyTargetHours ?? 40}
+                        onChange={(e) => {
+                          const v = Math.round(Number(e.target.value));
+                          if (Number.isFinite(v) && v >= 1 && v <= 100) {
+                            setPreferences({ weeklyTargetHours: v });
+                          }
+                        }}
+                        className="flex w-full h-9 rounded-lg bg-surface-mid border border-border-subtle px-3 text-[14px] text-text-primary outline-none focus:ring-2 focus:ring-accent/40"
+                      />
+                      <p className="text-[12px] text-text-muted">
+                        Used by reports for utilization and weekly target progress.
+                      </p>
+                    </div>
+
                     {/* Completion Whistle Toggle */}
                     <div className="flex items-start gap-3">
                       <Checkbox
@@ -941,36 +959,45 @@ function SettingsContent() {
 
             {/* ─── Mascot & Pet Tab ─── */}
             {activeTab === "pet" && (() => {
-              const activeMascot = preferences?.activeMascot || "kettle";
-              const customMascotSpritesheet = preferences?.customMascotSpritesheet || "assets/spritesheet.orig.webp";
-              const customMascotWidth = preferences?.customMascotWidth ?? 192;
-              const customMascotHeight = preferences?.customMascotHeight ?? 208;
-              const customMascotCols = preferences?.customMascotCols ?? 8;
-              const customMascotRows = preferences?.customMascotRows ?? 9;
-              const customMascotScale = preferences?.customMascotScale ?? 0.58;
-              const mascotMappings = preferences?.mascotMappings || {
-                idle: "waiting",
-                hover: "waving",
-                dragLeft: "running_left",
-                dragRight: "running_right",
-                complete: "jumping",
-                toggle: "review",
-              };
-              const mascotFps = preferences?.mascotFps || {
-                idle: 5,
-                waving: 6,
-                jumping: 10,
-                waiting: 4,
-                review: 5,
-                running_left: 10,
-                running_right: 9,
-              };
-
-              const petBreakRemindersEnabled = !!preferences?.petBreakRemindersEnabled;
-              const petBreakIntervalMinutes = preferences?.petBreakIntervalMinutes ?? 45;
-              const petCustomRemindersEnabled = !!preferences?.petCustomRemindersEnabled;
-              const petCustomReminders = preferences?.petCustomReminders || [];
+              // Two mascots only. "sprite2" was an older sheet of the same
+              // girl — fold it into "female"; anything else (incl. the retired
+              // "custom") normalizes to the default male mascot.
+              const rawMascot = preferences?.activeMascot;
+              const activeMascot =
+                rawMascot === "female" || rawMascot === "sprite2" ? "female" : "kettle";
+              const animationFrequency = preferences?.mascotAnimationFrequency || "normal";
+              const defaultAnimation = preferences?.mascotDefaultAnimation || "waiting";
               const petNotesIntegrationEnabled = !!preferences?.petNotesIntegrationEnabled;
+
+              // Static first-frame previews cropped straight from each spritesheet.
+              const MASCOTS: Array<{
+                id: "kettle" | "female";
+                name: string;
+                tagline: string;
+                description: string;
+                sheet: string;
+                cols: number;
+                rows: number;
+                cellW: number;
+                cellH: number;
+              }> = [
+                {
+                  id: "kettle",
+                  name: "Male",
+                  tagline: "Default",
+                  description: "A friendly desk buddy who reads along while you focus, waves hello, and celebrates finished sessions.",
+                  sheet: "/pet/assets/spritesheet.webp",
+                  cols: 8, rows: 9, cellW: 192, cellH: 208,
+                },
+                {
+                  id: "female",
+                  name: "Female",
+                  tagline: "Companion",
+                  description: "A friendly desk companion who types while you focus, waves hello, and celebrates finished sessions.",
+                  sheet: "/pet/assets/sprite-2.clean.webp",
+                  cols: 8, rows: 9, cellW: 118, cellH: 197,
+                },
+              ];
 
               return (
                 <div className="flex flex-col gap-lg animate-fade-up">
@@ -987,23 +1014,8 @@ function SettingsContent() {
                       className="shrink-0"
                       onClick={() => setPreferences({
                         activeMascot: "kettle",
-                        mascotMappings: {
-                          idle: "waiting",
-                          hover: "waving",
-                          dragLeft: "running_left",
-                          dragRight: "running_right",
-                          complete: "jumping",
-                          toggle: "review",
-                        },
-                        mascotFps: {
-                          idle: 5,
-                          waving: 6,
-                          jumping: 10,
-                          waiting: 4,
-                          review: 5,
-                          running_left: 10,
-                          running_right: 9,
-                        },
+                        mascotAnimationFrequency: "normal",
+                        mascotDefaultAnimation: "waiting",
                       })}
                     >
                       <ArrowClockwise size={13} className="mr-1" /> Reset Mascot
@@ -1013,370 +1025,121 @@ function SettingsContent() {
                   {/* Mascot Selection */}
                   <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
                     <h2 className="text-[17px] font-semibold tracking-[-0.012em] text-text-primary mb-1">Mascot Selection</h2>
-                    <p className="text-[13px] text-text-muted mb-lg">Select and swap the active mascot companion displayed on your screen.</p>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md max-w-3xl">
-                      <button
-                        type="button"
-                        onClick={() => setPreferences({ activeMascot: "kettle" })}
-                        className={cn(
-                          "relative flex flex-col gap-3 rounded-xl p-md text-left transition-all border-2",
-                          activeMascot === "kettle"
-                            ? "border-accent bg-surface-mid ring-2 ring-accent/15"
-                            : "border-border-subtle bg-surface hover:border-border"
-                        )}
-                      >
-                        <div className="h-20 w-full rounded bg-[#08090a] border border-[#2a2b2c] p-3 flex items-center justify-center overflow-hidden">
-                          <span className="text-[32px]">🫖</span>
-                        </div>
-                        <span className="text-[13px] font-semibold text-text-primary">Kettle Mascot (Default)</span>
-                        <p className="text-[11px] text-text-muted">The original tea kettle mascot that whistles and moves around your desktop.</p>
-                      </button>
+                    <p className="text-[13px] text-text-muted mb-lg">Pick who keeps you company on your desktop.</p>
 
-                      <button
-                        type="button"
-                        onClick={() => setPreferences({ activeMascot: "sprite2" })}
-                        className={cn(
-                          "relative flex flex-col gap-3 rounded-xl p-md text-left transition-all border-2",
-                          activeMascot === "sprite2"
-                            ? "border-accent bg-surface-mid ring-2 ring-accent/15"
-                            : "border-border-subtle bg-surface hover:border-border"
-                        )}
-                      >
-                        <div className="h-20 w-full rounded bg-[#08090a] border border-[#2a2b2c] p-3 flex items-center justify-center overflow-hidden">
-                          <span className="text-[32px]">🧑‍💻</span>
-                        </div>
-                        <span className="text-[13px] font-semibold text-text-primary">Companion Mascot</span>
-                        <p className="text-[11px] text-text-muted">A friendly desk companion that types while you focus, waves hello, and celebrates finished sessions.</p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setPreferences({ activeMascot: "custom" })}
-                        className={cn(
-                          "relative flex flex-col gap-3 rounded-xl p-md text-left transition-all border-2",
-                          activeMascot === "custom"
-                            ? "border-accent bg-surface-mid ring-2 ring-accent/15"
-                            : "border-border-subtle bg-surface hover:border-border"
-                        )}
-                      >
-                        <div className="h-20 w-full rounded bg-[#08090a] border border-[#2a2b2c] p-3 flex items-center justify-center overflow-hidden">
-                          <span className="text-[32px]">👾</span>
-                        </div>
-                        <span className="text-[13px] font-semibold text-text-primary">Custom Mascot Slot</span>
-                        <p className="text-[11px] text-text-muted">Load a custom spritesheet, specify cells layout, and customize animations.</p>
-                      </button>
-                    </div>
-                  </section>
-
-                  {/* Custom Mascot Configuration */}
-                  {activeMascot === "custom" && (
-                    <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
-                      <h3 className="text-[15px] font-semibold text-text-primary mb-1">Custom Mascot Config</h3>
-                      <p className="text-[12px] text-text-muted mb-md">Point to your spritesheet image file and configure the cell dimensions.</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-md max-w-xl">
-                        <div className="flex flex-col gap-1.5 sm:col-span-2">
-                          <label className="text-[11px] font-semibold text-text-secondary">Spritesheet Path / URL</label>
-                          <Input
-                            type="text"
-                            value={customMascotSpritesheet}
-                            onChange={(e) => setPreferences({ customMascotSpritesheet: e.target.value })}
-                            className="bg-surface-mid border-border-subtle text-[13px]"
-                            placeholder="assets/spritesheet.orig.webp"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[11px] font-semibold text-text-secondary">Cell Width (px)</label>
-                          <Input
-                            type="number"
-                            value={customMascotWidth}
-                            onChange={(e) => setPreferences({ customMascotWidth: Number(e.target.value) })}
-                            className="bg-surface-mid border-border-subtle text-[13px]"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[11px] font-semibold text-text-secondary">Cell Height (px)</label>
-                          <Input
-                            type="number"
-                            value={customMascotHeight}
-                            onChange={(e) => setPreferences({ customMascotHeight: Number(e.target.value) })}
-                            className="bg-surface-mid border-border-subtle text-[13px]"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[11px] font-semibold text-text-secondary">Columns count</label>
-                          <Input
-                            type="number"
-                            value={customMascotCols}
-                            onChange={(e) => setPreferences({ customMascotCols: Number(e.target.value) })}
-                            className="bg-surface-mid border-border-subtle text-[13px]"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[11px] font-semibold text-text-secondary">Rows count</label>
-                          <Input
-                            type="number"
-                            value={customMascotRows}
-                            onChange={(e) => setPreferences({ customMascotRows: Number(e.target.value) })}
-                            className="bg-surface-mid border-border-subtle text-[13px]"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[11px] font-semibold text-text-secondary">Mascot Scale</label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={customMascotScale}
-                            onChange={(e) => setPreferences({ customMascotScale: Number(e.target.value) })}
-                            className="bg-surface-mid border-border-subtle text-[13px]"
-                          />
-                        </div>
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Action & Animation Bindings */}
-                  <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
-                    <h2 className="text-[17px] font-semibold tracking-[-0.012em] text-text-primary mb-1">Action & Animation Bindings</h2>
-                    <p className="text-[13px] text-text-muted mb-lg">Bind application triggers to specific mascot animations.</p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-md max-w-xl">
-                      {[
-                        { label: "Mascot Idle", key: "idle" },
-                        { label: "Hover Mascot", key: "hover" },
-                        { label: "Dragging Left", key: "dragLeft" },
-                        { label: "Dragging Right", key: "dragRight" },
-                        { label: "Complete Task", key: "complete" },
-                        { label: "Timer Open/Close", key: "toggle" }
-                      ].map((item) => {
-                        const animKey = item.key as keyof typeof mascotMappings;
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-md max-w-2xl">
+                      {MASCOTS.map((m) => {
+                        const isSelected = activeMascot === m.id;
+                        // Crop frame (row 0, col 0) out of the sheet at a fixed
+                        // preview height, preserving the cell's aspect ratio.
+                        const frameH = 88;
+                        const frameW = Math.round((m.cellW / m.cellH) * frameH);
                         return (
-                          <div key={item.key} className="flex flex-col gap-1.5">
-                            <label className="text-[12px] font-semibold text-text-secondary">{item.label}</label>
-                            <select
-                              value={mascotMappings[animKey]}
-                              onChange={(e) => setPreferences({
-                                mascotMappings: {
-                                  ...mascotMappings,
-                                  [animKey]: e.target.value
-                                }
-                              })}
-                              className="flex w-full h-9 rounded-lg bg-surface-mid border border-border-subtle px-3 text-[13px] text-text-primary outline-none focus:ring-2 focus:ring-accent/40"
-                            >
-                              <option value="idle">Idle (row 0)</option>
-                              <option value="working">Working (row 1)</option>
-                              <option value="running_left">Running Left (row 2)</option>
-                              <option value="waving">Waving (row 3)</option>
-                              <option value="jumping">Jumping (row 4)</option>
-                              <option value="failed">Failed (row 5)</option>
-                              <option value="waiting">Waiting (row 6)</option>
-                              <option value="review">Review (row 7)</option>
-                              <option value="sitting">Sitting (row 5 col 6)</option>
-                              <option value="running_right">Running Right (row 8)</option>
-                            </select>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  {/* Animation Speed */}
-                  <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
-                    <h2 className="text-[17px] font-semibold tracking-[-0.012em] text-text-primary mb-1">Animation Speed (FPS)</h2>
-                    <p className="text-[13px] text-text-muted mb-lg">Fine-tune the playback speed of individual animation sequences.</p>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-lg max-w-xl">
-                      {[
-                        { label: "Idle Speed", key: "idle", default: 5 },
-                        { label: "Waving Speed", key: "waving", default: 6 },
-                        { label: "Jumping Speed", key: "jumping", default: 10 },
-                        { label: "Waiting Speed", key: "waiting", default: 4 },
-                        { label: "Review Speed", key: "review", default: 5 },
-                        { label: "Running Left Speed", key: "running_left", default: 10 },
-                        { label: "Running Right Speed", key: "running_right", default: 9 }
-                      ].map((item) => {
-                        const fpsKey = item.key as keyof typeof mascotFps;
-                        const val = mascotFps[fpsKey];
-                        const speedLabel = val <= 5 ? "Slow" : val <= 12 ? "Normal" : val <= 20 ? "Fast" : "Very Fast";
-                        return (
-                          <div key={item.key} className="flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                              <label className="text-[12px] font-semibold text-text-secondary">{item.label}</label>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[11px] text-text-faint">{speedLabel}</span>
-                                <span className="text-[12px] text-accent font-semibold">{val} fps</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-[10px] text-text-faint w-6 shrink-0">1</span>
-                              <input
-                                type="range"
-                                min="1"
-                                max="30"
-                                value={val}
-                                onChange={(e) => setPreferences({
-                                  mascotFps: {
-                                    ...mascotFps,
-                                    [fpsKey]: Number(e.target.value)
-                                  }
-                                })}
-                                className="flex-1 accent-accent h-1 bg-surface-mid rounded-lg appearance-none cursor-pointer"
-                              />
-                              <span className="text-[10px] text-text-faint w-6 shrink-0 text-right">30</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  {/* Break Reminders Settings */}
-                  <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
-                    <div className="flex items-center gap-3 mb-md">
-                      <Checkbox
-                        id="petBreakRemindersEnabled"
-                        checked={petBreakRemindersEnabled}
-                        onChange={(val) => setPreferences({ petBreakRemindersEnabled: val })}
-                      />
-                      <div className="flex flex-col gap-0.5 select-none" onClick={() => setPreferences({ petBreakRemindersEnabled: !petBreakRemindersEnabled })}>
-                        <label htmlFor="petBreakRemindersEnabled" className="text-[15px] font-semibold text-text-primary cursor-pointer">
-                          Enable Active Break Reminders
-                        </label>
-                        <p className="text-[12px] text-text-muted">
-                          Let your pet periodically remind you to take screen breaks, stand up, stretch, or drink water.
-                        </p>
-                      </div>
-                    </div>
-
-                    {petBreakRemindersEnabled && (
-                      <div className="flex flex-col gap-1.5 max-w-xs pl-8 mt-sm">
-                        <label className="text-[11px] font-semibold text-text-secondary">Reminder Interval (Minutes)</label>
-                        <div className="flex items-center gap-sm">
-                          <Input
-                            type="number"
-                            min="5"
-                            max="300"
-                            value={petBreakIntervalMinutes}
-                            onChange={(e) => setPreferences({ petBreakIntervalMinutes: Number(e.target.value) })}
-                            className="bg-surface-mid border-border-subtle text-[13px] w-24"
-                          />
-                          <span className="text-[13px] text-text-muted">minutes of active work</span>
-                        </div>
-                      </div>
-                    )}
-                  </section>
-
-                  {/* Custom Reminders Section */}
-                  <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
-                    <div className="flex items-center gap-3 mb-lg">
-                      <Checkbox
-                        id="petCustomRemindersEnabled"
-                        checked={petCustomRemindersEnabled}
-                        onChange={(val) => setPreferences({ petCustomRemindersEnabled: val })}
-                      />
-                      <div className="flex flex-col gap-0.5 select-none" onClick={() => setPreferences({ petCustomRemindersEnabled: !petCustomRemindersEnabled })}>
-                        <label htmlFor="petCustomRemindersEnabled" className="text-[15px] font-semibold text-text-primary cursor-pointer">
-                          Custom Pet Reminders
-                        </label>
-                        <p className="text-[12px] text-text-muted">
-                          Schedule specific messages for your pet mascot to say at designated times of the day.
-                        </p>
-                      </div>
-                    </div>
-
-                    {petCustomRemindersEnabled && (
-                      <div className="pl-8 flex flex-col gap-md">
-                        {/* New reminder form */}
-                        <div className="flex flex-col sm:flex-row gap-sm max-w-xl items-end">
-                          <div className="flex-1 flex flex-col gap-1.5">
-                            <label className="text-[11px] font-semibold text-text-secondary">Reminder Text</label>
-                            <Input
-                              type="text"
-                              value={newReminderText}
-                              onChange={(e) => setNewReminderText(e.target.value)}
-                              placeholder="Time to review daily schedule!"
-                              className="bg-surface-mid border-border-subtle text-[13px]"
-                            />
-                          </div>
-                          <div className="w-32 flex flex-col gap-1.5">
-                            <label className="text-[11px] font-semibold text-text-secondary">Time (HH:MM)</label>
-                            <Input
-                              type="time"
-                              value={newReminderTime}
-                              onChange={(e) => setNewReminderTime(e.target.value)}
-                              className="bg-surface-mid border-border-subtle text-[13px]"
-                            />
-                          </div>
-                          <Button
+                          <button
+                            key={m.id}
                             type="button"
-                            variant="primary"
-                            size="sm"
-                            className="h-9 shrink-0"
-                            onClick={() => {
-                              if (!newReminderText.trim()) return;
-                              const updated = [
-                                ...petCustomReminders,
-                                { id: String(Date.now()), text: newReminderText.trim(), time: newReminderTime, active: true }
-                              ];
-                              setPreferences({ petCustomReminders: updated });
-                              setNewReminderText("");
-                              notify({
-                                title: "Reminder added",
-                                description: `Scheduled at ${newReminderTime}`,
-                                tone: "success",
-                              });
-                            }}
+                            onClick={() => setPreferences({ activeMascot: m.id })}
+                            className={cn(
+                              "relative flex flex-col gap-3 rounded-xl p-md text-left transition-all border-2",
+                              isSelected
+                                ? "border-accent bg-surface-mid ring-2 ring-accent/15"
+                                : "border-border-subtle bg-surface hover:border-border"
+                            )}
                           >
-                            Add
-                          </Button>
-                        </div>
+                            {isSelected && (
+                              <span className="absolute top-2.5 right-2.5 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-white">
+                                Active
+                              </span>
+                            )}
+                            <div className="h-28 w-full rounded-lg bg-[#08090a] border border-[#2a2b2c] flex items-end justify-center overflow-hidden pb-2">
+                              <div
+                                aria-hidden
+                                style={{
+                                  width: frameW,
+                                  height: frameH,
+                                  backgroundImage: `url("${m.sheet}")`,
+                                  backgroundRepeat: "no-repeat",
+                                  backgroundSize: `${m.cols * 100}% ${m.rows * 100}%`,
+                                  backgroundPosition: "0% 0%",
+                                }}
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[13px] font-semibold text-text-primary">{m.name}</span>
+                              <span className="rounded bg-surface-mid px-1.5 py-0.5 text-[10px] font-semibold text-text-muted">
+                                {m.tagline}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-text-muted">{m.description}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
 
-                        {/* List of custom reminders */}
-                        {petCustomReminders.length > 0 ? (
-                          <div className="border border-border-subtle rounded-lg divide-y divide-border-subtle max-w-xl">
-                            {petCustomReminders.map((rem) => (
-                              <div key={rem.id} className="flex items-center justify-between p-sm hover:bg-surface-mid transition-colors">
-                                <div className="flex items-center gap-3">
-                                  <Checkbox
-                                    id={`rem-active-${rem.id}`}
-                                    checked={rem.active}
-                                    onChange={(checked) => {
-                                      const updated = petCustomReminders.map((r) =>
-                                        r.id === rem.id ? { ...r, active: checked } : r
-                                      );
-                                      setPreferences({ petCustomReminders: updated });
-                                    }}
-                                  />
-                                  <div className="flex flex-col select-none">
-                                    <span className="text-[13px] font-medium text-text-primary">{rem.text}</span>
-                                    <span className="text-[11px] text-accent font-semibold">{rem.time}</span>
-                                  </div>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  className="text-error"
-                                  onClick={() => {
-                                    const updated = petCustomReminders.filter((r) => r.id !== rem.id);
-                                    setPreferences({ petCustomReminders: updated });
-                                    notify({
-                                      title: "Reminder removed",
-                                      description: "The custom scheduled message was deleted.",
-                                      tone: "info",
-                                    });
-                                  }}
-                                >
-                                  <Trash size={14} />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-[12px] text-text-faint italic">No custom reminders scheduled yet.</p>
-                        )}
+                  {/* Mascot Animation */}
+                  <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
+                    <h2 className="text-[17px] font-semibold tracking-[-0.012em] text-text-primary mb-1">Mascot Animation</h2>
+                    <p className="text-[13px] text-text-muted mb-lg">Choose your mascot&apos;s resting pose and how lively it should be.</p>
+
+                    <div className="flex flex-col gap-lg max-w-md">
+                      <div className="flex flex-col gap-1.5">
+                        <label htmlFor="mascotDefaultAnimation" className="text-[12px] font-semibold text-text-secondary">Default Animation</label>
+                        <select
+                          id="mascotDefaultAnimation"
+                          value={defaultAnimation}
+                          onChange={(e) => setPreferences({ mascotDefaultAnimation: e.target.value })}
+                          className="flex w-full h-9 rounded-lg bg-surface-mid border border-border-subtle px-3 text-[13px] text-text-primary outline-none focus:ring-2 focus:ring-accent/40"
+                        >
+                          <option value="waiting">Waiting (calm, default)</option>
+                          <option value="idle">Standing idle</option>
+                          <option value="working">Working</option>
+                          <option value="review">Reviewing</option>
+                          <option value="reading">Reading</option>
+                          <option value="sitting">Sitting</option>
+                        </select>
+                        <p className="text-[12px] text-text-muted">
+                          The pose your mascot rests in while nothing else is happening.
+                        </p>
                       </div>
-                    )}
+
+                      <div className="flex flex-col gap-1.5">
+                        <label htmlFor="mascotAnimationFrequency" className="text-[12px] font-semibold text-text-secondary">Animation Frequency</label>
+                        <select
+                          id="mascotAnimationFrequency"
+                          value={animationFrequency}
+                          onChange={(e) => setPreferences({ mascotAnimationFrequency: e.target.value as "off" | "calm" | "normal" | "lively" })}
+                          className="flex w-full h-9 rounded-lg bg-surface-mid border border-border-subtle px-3 text-[13px] text-text-primary outline-none focus:ring-2 focus:ring-accent/40"
+                        >
+                          <option value="off">Off — only reacts to the timer and your mouse</option>
+                          <option value="calm">Calm — a small gesture every few minutes</option>
+                          <option value="normal">Normal — a gesture about once a minute</option>
+                          <option value="lively">Lively — animates every ~25 seconds</option>
+                        </select>
+                        <p className="text-[12px] text-text-muted">
+                          How often the mascot plays a spontaneous animation while at rest.
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Reminders moved to their own tool */}
+                  <section className="rounded-xl p-md border border-border-subtle flex items-center justify-between gap-md" style={{ background: "var(--surface-raised)" }}>
+                    <div>
+                      <p className="text-[14px] font-semibold text-text-primary">Reminders</p>
+                      <p className="text-[12px] text-text-muted">
+                        Break nudges and scheduled reminders now live in the dedicated Reminders tool — your mascot delivers them on desktop.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => router.push("/reminders")}
+                    >
+                      Open Reminders
+                    </Button>
                   </section>
 
                   {/* Notes / Scratchpad Integration */}
@@ -1389,10 +1152,10 @@ function SettingsContent() {
                       />
                       <div className="flex flex-col gap-0.5 select-none" onClick={() => setPreferences({ petNotesIntegrationEnabled: !petNotesIntegrationEnabled })}>
                         <label htmlFor="petNotesIntegrationEnabled" className="text-[15px] font-semibold text-text-primary cursor-pointer">
-                          Quick Notes Scratchpad Mode
+                          Quick Notes Notepad
                         </label>
                         <p className="text-[12px] text-text-muted">
-                          Enables the notes icon inside the pet speech bubble. Tapping it opens a textbox allowing you to type and sync quick thoughts directly to the active session notes.
+                          Right-click the mascot to open a notepad on your desktop. Notes save to the active focus session — or become a new task when nothing is running.
                         </p>
                       </div>
                     </div>
