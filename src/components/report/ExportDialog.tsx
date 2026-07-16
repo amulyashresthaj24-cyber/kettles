@@ -23,8 +23,14 @@ const RANGE_PRESETS: { id: RangeChoice; label: string }[] = [
   { id: "this-year", label: "This year" },
 ];
 
-const SCOPES: { id: ExportScope; label: string; description: string }[] = [
-  { id: "current", label: "Current view", description: "One report with the filters applied above" },
+const SCOPES: { id: ExportScope; label: string; description: string; excelOnly?: boolean }[] = [
+  {
+    id: "timesheet",
+    label: "Timesheet",
+    description: "Date · From · To · Hours · Category · Description",
+    excelOnly: true,
+  },
+  { id: "current", label: "Full report", description: "Summary, daily, projects, tags, and session log" },
   { id: "by-project", label: "By project", description: "A section / sheet per project" },
   { id: "by-month", label: "By month", description: "Totals broken down per month" },
   { id: "by-week", label: "By week", description: "Totals broken down per week" },
@@ -39,10 +45,18 @@ interface ExportDialogProps {
 
 export function ExportDialog({ open, onClose, getData }: ExportDialogProps) {
   const { notify } = useNotification();
-  const [format, setFormat] = useState<ExportFormat>("pdf");
-  const [scope, setScope] = useState<ExportScope>("current");
+  const [format, setFormat] = useState<ExportFormat>("excel");
+  const [scope, setScope] = useState<ExportScope>("timesheet");
   const [rangeChoice, setRangeChoice] = useState<RangeChoice>("current");
   const [busy, setBusy] = useState(false);
+
+  const visibleScopes = SCOPES.filter((s) => format === "excel" || !s.excelOnly);
+
+  const setExportFormat = (next: ExportFormat) => {
+    setFormat(next);
+    if (next === "pdf" && scope === "timesheet") setScope("current");
+    if (next === "excel" && scope === "current") setScope("timesheet");
+  };
 
   const resolveRange = (): DateRange | null => {
     switch (rangeChoice) {
@@ -59,16 +73,26 @@ export function ExportDialog({ open, onClose, getData }: ExportDialogProps) {
     setBusy(true);
     try {
       const data = getData(resolveRange());
-      if (format === "excel") {
-        const { exportExcel } = await import("@/lib/report/export-excel");
-        await exportExcel(data, { scope });
-      } else {
-        const { exportPdf } = await import("@/lib/report/export-pdf");
-        await exportPdf(data, { scope });
+      const result =
+        format === "excel"
+          ? await (await import("@/lib/report/export-excel")).exportExcel(data, { scope })
+          : await (await import("@/lib/report/export-pdf")).exportPdf(data, { scope });
+
+      if (!result.ok) {
+        if (result.cancelled) {
+          notify({ title: "Export cancelled", description: "No file was saved.", tone: "info" });
+        } else {
+          notify({ title: "Export failed", description: result.error, tone: "error" });
+        }
+        return;
       }
+
       notify({
-        title: "Report exported",
-        description: `${format === "excel" ? "Excel workbook" : "PDF"} for ${data.filters.range.label} downloaded.`,
+        title: result.method === "picker" ? "Saved locally" : "Download started",
+        description:
+          result.method === "picker"
+            ? `Saved ${result.filename}`
+            : `${result.filename} — check your Downloads folder.`,
         tone: "success",
       });
       onClose();
@@ -92,27 +116,29 @@ export function ExportDialog({ open, onClose, getData }: ExportDialogProps) {
           <span className="text-[12px] font-medium text-text-muted">Format</span>
           <div className="grid grid-cols-2 gap-2">
             <FormatCard
+              icon={<FileXls size={20} className="text-success" />}
+              label="Excel"
+              description="Timesheet or full workbook"
+              active={format === "excel"}
+              onClick={() => setExportFormat("excel")}
+            />
+            <FormatCard
               icon={<FilePdf size={20} className="text-error" />}
               label="PDF"
               description="Client-ready summary"
               active={format === "pdf"}
-              onClick={() => setFormat("pdf")}
-            />
-            <FormatCard
-              icon={<FileXls size={20} className="text-success" />}
-              label="Excel"
-              description="Multi-sheet workbook"
-              active={format === "excel"}
-              onClick={() => setFormat("excel")}
+              onClick={() => setExportFormat("pdf")}
             />
           </div>
         </div>
 
         {/* Scope */}
         <div className="flex flex-col gap-2">
-          <span className="text-[12px] font-medium text-text-muted">Breakdown</span>
+          <span className="text-[12px] font-medium text-text-muted">
+            {format === "excel" ? "Sheet layout" : "Breakdown"}
+          </span>
           <div className="flex flex-col gap-1.5">
-            {SCOPES.map((s) => (
+            {visibleScopes.map((s) => (
               <button
                 key={s.id}
                 onClick={() => setScope(s.id)}
@@ -159,6 +185,10 @@ export function ExportDialog({ open, onClose, getData }: ExportDialogProps) {
           </div>
         </div>
 
+        <p className="text-[11px] text-text-faint leading-relaxed">
+          You’ll pick a folder with the system Save dialog when available; otherwise the file goes to your Downloads folder.
+        </p>
+
         {/* Actions */}
         <div className="flex items-center justify-end gap-2 pt-1">
           <Button variant="secondary" size="sm" onClick={onClose} disabled={busy}>
@@ -166,7 +196,7 @@ export function ExportDialog({ open, onClose, getData }: ExportDialogProps) {
           </Button>
           <Button variant="primary" size="sm" onClick={handleExport} disabled={busy} className="gap-1.5">
             {busy && <Spinner size={14} className="animate-spin" />}
-            {busy ? "Generating…" : `Export ${format === "excel" ? "Excel" : "PDF"}`}
+            {busy ? "Generating…" : `Save ${format === "excel" ? "Excel" : "PDF"}…`}
           </Button>
         </div>
       </div>

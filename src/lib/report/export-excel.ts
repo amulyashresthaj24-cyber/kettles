@@ -8,11 +8,13 @@ import { eachMonthOf, eachWeekOf, formatRangeForFilename } from "@/lib/report-da
 import { BRAND_NAME, FILE_PREFIX } from "./constants";
 import type { EnrichedSession, ReportData } from "./data";
 import { buildTimeLog, computeTotals } from "./data";
+import { saveLocalFile, type SaveLocalResult } from "./save-local";
 
-export type ExportScope = "current" | "by-project" | "by-month" | "by-week";
+export type ExportScope = "timesheet" | "current" | "by-project" | "by-month" | "by-week";
 
 export const SCOPE_LABELS: Record<ExportScope, string> = {
-  current: "Current view",
+  timesheet: "Timesheet",
+  current: "Full report",
   "by-project": "By project",
   "by-month": "By month",
   "by-week": "By week",
@@ -199,6 +201,38 @@ function tagsSheet(data: ReportData): SheetSpec {
   };
 }
 
+/** 24h HH:mm to match client timesheet Excel. */
+function fmtTime24(ts: number): string {
+  return new Date(ts).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+/**
+ * Client timesheet layout: Date | From | To | Hours | Category | Description
+ * Category = task title. Sorted oldest-first like the reference spreadsheet.
+ */
+function timesheetSheet(rows: EnrichedSession[]): SheetSpec {
+  const logs = buildTimeLog(rows, "date_asc");
+  return {
+    rows: [
+      ["Date", "From", "To", "Hours", "Category", "Description"],
+      ...logs.map((l) => [
+        new Date(l.startedAt).toLocaleDateString("en-US"),
+        fmtTime24(l.startedAt),
+        fmtTime24(l.endedAt),
+        hours(l.seconds),
+        l.taskTitle,
+        l.description || "",
+      ]),
+    ],
+    widths: [12, 8, 8, 10, 28, 48],
+    formats: { 3: HOURS_FMT },
+  };
+}
+
 function sessionsSheet(rows: EnrichedSession[]): SheetSpec {
   const logs = buildTimeLog(rows, "date_desc");
   return {
@@ -223,12 +257,40 @@ function sessionsSheet(rows: EnrichedSession[]): SheetSpec {
   };
 }
 
-export async function exportExcel(data: ReportData, opts: { scope: ExportScope }): Promise<void> {
+async function writeWorkbookLocal(
+  XLSX: XlsxModule,
+  wb: WorkBook,
+  filename: string
+): Promise<SaveLocalResult> {
+  const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  return saveLocalFile({
+    filename,
+    blob,
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    extension: ".xlsx",
+    description: "Excel workbook",
+  });
+}
+
+export async function exportExcel(
+  data: ReportData,
+  opts: { scope: ExportScope }
+): Promise<SaveLocalResult> {
   const XLSX = await import("xlsx");
   const wb: WorkBook = XLSX.utils.book_new();
   const used = new Set<string>();
   const add = (name: string, spec: SheetSpec) =>
     XLSX.utils.book_append_sheet(wb, makeSheet(XLSX, spec), sheetName(name, used));
+
+  // Single-sheet client timesheet (Date / From / To / Hours / Category / Description)
+  if (opts.scope === "timesheet") {
+    add("Timesheet", timesheetSheet(data.rows));
+    const filename = `${FILE_PREFIX}-timesheet-${formatRangeForFilename(data.filters.range)}.xlsx`;
+    return writeWorkbookLocal(XLSX, wb, filename);
+  }
 
   add("Summary", summarySheet(data, opts.scope));
 
@@ -242,9 +304,9 @@ export async function exportExcel(data: ReportData, opts: { scope: ExportScope }
 
   add("By Project", projectsSheet(data));
   add("By Tag", tagsSheet(data));
+  add("Timesheet", timesheetSheet(data.rows));
 
   if (opts.scope === "by-project") {
-    // One session-log sheet per project, largest first.
     for (const p of data.projects) {
       const rows = data.rows.filter((r) => (r.project?.id ?? "_none") === p.id);
       add(p.name, sessionsSheet(rows));
@@ -254,5 +316,5 @@ export async function exportExcel(data: ReportData, opts: { scope: ExportScope }
   }
 
   const filename = `${FILE_PREFIX}-${opts.scope}-${formatRangeForFilename(data.filters.range)}.xlsx`;
-  XLSX.writeFile(wb, filename);
+  return writeWorkbookLocal(XLSX, wb, filename);
 }

@@ -442,6 +442,8 @@ export interface TimeLogRow {
   billable: boolean;
   earningsCents: number;
   color: string;
+  /** Session notes joined — maps to timesheet Description column. */
+  description: string;
 }
 
 export function buildTimeLog(rows: EnrichedSession[], sort: TimeLogSort): TimeLogRow[] {
@@ -458,6 +460,10 @@ export function buildTimeLog(rows: EnrichedSession[], sort: TimeLogSort): TimeLo
     billable: r.billable,
     earningsCents: r.earningsCents,
     color: r.color,
+    description: (r.session.notes ?? [])
+      .map((n) => n.text?.trim())
+      .filter(Boolean)
+      .join("; "),
   }));
 
   if (sort === "date_asc") return logs.sort((a, b) => a.startedAt - b.startedAt);

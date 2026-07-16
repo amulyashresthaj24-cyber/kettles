@@ -6,6 +6,7 @@ import {
   Clock,
   CurrencyDollar,
   Download,
+  Plus,
   ShareNetwork,
   Target,
   TrendUp,
@@ -28,6 +29,7 @@ import { ReportCard, ReportEmptyState } from "@/components/report/ReportCard";
 import { ProjectsTable } from "@/components/report/ProjectsTable";
 import { TimeLogTable } from "@/components/report/TimeLogTable";
 import { ExportDialog } from "@/components/report/ExportDialog";
+import { AddTimeLogDialog } from "@/components/report/AddTimeLogDialog";
 import { TimeSeriesChart } from "@/components/report/charts/TimeSeriesChart";
 import { DistributionDonut } from "@/components/report/charts/DistributionDonut";
 import { HourOfDayChart } from "@/components/report/charts/HourOfDayChart";
@@ -67,6 +69,7 @@ export default function ReportPage() {
   const [sliceBy, setSliceBy] = useState<"projects" | "clients">("projects");
   const [groupByClient, setGroupByClient] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [addLogOpen, setAddLogOpen] = useState(false);
 
   // Hydrate filters from a shared URL. window.location is used instead of
   // useSearchParams because the app builds with `output: "export"`.
@@ -455,7 +458,45 @@ export default function ReportPage() {
                 {totals.earningsCents > 0 && <> · {formatCurrency(totals.earningsCents)}</>}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-[12px] text-text-faint">Sort:</span>
+                <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => setAddLogOpen(true)}>
+                  <Plus size={14} />
+                  Add entry
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5"
+                  onClick={async () => {
+                    try {
+                      const { exportExcel } = await import("@/lib/report/export-excel");
+                      const result = await exportExcel(data, { scope: "timesheet" });
+                      if (!result.ok) {
+                        if (!result.cancelled) {
+                          notify({ title: "Download failed", description: result.error, tone: "error" });
+                        }
+                        return;
+                      }
+                      notify({
+                        title: result.method === "picker" ? "Timesheet saved" : "Download started",
+                        description:
+                          result.method === "picker"
+                            ? `Saved ${result.filename}`
+                            : `${result.filename} — check your Downloads folder.`,
+                        tone: "success",
+                      });
+                    } catch (err) {
+                      notify({
+                        title: "Download failed",
+                        description: err instanceof Error ? err.message : "Could not export timesheet.",
+                        tone: "error",
+                      });
+                    }
+                  }}
+                >
+                  <Download size={14} />
+                  Download
+                </Button>
+                <span className="text-[12px] text-text-faint ml-1">Sort:</span>
                 {(["date_desc", "date_asc", "dur_desc"] as const).map((s) => (
                   <button
                     key={s}
@@ -486,6 +527,11 @@ export default function ReportPage() {
       </div>
 
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} getData={getExportData} />
+      <AddTimeLogDialog
+        open={addLogOpen}
+        onClose={() => setAddLogOpen(false)}
+        defaultProjectId={filters.projectId}
+      />
     </PageLayout>
   );
 }

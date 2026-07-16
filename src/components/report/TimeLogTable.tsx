@@ -24,7 +24,7 @@ const fmtTime = (ts: number) =>
 export function TimeLogTable({ logs, totalSeconds, totalEarningsCents, groupByDay }: TimeLogTableProps) {
   if (logs.length === 0) {
     return (
-      <ReportEmptyState message="No sessions logged for this period. Start a focus session to track time." />
+      <ReportEmptyState message="No sessions logged for this period. Add an entry or start a focus session." />
     );
   }
 

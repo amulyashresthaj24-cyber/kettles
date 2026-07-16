@@ -9,6 +9,7 @@ import type { EnrichedSession, ProjectRollup, ReportData } from "./data";
 import { buildTimeLog, UNTAGGED } from "./data";
 import type { ExportScope } from "./export-excel";
 import { SCOPE_LABELS } from "./export-excel";
+import { saveLocalFile, type SaveLocalResult } from "./save-local";
 
 type AutoTableFn = (doc: jsPDF, options: Record<string, unknown>) => void;
 
@@ -200,7 +201,10 @@ function drawFooters(doc: jsPDF): void {
   }
 }
 
-export async function exportPdf(data: ReportData, opts: { scope: ExportScope }): Promise<void> {
+export async function exportPdf(
+  data: ReportData,
+  opts: { scope: ExportScope }
+): Promise<SaveLocalResult> {
   const [{ default: JsPDF }, { default: autoTable }] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -266,5 +270,13 @@ export async function exportPdf(data: ReportData, opts: { scope: ExportScope }):
   }
 
   drawFooters(doc);
-  doc.save(`${FILE_PREFIX}-${opts.scope}-${formatRangeForFilename(data.filters.range)}.pdf`);
+  const filename = `${FILE_PREFIX}-${opts.scope}-${formatRangeForFilename(data.filters.range)}.pdf`;
+  const blob = doc.output("blob");
+  return saveLocalFile({
+    filename,
+    blob,
+    mimeType: "application/pdf",
+    extension: ".pdf",
+    description: "PDF document",
+  });
 }

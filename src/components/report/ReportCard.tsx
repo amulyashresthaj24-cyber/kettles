@@ -14,7 +14,7 @@ interface ReportCardProps {
 export function ReportCard({ title, action, children, className, flush }: ReportCardProps) {
   return (
     <div
-      className={cn("rounded-lg overflow-hidden", className)}
+      className={cn("rounded-md overflow-hidden", className)}
       style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}
     >
       {(title || action) && (

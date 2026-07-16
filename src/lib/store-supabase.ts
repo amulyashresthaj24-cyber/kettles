@@ -209,6 +209,16 @@ interface State {
   deleteSessionNote: (noteId: string) => void;
   stopSession: () => Promise<Session | null>;
   adjustSessionDuration: (id: string, seconds: number) => Promise<void>;
+  /** Create a confirmed past time entry without running the timer. */
+  addManualSession: (input: {
+    taskId?: string;
+    taskTitle?: string;
+    projectId: string;
+    startedAt: number;
+    endedAt: number;
+    billable?: boolean;
+    description?: string;
+  }) => Promise<Session | null>;
 
   /** Session id whose completion alarm is currently ringing (transient). */
   completionAlarmSessionId: string | null;
@@ -1009,6 +1019,85 @@ persist((set, get) => ({
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to adjust session' });
       throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  addManualSession: async (input) => {
+    const project = get().projects.find((p) => p.id === input.projectId);
+    if (!project) {
+      set({ error: "Project not found" });
+      return null;
+    }
+    if (!input.startedAt || !input.endedAt || input.endedAt <= input.startedAt) {
+      set({ error: "End time must be after start time" });
+      return null;
+    }
+
+    set({ isLoading: true, error: null });
+    try {
+      let taskId = input.taskId ?? "";
+      if (!taskId) {
+        const title = (input.taskTitle ?? "").trim();
+        if (!title) {
+          set({ error: "Task is required" });
+          return null;
+        }
+        const task = await get().addTask({
+          title,
+          projectId: input.projectId,
+          urgency: "normal",
+        });
+        taskId = task.id;
+      } else {
+        const existing = get().tasks.find((t) => t.id === taskId);
+        if (!existing) {
+          set({ error: "Task not found" });
+          return null;
+        }
+      }
+
+      const durationSeconds = Math.max(1, Math.round((input.endedAt - input.startedAt) / 1000));
+      const notes =
+        input.description?.trim()
+          ? [{ id: uid(), timestamp: input.startedAt, text: input.description.trim() }]
+          : [];
+      const payload = {
+        taskId,
+        projectId: input.projectId,
+        billable: input.billable ?? project.billable ?? false,
+        startedAt: input.startedAt,
+        endedAt: input.endedAt,
+        durationSeconds,
+        paused: true,
+        state: "confirmed" as const,
+        isDraft: false,
+        notes,
+      };
+
+      if (!isOnline()) {
+        const local = normalizeSession({ ...payload, id: uid() });
+        set({ sessions: [...get().sessions, local] });
+        queueMutation("sessions", "create", local.id, { ...payload });
+        return local;
+      }
+
+      const created = await api.sessions.create(payload);
+      const session = normalizeSession({
+        ...created,
+        state: "confirmed",
+        paused: true,
+        isDraft: false,
+        notes: created.notes?.length ? created.notes : notes,
+        endedAt: created.endedAt ?? input.endedAt,
+        durationSeconds: created.durationSeconds || durationSeconds,
+      });
+      set({ sessions: [...get().sessions, session] });
+      return session;
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Failed to add time entry" });
+      return null;
     } finally {
       set({ isLoading: false });
     }
