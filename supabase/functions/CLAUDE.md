@@ -1,17 +1,18 @@
 # Supabase Edge Functions — Claude Guide
 
-## Structure
+  ## Structure
 ```
 supabase/functions/
   _shared/
     cors.ts        # corsHeaders + handleCors(req)
-    supabase.ts    # getSupabaseClient(req) — auth-aware client
+    supabase.ts    # getSupabaseClient(req) — auth-aware client; getServiceRoleClient()
     validators.ts  # validateUUID, validateRequired, sanitizeData, formatEntityResponse
   projects/index.ts
   tasks/index.ts
   sessions/index.ts
   clients/index.ts
   analytics/index.ts
+  report-shares/index.ts  # owner CRUD + public POST /view (verify_jwt=false)
 ```
 
 ## Pattern (every function)

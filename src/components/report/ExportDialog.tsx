@@ -27,7 +27,7 @@ const SCOPES: { id: ExportScope; label: string; description: string; excelOnly?:
   {
     id: "timesheet",
     label: "Timesheet",
-    description: "Date · From · To · Hours · Category · Description",
+    description: "Date · From · To · Hours · Task · Description",
     excelOnly: true,
   },
   { id: "current", label: "Full report", description: "Summary, daily, projects, tags, and session log" },

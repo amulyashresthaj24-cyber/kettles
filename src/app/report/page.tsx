@@ -29,6 +29,7 @@ import { ReportCard, ReportEmptyState } from "@/components/report/ReportCard";
 import { ProjectsTable } from "@/components/report/ProjectsTable";
 import { TimeLogTable } from "@/components/report/TimeLogTable";
 import { ExportDialog } from "@/components/report/ExportDialog";
+import { ShareReportDialog } from "@/components/report/ShareReportDialog";
 import { AddTimeLogDialog } from "@/components/report/AddTimeLogDialog";
 import { TimeSeriesChart } from "@/components/report/charts/TimeSeriesChart";
 import { DistributionDonut } from "@/components/report/charts/DistributionDonut";
@@ -69,7 +70,9 @@ export default function ReportPage() {
   const [sliceBy, setSliceBy] = useState<"projects" | "clients">("projects");
   const [groupByClient, setGroupByClient] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [addLogOpen, setAddLogOpen] = useState(false);
+  const [editingLog, setEditingLog] = useState<import("@/lib/report/data").TimeLogRow | null>(null);
 
   // Hydrate filters from a shared URL. window.location is used instead of
   // useSearchParams because the app builds with `output: "export"`.
@@ -153,7 +156,9 @@ export default function ReportPage() {
       range: overrideRange ?? range,
     });
 
-  const handleShare = () => {
+  const handleShare = () => setShareOpen(true);
+
+  const getInternalFilterUrl = () => {
     const params = new URLSearchParams();
     params.set("mode", filters.periodMode);
     params.set("cursor", String(filters.cursors[filters.periodMode]));
@@ -162,9 +167,7 @@ export default function ReportPage() {
     if (filters.clientId) params.set("client", filters.clientId);
     if (filters.tag) params.set("tag", filters.tag);
     if (filters.billable !== "all") params.set("billable", filters.billable);
-    const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-    navigator.clipboard.writeText(url);
-    notify({ title: "Link copied", description: "This view's filters are encoded in the link.", tone: "success" });
+    return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -239,7 +242,11 @@ export default function ReportPage() {
                 icon={<TrendUp size={14} className="text-accent" />}
                 label="Earnings"
                 value={totals.earningsCents > 0 ? formatCurrency(totals.earningsCents) : "–"}
-                sub={totals.earningsCents > 0 ? `${formatDuration(totals.billableSeconds)} billed` : "Set hourly rates on clients"}
+                sub={
+                  totals.earningsCents > 0
+                    ? `${formatDuration(totals.billableSeconds)} billed`
+                    : "Set hourly rate on project or client"
+                }
               />
               <KpiCard
                 icon={<Target size={14} className="text-text-faint" />}
@@ -458,7 +465,15 @@ export default function ReportPage() {
                 {totals.earningsCents > 0 && <> · {formatCurrency(totals.earningsCents)}</>}
               </span>
               <div className="flex items-center gap-2">
-                <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => setAddLogOpen(true)}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5"
+                  onClick={() => {
+                    setEditingLog(null);
+                    setAddLogOpen(true);
+                  }}
+                >
                   <Plus size={14} />
                   Add entry
                 </Button>
@@ -520,6 +535,10 @@ export default function ReportPage() {
                 totalSeconds={totals.totalSeconds}
                 totalEarningsCents={totals.earningsCents}
                 groupByDay={timeLogSort !== "dur_desc"}
+                onEdit={(log) => {
+                  setEditingLog(log);
+                  setAddLogOpen(true);
+                }}
               />
             </ReportCard>
           </>
@@ -527,10 +546,24 @@ export default function ReportPage() {
       </div>
 
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} getData={getExportData} />
+      <ShareReportDialog
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        filters={filters}
+        periodKey={range.key}
+        periodLabel={range.label}
+        projects={projects}
+        clients={clients}
+        getInternalFilterUrl={getInternalFilterUrl}
+      />
       <AddTimeLogDialog
         open={addLogOpen}
-        onClose={() => setAddLogOpen(false)}
+        onClose={() => {
+          setAddLogOpen(false);
+          setEditingLog(null);
+        }}
         defaultProjectId={filters.projectId}
+        editing={editingLog}
       />
     </PageLayout>
   );

@@ -25,7 +25,12 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
       }
     });
 
-    const selectedOption = options.find((o) => o.value === value) || options[0];
+    // Prefer an exact match. Never silently fall back to options[0] when a
+    // non-empty value is set but missing from the list — that made edit
+    // dialogs show "Select task…" while a real taskId was already bound.
+    const selectedOption =
+      options.find((o) => o.value === value) ??
+      (value ? { value, label: "Selected item" } : options[0]);
 
     // Close on click outside
     React.useEffect(() => {

@@ -98,7 +98,10 @@ export function TaskList({
       router.push("/timer");
       return;
     }
-    startSession(taskId);
+    const task = tasks.find((t) => t.id === taskId);
+    const planned =
+      task?.estimateMinutes && task.estimateMinutes > 0 ? task.estimateMinutes : undefined;
+    void startSession(taskId, undefined, planned);
     router.push("/timer");
   };
 

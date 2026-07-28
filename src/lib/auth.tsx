@@ -34,6 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const isSharePage =
+      typeof window !== "undefined" && window.location.pathname.startsWith("/share");
+
     // Check initial session - fast check first
     supabase.auth.getSession().then(({ data: { session } }) => {
       const currentUser = session?.user ?? null;
@@ -44,8 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || "User",
           email: currentUser.email 
         });
-        // Load data async after setting user
-        loadAll();
+        // Public share pages must not pull the private workspace.
+        if (!isSharePage) {
+          loadAll();
+        }
       }
       
       setLoading(false);
@@ -64,7 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         // Only full-reload on real sign-in / account changes. TOKEN_REFRESHED is a
         // background JWT rotation (~hourly) — no app data changed, so skip the reload.
-        if (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "INITIAL_SESSION") {
+        // Also skip on the public share viewer.
+        const sharePage =
+          typeof window !== "undefined" && window.location.pathname.startsWith("/share");
+        if (
+          !sharePage &&
+          (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "INITIAL_SESSION")
+        ) {
           loadAll();
         }
       } else {

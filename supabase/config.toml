@@ -95,6 +95,10 @@ enabled = true
 # Configure one of the supported pooler backends: `realtime`, `supavisor`, or `pgbouncer`.
 inspector_port = 8083
 
+# Public /view must work without a user JWT. Owner routes still call auth.getUser() inside.
+[functions.report-shares]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

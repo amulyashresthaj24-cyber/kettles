@@ -14,6 +14,7 @@ interface TimeLogTableProps {
   totalEarningsCents: number;
   /** Insert a subtotal header row whenever the day changes (only sensible for date sorts). */
   groupByDay?: boolean;
+  onEdit?: (log: TimeLogRow) => void;
 }
 
 const fmtDate = (ts: number) =>
@@ -21,10 +22,16 @@ const fmtDate = (ts: number) =>
 const fmtTime = (ts: number) =>
   new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
-export function TimeLogTable({ logs, totalSeconds, totalEarningsCents, groupByDay }: TimeLogTableProps) {
+export function TimeLogTable({
+  logs,
+  totalSeconds,
+  totalEarningsCents,
+  groupByDay,
+  onEdit,
+}: TimeLogTableProps) {
   if (logs.length === 0) {
     return (
-      <ReportEmptyState message="No sessions logged for this period. Add an entry or start a focus session." />
+      <ReportEmptyState message="No sessions for this period. Try Week/Month/Year, clear filters, or add an entry." />
     );
   }
 
@@ -74,8 +81,23 @@ export function TimeLogTable({ logs, totalSeconds, totalEarningsCents, groupByDa
               </div>
             )}
             <div
-              className={cn(GRID, "px-5 py-3 hover:bg-surface-mid transition-colors")}
+              role={onEdit ? "button" : undefined}
+              tabIndex={onEdit ? 0 : undefined}
+              onClick={() => onEdit?.(log)}
+              onKeyDown={(e) => {
+                if (!onEdit) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onEdit(log);
+                }
+              }}
+              className={cn(
+                GRID,
+                "px-5 py-3 hover:bg-surface-mid transition-colors",
+                onEdit && "cursor-pointer"
+              )}
               style={{ borderBottom: "1px solid var(--border-subtle)" }}
+              title={onEdit ? "Click to edit" : undefined}
             >
               <div className="flex items-center gap-2.5 min-w-0 pr-3">
                 {log.taskStatus === "done" ? (

@@ -211,14 +211,14 @@ function fmtTime24(ts: number): string {
 }
 
 /**
- * Client timesheet layout: Date | From | To | Hours | Category | Description
- * Category = task title. Sorted oldest-first like the reference spreadsheet.
+ * Client timesheet layout: Date | From | To | Hours | Task | Description
+ * Task = task title. Sorted oldest-first like the reference spreadsheet.
  */
 function timesheetSheet(rows: EnrichedSession[]): SheetSpec {
   const logs = buildTimeLog(rows, "date_asc");
   return {
     rows: [
-      ["Date", "From", "To", "Hours", "Category", "Description"],
+      ["Date", "From", "To", "Hours", "Task", "Description"],
       ...logs.map((l) => [
         new Date(l.startedAt).toLocaleDateString("en-US"),
         fmtTime24(l.startedAt),
@@ -285,7 +285,7 @@ export async function exportExcel(
   const add = (name: string, spec: SheetSpec) =>
     XLSX.utils.book_append_sheet(wb, makeSheet(XLSX, spec), sheetName(name, used));
 
-  // Single-sheet client timesheet (Date / From / To / Hours / Category / Description)
+  // Single-sheet client timesheet (Date / From / To / Hours / Task / Description)
   if (opts.scope === "timesheet") {
     add("Timesheet", timesheetSheet(data.rows));
     const filename = `${FILE_PREFIX}-timesheet-${formatRangeForFilename(data.filters.range)}.xlsx`;

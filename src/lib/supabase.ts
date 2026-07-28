@@ -1,5 +1,15 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Client, Project, Session, Task } from './types';
+import type {
+  CreateReportShareInput,
+  CreateReportShareResult,
+  FetchSharedReportInput,
+  PublicSharedReport,
+  ReportShare,
+  ShareErrorCode,
+  UpdateReportShareInput,
+} from './report/share-types';
+import { SharedReportError } from './report/share-types';
 
 let supabase: SupabaseClient | null = null;
 
@@ -176,4 +186,64 @@ export const api = {
     projects: () => edgeFunction('analytics?type=projects'),
     timeDistribution: (days: number = 30) => edgeFunction(`analytics?type=time-distribution&days=${days}`),
   },
+  reportShares: {
+    list: () => edgeFunction<{ shares: ReportShare[] }>('report-shares'),
+    create: (data: CreateReportShareInput) =>
+      edgeFunction<CreateReportShareResult>('report-shares', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateReportShareInput) =>
+      edgeFunction<ReportShare>(`report-shares/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    revoke: (id: string) =>
+      edgeFunction<ReportShare>(`report-shares/${id}/revoke`, { method: 'POST', body: '{}' }),
+    rotateToken: (id: string) =>
+      edgeFunction<CreateReportShareResult>(`report-shares/${id}/rotate-token`, {
+        method: 'POST',
+        body: '{}',
+      }),
+    delete: (id: string) =>
+      edgeFunction<{ success: boolean }>(`report-shares/${id}`, { method: 'DELETE' }),
+  },
 };
+
+/**
+ * Public shared-report fetch. Never attaches the user's JWT so a signed-in
+ * owner visiting /share does not accidentally auth as themselves for /view.
+ */
+export async function fetchSharedReport(
+  input: FetchSharedReportInput
+): Promise<PublicSharedReport> {
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseEnv();
+  const response = await fetch(`${supabaseUrl}/functions/v1/report-shares/view`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: supabaseAnonKey,
+    },
+    body: JSON.stringify(input),
+  });
+
+  const text = await response.text();
+  let body: { error?: string; code?: string } & Partial<PublicSharedReport> = {};
+  try {
+    body = text ? JSON.parse(text) : {};
+  } catch {
+    if (isHtmlResponse(text)) {
+      throw new SharedReportError('unavailable', getSupabaseMisconfigurationMessage(), 502);
+    }
+    throw new SharedReportError('unavailable', 'Could not load shared report', response.status || 502);
+  }
+
+  if (!response.ok) {
+    const code = (body.code as ShareErrorCode) || 'unavailable';
+    const message = body.error || 'Could not load shared report';
+    throw new SharedReportError(code, message, response.status);
+  }
+
+  return body as PublicSharedReport;
+}

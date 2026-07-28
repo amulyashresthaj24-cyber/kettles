@@ -366,8 +366,18 @@ function ProjectOverview({
               <div className="grid gap-md">
                 <DetailRow icon={<Briefcase size={15} />} label="Client" value={client?.name ?? "No client assigned"} />
                 <DetailRow icon={<Clock size={15} />} label="Logged time" value={formatDuration(projectLoggedSeconds)} />
-                <DetailRow icon={<CurrencyDollar size={15} />} label="Budget" value={project.budget ? formatCurrency(project.budget) : "Not set"} />
-                <DetailRow icon={<Clock size={15} />} label="Hourly rate" value={client?.hourlyRate ? formatCurrency(client.hourlyRate) : "Not set"} />
+                <DetailRow icon={<CurrencyDollar size={15} />} label="Budget" value={project.budget ? `$${project.budget}` : "Not set"} />
+                <DetailRow
+                  icon={<Clock size={15} />}
+                  label="Hourly rate"
+                  value={
+                    project.hourlyRate != null && project.hourlyRate > 0
+                      ? `$${project.hourlyRate}/hr`
+                      : client?.hourlyRate
+                        ? `$${client.hourlyRate}/hr (client)`
+                        : "Not set"
+                  }
+                />
               </div>
             </Panel>
           </div>

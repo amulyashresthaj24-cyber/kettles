@@ -58,14 +58,17 @@ export function TaskCard({
   const sessions = useApp((s) => s.sessions);
   const isActive = sessions.find((s) => s.id === activeSessionId)?.taskId === task.id;
 
+  const plannedMinutes =
+    task.estimateMinutes && task.estimateMinutes > 0 ? task.estimateMinutes : undefined;
+
   const handleStart = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!activeSessionId) startSession(task.id);
+    if (!activeSessionId) void startSession(task.id, undefined, plannedMinutes);
     router.push("/timer");
   };
 
   const handleCardClick = () => {
-    if (!activeSessionId) startSession(task.id);
+    if (!activeSessionId) void startSession(task.id, undefined, plannedMinutes);
     router.push("/timer");
   };
 

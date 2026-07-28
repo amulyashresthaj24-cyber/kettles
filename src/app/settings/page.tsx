@@ -664,16 +664,20 @@ function SettingsContent() {
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[12px] font-semibold text-text-secondary">Default Focus Session Duration</label>
                       <select
-                        value={preferences?.defaultFocusDuration || 25}
+                        value={preferences?.defaultFocusDuration ?? 0}
                         onChange={(e) => setPreferences({ defaultFocusDuration: Number(e.target.value) })}
                         className="flex w-full h-9 rounded-lg bg-surface-mid border border-border-subtle px-3 text-[14px] text-text-primary outline-none focus:ring-2 focus:ring-accent/40"
                       >
+                        <option value={0}>Open-ended (count up from zero)</option>
                         <option value={15}>15 Minutes</option>
                         <option value={25}>25 Minutes (Standard Pomodoro)</option>
                         <option value={30}>30 Minutes</option>
                         <option value={45}>45 Minutes</option>
                         <option value={60}>60 Minutes</option>
                       </select>
+                      <p className="text-[11px] text-text-faint">
+                        Used when a task has no estimate. Open-ended starts from 0:00, not a countdown.
+                      </p>
                     </div>
 
                     {/* Weekly Target Hours */}

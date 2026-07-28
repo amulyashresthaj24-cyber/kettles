@@ -30,6 +30,8 @@ export interface Project {
   color: ProjectColor;
   icon?: string;
   billable: boolean;
+  /** Project hourly rate in USD. Preferred over client rate for earnings. */
+  hourlyRate?: number;
   status?: ProjectStatus;
   startDate?: number;
   endDate?: number;

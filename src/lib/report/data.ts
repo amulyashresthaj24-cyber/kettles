@@ -29,6 +29,33 @@ export function isReportableSession(s: Session): boolean {
   return !!s.endedAt && (s.state ?? "confirmed") === "confirmed";
 }
 
+/**
+ * Align the wall-clock range with durationSeconds when they disagree.
+ *
+ * Legacy pause → late confirm left startedAt at the real start but set endedAt
+ * to the confirm moment, so TIME looked longer than DURATION. After resume,
+ * startedAt is the last segment while durationSeconds is the full total.
+ */
+export function reconcileSessionBounds(
+  startedAt: number,
+  endedAt: number,
+  durationSeconds: number
+): { startedAt: number; endedAt: number } {
+  const seconds = Math.max(0, Math.round(durationSeconds));
+  if (seconds <= 0 || !Number.isFinite(startedAt) || !Number.isFinite(endedAt) || endedAt <= startedAt) {
+    return { startedAt, endedAt };
+  }
+  const wallSec = Math.max(0, Math.round((endedAt - startedAt) / 1000));
+  const slack = 45; // ignore sub-minute noise from rounding / clock skew
+  if (wallSec > seconds + slack) {
+    return { startedAt, endedAt: startedAt + seconds * 1000 };
+  }
+  if (seconds > wallSec + slack) {
+    return { startedAt: endedAt - seconds * 1000, endedAt };
+  }
+  return { startedAt, endedAt };
+}
+
 // ─── Colors ──────────────────────────────────────────────────────────────────
 
 const FALLBACK_PALETTE = [
@@ -103,8 +130,13 @@ export function selectSessions(src: ReportSource, filters: ReportFilters): Enric
     if (filters.tag && !tags.includes(filters.tag)) continue;
 
     const seconds = s.durationSeconds;
+    const bounds = reconcileSessionBounds(s.startedAt, endedAt, seconds);
+    const rate =
+      project?.hourlyRate != null && project.hourlyRate > 0
+        ? project.hourlyRate
+        : client?.hourlyRate ?? 0;
     const earningsCents =
-      billable && client ? Math.round(client.hourlyRate * 100 * (seconds / 3600)) : 0;
+      billable && rate > 0 ? Math.round(rate * 100 * (seconds / 3600)) : 0;
 
     rows.push({
       session: s,
@@ -116,8 +148,8 @@ export function selectSessions(src: ReportSource, filters: ReportFilters): Enric
       seconds,
       billable,
       earningsCents,
-      endedAt,
-      startedAt: s.startedAt,
+      endedAt: bounds.endedAt,
+      startedAt: bounds.startedAt,
     });
   }
   return rows;
@@ -431,6 +463,8 @@ export type TimeLogSort = "date_desc" | "date_asc" | "dur_desc";
 
 export interface TimeLogRow {
   id: string;
+  taskId: string;
+  projectId: string;
   startedAt: number;
   endedAt: number;
   taskTitle: string;
@@ -449,6 +483,8 @@ export interface TimeLogRow {
 export function buildTimeLog(rows: EnrichedSession[], sort: TimeLogSort): TimeLogRow[] {
   const logs: TimeLogRow[] = rows.map((r) => ({
     id: r.session.id,
+    taskId: r.session.taskId ?? r.task?.id ?? "",
+    projectId: r.session.projectId ?? r.project?.id ?? "",
     startedAt: r.startedAt,
     endedAt: r.endedAt,
     taskTitle: r.task?.title ?? "Unknown task",

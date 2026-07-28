@@ -53,6 +53,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Public marketing pages (landing, etc) render outside the app chrome and
   // are not auth-guarded. Keep this list in sync with src/app/(marketing).
   const isMarketingPage = pathname === "/";
+  const isSharePage = pathname ? pathname.startsWith("/share") : false;
+  const isPublicPage = isMarketingPage || isSharePage;
   // The desktop app has no use for the public landing page — go straight to
   // the app (sign in, or the dashboard if already authed).
   // NOTE: isDesktop() reads window globals, which differ between SSR (false)
@@ -65,9 +67,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Boot the offline sync engine early so its connectivity listener is
   // registered before the app ever goes offline / comes back online.
+  // Skip on public share pages — no private workspace sync needed.
   useEffect(() => {
+    if (isSharePage) return;
     getSyncEngine();
-  }, []);
+  }, [isSharePage]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -76,9 +80,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         setCmdOpen((p) => !p);
       }
     };
+    if (isSharePage) return;
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [isSharePage]);
 
   useEffect(() => {
     const syncTheme = () => {
@@ -103,10 +108,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Redirect to auth if not logged in (but not on auth/public pages)
   useEffect(() => {
-    if (!loading && !user && !isAuthPage && !isOnboardingPage && !isMarketingPage) {
+    if (!loading && !user && !isAuthPage && !isOnboardingPage && !isPublicPage) {
       router.replace("/auth");
     }
-  }, [user, loading, router, isAuthPage, isOnboardingPage, isMarketingPage]);
+  }, [user, loading, router, isAuthPage, isOnboardingPage, isPublicPage]);
 
   // Desktop app skips the landing page entirely → sign in (or dashboard).
   useEffect(() => {
@@ -115,8 +120,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [isDesktopApp, isMarketingPage, loading, user, router]);
 
-  // Public marketing pages bypass the app chrome and auth guard entirely —
-  // except on desktop, where we show the loader while redirecting off it.
+  // Public marketing / share pages bypass the app chrome and auth guard entirely —
+  // except on desktop landing, where we show the loader while redirecting off it.
   if (isMarketingPage) {
     if (isDesktopApp) {
       return (
@@ -126,6 +131,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       );
     }
     return <>{children}</>;
+  }
+
+  if (isSharePage) {
+    return <NotificationProvider>{children}</NotificationProvider>;
   }
 
   // Show full-screen loading while checking auth (skip on auth page)

@@ -4,6 +4,12 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api } from "./supabase";
 import type { Client, Project, Task, Session, Urgency, TaskStatus } from "./types";
+import type {
+  CreateReportShareInput,
+  CreateReportShareResult,
+  ReportShare,
+  UpdateReportShareInput,
+} from "./report/share-types";
 import { uid } from "./format";
 import { getSyncEngine } from "./sync-engine";
 import { isOnline } from "./desktop";
@@ -85,7 +91,18 @@ function freezeStaleRunning(sessions: Session[]): Session[] {
   return sessions.map((s) => {
     if (s.state !== "running" || s.endedAt) return s;
     if (now - s.startedAt <= STALE_RUNNING_THRESHOLD_MS) return s;
-    return { ...s, state: "paused", paused: true, frozenAt: s.frozenAt ?? now };
+    // Cap elapsed at the stale threshold so a multi-day kill doesn't bill days.
+    const capped = Math.min(
+      elapsedFor(s),
+      Math.floor(STALE_RUNNING_THRESHOLD_MS / 1000)
+    );
+    return {
+      ...s,
+      state: "paused" as const,
+      paused: true,
+      durationSeconds: capped,
+      frozenAt: s.frozenAt ?? s.startedAt + capped * 1000,
+    };
   });
 }
 
@@ -109,8 +126,10 @@ function mergeSessionLists(remoteSessions: Session[], localSessions: Session[]) 
     return remote;
   });
 
+  // Keep local-only sessions (including confirmed offline entries) until the
+  // server list includes them. Dropping confirmed locals made time logs vanish.
   const localOnly = localSessions.filter(
-    (session) => !remoteIds.has(session.id) && !isRemoteId(session.id) && !reportableSession(session)
+    (session) => !remoteIds.has(session.id) && !getSyncEngine().getPendingDeletes("sessions").has(session.id)
   );
   return [...mergedRemote, ...localOnly].map(normalizeSession);
 }
@@ -173,6 +192,8 @@ interface State {
   error: string | null;
   lastDailyArchiveDate?: string;
   initialLoadComplete: boolean;
+  reportShares: ReportShare[];
+  reportSharesLoaded: boolean;
 
   // Actions
   setUser: (user: { name: string; email?: string } | null) => void;
@@ -219,6 +240,19 @@ interface State {
     billable?: boolean;
     description?: string;
   }) => Promise<Session | null>;
+  /** Edit an existing confirmed time log. */
+  updateManualSession: (
+    id: string,
+    input: {
+      taskId?: string;
+      taskTitle?: string;
+      projectId: string;
+      startedAt: number;
+      endedAt: number;
+      billable?: boolean;
+      description?: string;
+    }
+  ) => Promise<Session | null>;
 
   /** Session id whose completion alarm is currently ringing (transient). */
   completionAlarmSessionId: string | null;
@@ -239,6 +273,13 @@ interface State {
   loadAll: () => Promise<void>;
   clearAll: () => void;
   performDailyArchive: () => Promise<void>;
+
+  loadReportShares: () => Promise<void>;
+  createReportShare: (input: CreateReportShareInput) => Promise<CreateReportShareResult>;
+  updateReportShare: (id: string, input: UpdateReportShareInput) => Promise<ReportShare>;
+  revokeReportShare: (id: string) => Promise<ReportShare>;
+  rotateReportShareToken: (id: string) => Promise<CreateReportShareResult>;
+  deleteReportShare: (id: string) => Promise<void>;
 
   preferences?: {
     defaultFocusDuration: number;
@@ -279,9 +320,12 @@ persist((set, get) => ({
   error: null,
   lastDailyArchiveDate: undefined,
   initialLoadComplete: false,
+  reportShares: [],
+  reportSharesLoaded: false,
 
   preferences: {
-    defaultFocusDuration: 25,
+    /** 0 = open-ended (count up from zero). Only apply when user sets a real default. */
+    defaultFocusDuration: 0,
     weeklyTargetHours: 40,
     whistleSoundEnabled: true,
     alarmSound: "kettle",
@@ -299,7 +343,7 @@ persist((set, get) => ({
 
   setPreferences: (patch) => set({
     preferences: {
-      defaultFocusDuration: 25,
+      defaultFocusDuration: 0,
       weeklyTargetHours: 40,
       whistleSoundEnabled: true,
       autoBreakEnabled: false,
@@ -688,13 +732,16 @@ persist((set, get) => ({
     if (!normalized || normalized.state !== "running") return;
 
     const duration = elapsedFor(normalized);
-    
+    // Stamp when active work stopped so reports don't use a later confirm time as endedAt.
+    const frozenAt = Date.now();
+    const patch = { paused: true as const, state: "paused" as const, durationSeconds: duration, frozenAt };
+
     set({ isLoading: true, error: null });
     try {
-      if (isRemoteId(id)) await api.sessions.update(id, { paused: true, state: "paused", durationSeconds: duration });
+      if (isRemoteId(id)) await api.sessions.update(id, patch);
       set({
         sessions: get().sessions.map((s) =>
-          s.id === id ? { ...s, paused: true, state: "paused", durationSeconds: duration } : s
+          s.id === id ? { ...s, ...patch } : s
         ),
       });
     } catch (error) {
@@ -752,12 +799,18 @@ persist((set, get) => ({
     const normalized = normalizeSession(session);
     if (normalized.state !== "paused") return;
     const startedAt = Date.now();
+    const patch = {
+      paused: false as const,
+      state: "running" as const,
+      startedAt,
+      frozenAt: undefined,
+    };
     set({ isLoading: true, error: null });
     try {
-      if (isRemoteId(id)) await api.sessions.update(id, { paused: false, state: "running", startedAt });
+      if (isRemoteId(id)) await api.sessions.update(id, patch);
       set({
         sessions: get().sessions.map((s) =>
-          s.id === id ? { ...s, paused: false, state: "running", startedAt } : s
+          s.id === id ? { ...s, ...patch } : s
         ),
       });
     } catch (error) {
@@ -774,8 +827,14 @@ persist((set, get) => ({
     if (!session) return;
     const normalized = normalizeSession(session);
     if (normalized.state !== "running" && normalized.state !== "paused") return;
-    const frozenAt = Date.now();
-    const durationSeconds = elapsedFor(normalized);
+    // If already paused, keep the pause timestamp — don't stretch endedAt to "now".
+    const durationSeconds =
+      normalized.state === "paused" ? normalized.durationSeconds : elapsedFor(normalized);
+    const frozenAt =
+      normalized.state === "paused"
+        ? (normalized.frozenAt ??
+            Math.min(Date.now(), normalized.startedAt + durationSeconds * 1000))
+        : Date.now();
     const patch: Partial<Session> = {
       state: "finishing",
       paused: true,
@@ -826,7 +885,13 @@ persist((set, get) => ({
     if (!session) return null;
     const normalized = normalizeSession(session);
     const durationSeconds = Math.max(0, adjustedSeconds ?? normalized.durationSeconds);
-    const endedAt = normalized.frozenAt ?? Date.now();
+    // Prefer freeze/pause time; never keep an endedAt that stretches past active work.
+    const rawEndedAt = normalized.frozenAt ?? Date.now();
+    const wallSec = Math.max(0, Math.round((rawEndedAt - normalized.startedAt) / 1000));
+    const endedAt =
+      wallSec > durationSeconds + 45
+        ? Math.max(normalized.startedAt + 1000, normalized.startedAt + durationSeconds * 1000)
+        : rawEndedAt;
     const patch: Partial<Session> = {
       state: "confirmed",
       paused: true,
@@ -1056,6 +1121,10 @@ persist((set, get) => ({
           set({ error: "Task not found" });
           return null;
         }
+        const nextTitle = input.taskTitle?.trim();
+        if (nextTitle && nextTitle !== existing.title) {
+          await get().updateTask(taskId, { title: nextTitle });
+        }
       }
 
       const durationSeconds = Math.max(1, Math.round((input.endedAt - input.startedAt) / 1000));
@@ -1097,6 +1166,97 @@ persist((set, get) => ({
       return session;
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Failed to add time entry" });
+      return null;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  updateManualSession: async (id, input) => {
+    const existing = get().sessions.find((s) => s.id === id);
+    if (!existing) {
+      set({ error: "Session not found" });
+      return null;
+    }
+    const project = get().projects.find((p) => p.id === input.projectId);
+    if (!project) {
+      set({ error: "Project not found" });
+      return null;
+    }
+    if (!input.startedAt || !input.endedAt || input.endedAt <= input.startedAt) {
+      set({ error: "End time must be after start time" });
+      return null;
+    }
+
+    set({ isLoading: true, error: null });
+    try {
+      let taskId = input.taskId ?? existing.taskId ?? "";
+      if (input.taskTitle?.trim() && !input.taskId) {
+        const task = await get().addTask({
+          title: input.taskTitle.trim(),
+          projectId: input.projectId,
+          urgency: "normal",
+        });
+        taskId = task.id;
+      } else if (taskId) {
+        const t = get().tasks.find((x) => x.id === taskId);
+        if (!t) {
+          set({ error: "Task not found" });
+          return null;
+        }
+        const nextTitle = input.taskTitle?.trim();
+        const taskPatch: { title?: string; projectId?: string } = {};
+        if (nextTitle && nextTitle !== t.title) taskPatch.title = nextTitle;
+        // Keep task ↔ project consistent when the entry moves projects.
+        if (t.projectId !== input.projectId) taskPatch.projectId = input.projectId;
+        if (Object.keys(taskPatch).length > 0) {
+          await get().updateTask(taskId, taskPatch);
+        }
+      } else {
+        set({ error: "Task is required" });
+        return null;
+      }
+
+      const durationSeconds = Math.max(1, Math.round((input.endedAt - input.startedAt) / 1000));
+      const notes =
+        input.description !== undefined
+          ? input.description.trim()
+            ? [{ id: uid(), timestamp: input.startedAt, text: input.description.trim() }]
+            : []
+          : existing.notes ?? [];
+
+      const patch = {
+        taskId,
+        projectId: input.projectId,
+        billable: input.billable ?? existing.billable,
+        startedAt: input.startedAt,
+        endedAt: input.endedAt,
+        durationSeconds,
+        paused: true,
+        state: "confirmed" as const,
+        isDraft: false,
+        notes,
+      };
+
+      if (!isOnline() || !isRemoteId(id)) {
+        const updated = normalizeSession({ ...existing, ...patch, id });
+        set({ sessions: get().sessions.map((s) => (s.id === id ? updated : s)) });
+        if (isRemoteId(id)) queueMutation("sessions", "update", id, { ...patch });
+        else queueMutation("sessions", "create", id, { ...patch });
+        return updated;
+      }
+
+      const remote = await api.sessions.update(id, patch);
+      const session = normalizeSession({
+        ...existing,
+        ...remote,
+        ...patch,
+        notes: remote.notes?.length ? remote.notes : notes,
+      });
+      set({ sessions: get().sessions.map((s) => (s.id === id ? session : s)) });
+      return session;
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Failed to update time entry" });
       return null;
     } finally {
       set({ isLoading: false });
@@ -1268,7 +1428,63 @@ persist((set, get) => ({
     error: null,
     lastDailyArchiveDate: undefined,
     initialLoadComplete: false,
+    reportShares: [],
+    reportSharesLoaded: false,
   }),
+
+  loadReportShares: async () => {
+    try {
+      const { shares } = await api.reportShares.list();
+      set({ reportShares: shares || [], reportSharesLoaded: true });
+    } catch (error) {
+      console.error("Failed to load report shares:", error);
+      set({ reportSharesLoaded: true });
+      throw error;
+    }
+  },
+
+  createReportShare: async (input) => {
+    // Share links read from Supabase — flush any queued local edits first.
+    try {
+      await getSyncEngine().flush();
+    } catch (error) {
+      console.warn("Sync flush before createReportShare failed:", error);
+    }
+    const created = await api.reportShares.create(input);
+    const { token: _token, url: _url, ...share } = created;
+    set({ reportShares: [share, ...get().reportShares.filter((s) => s.id !== share.id)] });
+    return created;
+  },
+
+  updateReportShare: async (id, input) => {
+    const updated = await api.reportShares.update(id, input);
+    set({
+      reportShares: get().reportShares.map((s) => (s.id === id ? updated : s)),
+    });
+    return updated;
+  },
+
+  revokeReportShare: async (id) => {
+    const updated = await api.reportShares.revoke(id);
+    set({
+      reportShares: get().reportShares.map((s) => (s.id === id ? updated : s)),
+    });
+    return updated;
+  },
+
+  rotateReportShareToken: async (id) => {
+    const rotated = await api.reportShares.rotateToken(id);
+    const { token: _token, url: _url, ...share } = rotated;
+    set({
+      reportShares: get().reportShares.map((s) => (s.id === id ? share : s)),
+    });
+    return rotated;
+  },
+
+  deleteReportShare: async (id) => {
+    await api.reportShares.delete(id);
+    set({ reportShares: get().reportShares.filter((s) => s.id !== id) });
+  },
 }), {
   name: "flowmate-supabase-session-store",
   partialize: (state) => ({

@@ -195,20 +195,23 @@ export default function TimerPage() {
   const sessionId = session?.id;
   const sessionStartedAt = session?.startedAt;
 
+  // Prefill planned time only from task estimate or an explicit settings default (>0).
+  // Never force 25m — empty means count-up from zero.
   useEffect(() => {
+    const defaultMin = preferences?.defaultFocusDuration ?? 0;
     if (!taskId) {
-      if (preferences?.defaultFocusDuration && !estimateMin) {
-        setEstimateMin(String(preferences.defaultFocusDuration));
-      }
+      setEstimateMin(defaultMin > 0 ? String(defaultMin) : "");
       return;
     }
     const t = tasks.find((x) => x.id === taskId);
-    if (t?.estimateMinutes) {
-      if (!estimateMin) setEstimateMin(String(t.estimateMinutes));
-    } else if (!estimateMin && preferences?.defaultFocusDuration) {
-      setEstimateMin(String(preferences.defaultFocusDuration));
+    if (t?.estimateMinutes && t.estimateMinutes > 0) {
+      setEstimateMin(String(t.estimateMinutes));
+    } else if (defaultMin > 0) {
+      setEstimateMin(String(defaultMin));
+    } else {
+      setEstimateMin("");
     }
-  }, [taskId, tasks, estimateMin, preferences?.defaultFocusDuration]);
+  }, [taskId, tasks, preferences?.defaultFocusDuration]);
 
   // Project follows the selected task: a task with a project fills it; a task
   // without a project clears it. Only fires when the task itself changes, so a
@@ -527,7 +530,17 @@ export default function TimerPage() {
               <Clock size={11} /> How long?
             </label>
             <div className="flex flex-wrap justify-center gap-2">
-              {[15, 30, 45, 60, 90].map((m) => (
+              <button
+                onClick={() => setEstimateMin("")}
+                className="h-9 rounded-full px-5 text-[13px] font-medium transition-colors"
+                style={{
+                  background: !estimateMin || Number(estimateMin) <= 0 ? "var(--accent)" : "var(--surface-raised)",
+                  color: !estimateMin || Number(estimateMin) <= 0 ? "var(--text-primary)" : "var(--text-secondary)",
+                }}
+              >
+                Open
+              </button>
+              {[15, 25, 30, 45, 60, 90].map((m) => (
                 <button
                   key={m}
                   onClick={() => setEstimateMin(estimateMin === String(m) ? "" : String(m))}
@@ -537,8 +550,21 @@ export default function TimerPage() {
                   {m}m
                 </button>
               ))}
-              <Input className="h-9 w-24 rounded-full text-center text-[13px]" type="number" min="1" max="480" placeholder="custom" value={[15, 30, 45, 60, 90].includes(Number(estimateMin)) ? "" : estimateMin} onChange={(e) => setEstimateMin(e.target.value)} />
+              <Input
+                className="h-9 w-24 rounded-full text-center text-[13px]"
+                type="number"
+                min="1"
+                max="480"
+                placeholder="custom"
+                value={[15, 25, 30, 45, 60, 90].includes(Number(estimateMin)) ? "" : estimateMin}
+                onChange={(e) => setEstimateMin(e.target.value)}
+              />
             </div>
+            <p className="text-[11px] text-text-faint">
+              {Number(estimateMin) > 0
+                ? `Countdown from ${estimateMin}m`
+                : "Count up from zero · no planned end"}
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3">

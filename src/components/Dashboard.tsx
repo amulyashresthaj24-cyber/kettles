@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Clock,
   CalendarBlank,
@@ -22,7 +23,7 @@ import { AddTaskModal } from "./AddTaskModal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageLayout, PageHeader, PageContent } from "@/components/layout";
-import type { Urgency, ProjectColor } from "@/lib/types";
+import type { Task, Urgency, ProjectColor } from "@/lib/types";
 import { getProjectColor } from "@/lib/constants";
 import { getWeekRange } from "@/lib/report-dates";
 
@@ -65,6 +66,7 @@ function sessionReferenceTime(session: { startedAt: number; endedAt?: number; fr
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const user = useApp((s) => s.user);
   const tasks = useApp((s) => s.tasks);
   const sessions = useApp((s) => s.sessions);
@@ -72,10 +74,27 @@ export default function Dashboard() {
   const clients = useApp((s) => s.clients);
   const activeSessionId = useApp((s) => s.activeSessionId);
   const setTaskStatus = useApp((s) => s.setTaskStatus);
+  const startSession = useApp((s) => s.startSession);
+  const preferences = useApp((s) => s.preferences);
 
   const [openAdd, setOpenAdd] = useState(false);
   const [completingTasks, setCompletingTasks] = useState<Record<string, boolean>>({});
   const [reopeningTasks, setReopeningTasks] = useState<Record<string, boolean>>({});
+
+  const handleFocusTask = async (task: Task) => {
+    if (activeSessionId) {
+      router.push("/timer");
+      return;
+    }
+    const planned =
+      task.estimateMinutes && task.estimateMinutes > 0
+        ? task.estimateMinutes
+        : preferences?.defaultFocusDuration && preferences.defaultFocusDuration > 0
+          ? preferences.defaultFocusDuration
+          : undefined;
+    await startSession(task.id, undefined, planned);
+    router.push("/timer");
+  };
 
   const handleCompleteTask = (taskId: string) => {
     setCompletingTasks((prev) => ({ ...prev, [taskId]: true }));
@@ -129,9 +148,14 @@ export default function Dashboard() {
     for (const s of todaySessions) {
       if (!s.billable) continue;
       const proj = projects.find((p) => p.id === s.projectId);
-      const client = proj?.clientId ? clients.find((c) => c.id === proj.clientId) : undefined;
-      if (!client) continue;
-      cents += Math.round((client.hourlyRate * s.durationSeconds * 100) / 3600);
+      const rate =
+        proj?.hourlyRate != null && proj.hourlyRate > 0
+          ? proj.hourlyRate
+          : proj?.clientId
+            ? clients.find((c) => c.id === proj.clientId)?.hourlyRate ?? 0
+            : 0;
+      if (rate <= 0) continue;
+      cents += Math.round((rate * s.durationSeconds * 100) / 3600);
     }
     return cents;
   }, [todaySessions, projects, clients]);
@@ -146,9 +170,14 @@ export default function Dashboard() {
     for (const s of weekSessions) {
       if (!s.billable) continue;
       const proj = projects.find((p) => p.id === s.projectId);
-      const client = proj?.clientId ? clients.find((c) => c.id === proj.clientId) : undefined;
-      if (!client) continue;
-      cents += Math.round((client.hourlyRate * s.durationSeconds * 100) / 3600);
+      const rate =
+        proj?.hourlyRate != null && proj.hourlyRate > 0
+          ? proj.hourlyRate
+          : proj?.clientId
+            ? clients.find((c) => c.id === proj.clientId)?.hourlyRate ?? 0
+            : 0;
+      if (rate <= 0) continue;
+      cents += Math.round((rate * s.durationSeconds * 100) / 3600);
     }
     return cents;
   }, [weekSessions, projects, clients]);
@@ -363,15 +392,18 @@ export default function Dashboard() {
                           style={{ background: URGENCY_COLOR[task.urgency] }}
                           title={URGENCY_LABEL[task.urgency]}
                         />
-                        <Link
-                          href="/timer"
-                          onClick={() => {}}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleFocusTask(task);
+                          }}
                           className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[12px] px-2 py-1 rounded-[8px] bg-surface-raised text-text-muted hover:text-text-primary btn-interactive"
                           style={{ transition: `opacity var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out)` }}
                         >
                           <Timer size={12} />
                           Focus
-                        </Link>
+                        </button>
                       </div>
                     </div>
                     {i < todayTasks.length - 1 && (

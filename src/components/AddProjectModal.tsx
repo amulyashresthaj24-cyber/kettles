@@ -99,6 +99,7 @@ export function AddProjectModal({
   const [billable, setBillable] = useState(true);
   const [status, setStatus] = useState<ProjectStatus>("active");
   const [budget, setBudget] = useState("");
+  const [hourlyRate, setHourlyRate] = useState("");
   const [clientId, setClientId] = useState<string>("");
 
   // Inline client creation state
@@ -116,6 +117,7 @@ export function AddProjectModal({
       setBillable(true);
       setStatus("active");
       setBudget("");
+      setHourlyRate("");
       setClientId("");
       setIsAddingClient(false);
       setNewClientName("");
@@ -161,6 +163,7 @@ export function AddProjectModal({
         billable,
         status,
         budget: budget ? Number(budget) : undefined,
+        hourlyRate: hourlyRate ? Number(hourlyRate) : undefined,
         clientId: clientId || undefined,
       });
       onClose();
@@ -169,7 +172,7 @@ export function AddProjectModal({
     } finally {
       setIsSubmitting(false);
     }
-  }, [name, description, color, icon, billable, status, budget, clientId, addProject, onClose]);
+  }, [name, description, color, icon, billable, status, budget, hourlyRate, clientId, addProject, onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -264,6 +267,20 @@ export function AddProjectModal({
                 className="bg-transparent border-none outline-none w-[60px] text-[12px] text-text-secondary placeholder:text-text-muted"
                 value={budget}
                 onChange={(e) => setBudget(e.target.value)}
+              />
+            </label>
+
+            {/* Project hourly rate for earnings */}
+            <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-raised hover:bg-surface-mid text-[12px] font-medium text-text-secondary transition-colors cursor-text">
+              <span className="text-text-muted">$/hr</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Rate"
+                className="bg-transparent border-none outline-none w-[56px] text-[12px] text-text-secondary placeholder:text-text-muted"
+                value={hourlyRate}
+                onChange={(e) => setHourlyRate(e.target.value)}
               />
             </label>
 
