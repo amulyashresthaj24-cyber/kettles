@@ -24,6 +24,31 @@ const responseHeaders = {
   'Cache-Control': 'no-store',
 };
 
+/** Public web origin for share links (never Tauri / localhost). */
+const DEFAULT_PUBLIC_SITE_URL = 'https://www.kettles.works';
+
+function isPublicWebOrigin(value: string | null | undefined): boolean {
+  if (!value) return false;
+  try {
+    const u = new URL(value);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    const host = u.hostname.toLowerCase();
+    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return false;
+    if (host === 'tauri.localhost' || host.endsWith('.localhost')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function publicSiteUrl(req: Request): string {
+  const fromEnv = Deno.env.get('SITE_URL') || Deno.env.get('APP_URL') || '';
+  if (isPublicWebOrigin(fromEnv)) return fromEnv.replace(/\/$/, '');
+  const origin = req.headers.get('origin');
+  if (isPublicWebOrigin(origin)) return origin!.replace(/\/$/, '');
+  return DEFAULT_PUBLIC_SITE_URL;
+}
+
 // In-memory throttle (best-effort per isolate). Key = shareId|ip
 const passwordFails = new Map<string, { count: number; resetAt: number }>();
 
@@ -917,12 +942,7 @@ serve(async (req) => {
       const { data, error } = await supabase.from('report_shares').insert(insertData).select().single();
       if (error) throw error;
 
-      const site =
-        Deno.env.get('SITE_URL') ||
-        Deno.env.get('APP_URL') ||
-        req.headers.get('origin') ||
-        '';
-      const urlOut = `${site.replace(/\/$/, '')}/share?t=${encodeURIComponent(token)}`;
+      const urlOut = `${publicSiteUrl(req)}/share?t=${encodeURIComponent(token)}`;
 
       return json(201, {
         ...formatOwnerShare(data, { viewCount: 0, lastViewedAt: null }),
@@ -974,15 +994,10 @@ serve(async (req) => {
         .single();
       if (error) throw error;
       const views = await countViews(service, id);
-      const site =
-        Deno.env.get('SITE_URL') ||
-        Deno.env.get('APP_URL') ||
-        req.headers.get('origin') ||
-        '';
       return json(200, {
         ...formatOwnerShare(data, views),
         token,
-        url: `${site.replace(/\/$/, '')}/share?t=${encodeURIComponent(token)}`,
+        url: `${publicSiteUrl(req)}/share?t=${encodeURIComponent(token)}`,
       });
     }
 

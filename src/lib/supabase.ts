@@ -34,24 +34,70 @@ export function getSupabaseClient() {
   return supabase;
 }
 
+/** Production web origin for public links (never Tauri / localhost). */
+export const DEFAULT_PUBLIC_SITE_URL = "https://www.kettles.works";
+
+function normalizeOrigin(url: string) {
+  return url.replace(/\/$/, "");
+}
+
+/** True for real web hosts; false for Tauri, localhost, and other private origins. */
+export function isPublicWebOrigin(value: string | null | undefined): boolean {
+  if (!value) return false;
+  try {
+    const u = new URL(value);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    const host = u.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return false;
+    if (host === "tauri.localhost" || host.endsWith(".localhost")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Origin for public share / invite links. Prefer configured site URL;
+ * never use the desktop webview origin (http://tauri.localhost).
+ */
+export function getPublicShareOrigin() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (siteUrl && isPublicWebOrigin(siteUrl)) return normalizeOrigin(siteUrl);
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl && isPublicWebOrigin(appUrl)) return normalizeOrigin(appUrl);
+
+  if (typeof window !== "undefined" && isPublicWebOrigin(window.location.origin)) {
+    return window.location.origin;
+  }
+
+  return DEFAULT_PUBLIC_SITE_URL;
+}
+
 export function getAppOrigin() {
-  // Priority order for app URL configuration
-  
   // 1. NEXT_PUBLIC_SITE_URL (preferred for production)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   if (siteUrl) {
-    return siteUrl.replace(/\/$/, "");
+    return normalizeOrigin(siteUrl);
   }
 
   // 2. NEXT_PUBLIC_APP_URL (fallback)
   const configuredUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (configuredUrl) {
-    return configuredUrl.replace(/\/$/, "");
+    return normalizeOrigin(configuredUrl);
   }
 
-  // 3. Browser window location (client-side only)
+  // 3. Browser window location — skip Tauri / embedded desktop origins
   if (typeof window !== "undefined" && window.location.origin) {
-    return window.location.origin;
+    if (isPublicWebOrigin(window.location.origin)) {
+      return window.location.origin;
+    }
+    // Local web dev still needs localhost for auth redirects
+    const host = window.location.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1") {
+      return window.location.origin;
+    }
+    return DEFAULT_PUBLIC_SITE_URL;
   }
 
   // 4. Development fallback

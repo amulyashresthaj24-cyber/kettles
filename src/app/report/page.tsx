@@ -35,6 +35,7 @@ import { TimeSeriesChart } from "@/components/report/charts/TimeSeriesChart";
 import { DistributionDonut } from "@/components/report/charts/DistributionDonut";
 import { HourOfDayChart } from "@/components/report/charts/HourOfDayChart";
 import { WeekdayChart } from "@/components/report/charts/WeekdayChart";
+import { getPublicShareOrigin } from "@/lib/supabase";
 
 type ReportTab = "overview" | "projects" | "tags" | "logs";
 
@@ -167,7 +168,7 @@ export default function ReportPage() {
     if (filters.clientId) params.set("client", filters.clientId);
     if (filters.tag) params.set("tag", filters.tag);
     if (filters.billable !== "all") params.set("billable", filters.billable);
-    return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+    return `${getPublicShareOrigin()}/report?${params.toString()}`;
   };
 
   // ── Render ────────────────────────────────────────────────────────────────

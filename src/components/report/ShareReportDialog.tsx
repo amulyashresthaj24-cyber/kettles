@@ -7,7 +7,7 @@ import { CheckCircle, Link, Lock, ShareNetwork, Trash } from "@/components/ui/ic
 import { useNotification } from "@/components/ui/notification";
 import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
-import { getAppOrigin } from "@/lib/supabase";
+import { getPublicShareOrigin } from "@/lib/supabase";
 import type { ReportFilterState } from "@/components/report/ReportFilterBar";
 import type { Client, Project } from "@/lib/types";
 import {
@@ -151,18 +151,8 @@ export function ShareReportDialog({
         password: password.trim() || undefined,
         expiresAt: expiryMs(expiry),
       });
-      const base =
-        result.url || `${getAppOrigin()}/share?t=${encodeURIComponent(result.token)}`;
-      const shareUrl = (() => {
-        try {
-          const u = new URL(base);
-          u.searchParams.set("mode", filters.periodMode);
-          u.searchParams.set("key", periodKey);
-          return u.toString();
-        } catch {
-          return `${base}&mode=${filters.periodMode}&key=${encodeURIComponent(periodKey)}`;
-        }
-      })();
+      // Always build from the public web origin — never trust Origin from Tauri.
+      const shareUrl = `${getPublicShareOrigin()}/share?t=${encodeURIComponent(result.token)}&mode=${encodeURIComponent(filters.periodMode)}&key=${encodeURIComponent(periodKey)}`;
       setCreatedUrl(shareUrl);
       await navigator.clipboard.writeText(shareUrl);
       notify({
@@ -199,7 +189,7 @@ export function ShareReportDialog({
     setBusy(true);
     try {
       const result = await rotateReportShareToken(share.id);
-      const url = result.url || `${getAppOrigin()}/share?t=${encodeURIComponent(result.token)}`;
+      const url = `${getPublicShareOrigin()}/share?t=${encodeURIComponent(result.token)}`;
       await navigator.clipboard.writeText(url);
       notify({
         title: "Link replaced",
