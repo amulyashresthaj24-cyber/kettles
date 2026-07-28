@@ -1,7 +1,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { getSupabaseClient } from '../_shared/supabase.ts';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
-import { validateUUID, validateRequired, sanitizeData, formatEntityResponse } from '../_shared/validators.ts';
+import {
+  validateUUID,
+  validateRequired,
+  sanitizeData,
+  formatEntityResponse,
+  normalizeMoneyFields,
+  mergeEntityData,
+} from '../_shared/validators.ts';
 
 serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -73,9 +80,17 @@ serve(async (req) => {
           });
         }
 
+        const money = normalizeMoneyFields(sanitizeData(body));
+        if (money.error) {
+          return new Response(JSON.stringify({ error: money.error }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
         const insertData: any = {
           user_id: user.id,
-          data: sanitizeData(body),
+          data: mergeEntityData({}, money.data),
         };
 
         if (body.clientId && validateUUID(body.clientId)) {
@@ -121,11 +136,16 @@ serve(async (req) => {
 
         if (fetchError) throw fetchError;
 
-        // Merge new data with existing data instead of replacing
-        const mergedData = {
-          ...(currentData?.data || {}),
-          ...sanitizeData(body),
-        };
+        const money = normalizeMoneyFields(sanitizeData(body));
+        if (money.error) {
+          return new Response(JSON.stringify({ error: money.error }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Merge new data with existing data instead of replacing; nulls clear.
+        const mergedData = mergeEntityData(currentData?.data, money.data);
         
         const updateData: any = { data: mergedData };
         

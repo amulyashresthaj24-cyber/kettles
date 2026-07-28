@@ -26,16 +26,17 @@ export interface Project {
   id: string;
   name: string;
   description?: string;
-  clientId?: string;
+  /** Assigned client id. Omit/undefined = unassigned; `null` on update clears the link. */
+  clientId?: string | null;
   color: ProjectColor;
   icon?: string;
   billable: boolean;
-  /** Project hourly rate in USD. Preferred over client rate for earnings. */
-  hourlyRate?: number;
+  /** Project hourly rate in USD. Preferred over client rate for earnings. `null` clears it. */
+  hourlyRate?: number | null;
   status?: ProjectStatus;
   startDate?: number;
   endDate?: number;
-  budget?: number;
+  budget?: number | null;
   createdAt?: number;
   updatedAt?: number;
   completedAt?: number;
@@ -79,4 +80,6 @@ export interface Session {
   estimateMinutes?: number;
   /** Estimate value the completion alarm already fired at (local-only latch). */
   completionAckMinutes?: number;
+  /** Client/server edit timestamp (ms) — used to keep local edits over stale remote rows. */
+  updatedAt?: number;
 }

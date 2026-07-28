@@ -19,8 +19,9 @@ import {
   Target,
   User,
 } from "@/components/ui/icon";
-import type { Client, Project, ProjectStatus, ProjectColor, Task, TaskStatus } from "@/lib/types";
+import type { Client, Project, ProjectStatus, ProjectColor, Session, Task, TaskStatus } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
+import { earningsCents, formatHourlyRate, parseRateInput, resolveHourlyRate } from "@/lib/rates";
 import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -74,7 +75,7 @@ export function ProjectWorkspace({ project, tasks, onBack }: ProjectWorkspacePro
 
   const projectTasks = useMemo(() => tasks.filter((t) => !t.archived), [tasks]);
   const client = useMemo(
-    () => clients.find((c) => c.id === project.clientId),
+    () => clients.find((c) => !!project.clientId && c.id === project.clientId),
     [clients, project.clientId]
   );
   const isPrivate = !project.tags?.includes("public");
@@ -362,24 +363,13 @@ function ProjectOverview({
               </div>
             </Panel>
 
-            <Panel title="Billing">
-              <div className="grid gap-md">
-                <DetailRow icon={<Briefcase size={15} />} label="Client" value={client?.name ?? "No client assigned"} />
-                <DetailRow icon={<Clock size={15} />} label="Logged time" value={formatDuration(projectLoggedSeconds)} />
-                <DetailRow icon={<CurrencyDollar size={15} />} label="Budget" value={project.budget ? `$${project.budget}` : "Not set"} />
-                <DetailRow
-                  icon={<Clock size={15} />}
-                  label="Hourly rate"
-                  value={
-                    project.hourlyRate != null && project.hourlyRate > 0
-                      ? `$${project.hourlyRate}/hr`
-                      : client?.hourlyRate
-                        ? `$${client.hourlyRate}/hr (client)`
-                        : "Not set"
-                  }
-                />
-              </div>
-            </Panel>
+            <BillingPanel
+              project={project}
+              client={client}
+              sessions={projectConfirmedSessions}
+              loggedSeconds={projectLoggedSeconds}
+              onUpdateProject={onUpdateProject}
+            />
           </div>
 
           <Panel
@@ -494,6 +484,180 @@ function ProjectOverview({
         </aside>
       </div>
     </div>
+  );
+}
+
+/**
+ * Effective rate, earnings to date, and inline rate editing. The rate lives
+ * here so a project's billing can be corrected without opening the edit modal.
+ */
+function BillingPanel({
+  project,
+  client,
+  sessions,
+  loggedSeconds,
+  onUpdateProject,
+}: {
+  project: Project;
+  client?: Client;
+  sessions: Session[];
+  loggedSeconds: number;
+  onUpdateProject: (id: string, patch: Partial<Omit<Project, "id">>) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const rate = resolveHourlyRate(project, client);
+  const billableSeconds = sessions.reduce(
+    (sum, session) => (session.billable ? sum + session.durationSeconds : sum),
+    0
+  );
+  const earnedCents = earningsCents(billableSeconds, rate.dollarsPerHour);
+  const budgetUsedPct =
+    project.budget && project.budget > 0 ? (earnedCents / 100 / project.budget) * 100 : null;
+
+  const startEditing = () => {
+    setDraft(project.hourlyRate != null && project.hourlyRate > 0 ? String(project.hourlyRate) : "");
+    setError(null);
+    setEditing(true);
+  };
+
+  const save = async () => {
+    const parsed = parseRateInput(draft);
+    if (!parsed.ok) {
+      setError(parsed.error);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onUpdateProject(project.id, { hourlyRate: parsed.value });
+      setEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the rate");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sourceBadge =
+    rate.source === "project"
+      ? { label: "Project rate", variant: "accent" as const }
+      : rate.source === "client"
+        ? { label: `From ${client?.name ?? "client"}`, variant: "success" as const }
+        : { label: "Not set", variant: "raised" as const };
+
+  return (
+    <Panel
+      title="Billing"
+      action={
+        !editing && (
+          <Button variant="secondary" size="sm" onClick={startEditing}>
+            <PencilSimple size={13} />
+            {rate.source === "project" ? "Edit rate" : "Set rate"}
+          </Button>
+        )
+      }
+    >
+      <div className="space-y-lg">
+        <div className="rounded-md border border-border-subtle bg-canvas p-md">
+          {editing ? (
+            <div className="space-y-sm">
+              <p className="text-xs text-text-muted">Project hourly rate</p>
+              <div className="flex items-center gap-sm">
+                <span className="flex h-9 min-w-0 flex-1 items-center gap-1 rounded-md border border-border-subtle bg-surface-raised px-sm focus-within:border-accent">
+                  <span className="text-sm text-text-muted">$</span>
+                  <input
+                    autoFocus
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    aria-label="Project hourly rate in dollars"
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") save();
+                      if (event.key === "Escape") setEditing(false);
+                    }}
+                    placeholder={
+                      client?.hourlyRate ? String(client.hourlyRate) : "0.00"
+                    }
+                    className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
+                  />
+                  <span className="text-xs text-text-muted">/hr</span>
+                </span>
+                <Button size="sm" onClick={save} disabled={saving}>
+                  {saving ? "Saving..." : "Save"}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+                  Cancel
+                </Button>
+              </div>
+              <p className={cn("text-xs", error ? "text-error" : "text-text-muted")}>
+                {error ??
+                  (client?.hourlyRate
+                    ? `Leave empty to inherit ${formatHourlyRate(client.hourlyRate)} from ${client.name}.`
+                    : "Leave empty to remove the rate.")}
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-end justify-between gap-md">
+              <div className="min-w-0">
+                <p className="text-xs text-text-muted">Effective rate</p>
+                <p className="mt-xs text-2xl font-semibold leading-none text-text-primary">
+                  {rate.dollarsPerHour > 0 ? formatHourlyRate(rate.dollarsPerHour) : "Not set"}
+                </p>
+              </div>
+              <Badge variant={sourceBadge.variant}>{sourceBadge.label}</Badge>
+            </div>
+          )}
+        </div>
+
+        <div className="grid gap-md">
+          <DetailRow icon={<Briefcase size={15} />} label="Client" value={client?.name ?? "No client assigned"} />
+          <DetailRow
+            icon={<Clock size={15} />}
+            label="Billable time"
+            value={`${formatDuration(billableSeconds)} of ${formatDuration(loggedSeconds)} logged`}
+          />
+          <DetailRow
+            icon={<CurrencyDollar size={15} />}
+            label="Earned so far"
+            value={
+              rate.dollarsPerHour > 0
+                ? formatCurrency(earnedCents / 100)
+                : "Add a rate to see earnings"
+            }
+          />
+          <DetailRow
+            icon={<Target size={15} />}
+            label="Budget"
+            value={
+              project.budget
+                ? `${formatCurrency(project.budget)}${budgetUsedPct != null ? ` · ${budgetUsedPct.toFixed(0)}% used` : ""}`
+                : "Not set"
+            }
+          />
+        </div>
+
+        {budgetUsedPct != null && (
+          <div className="h-2 overflow-hidden rounded-full bg-surface-mid">
+            <div
+              className={cn("h-full rounded-full", budgetUsedPct > 100 ? "bg-error" : "bg-success")}
+              style={{ width: `${Math.min(100, budgetUsedPct)}%` }}
+            />
+          </div>
+        )}
+
+        {!project.billable && (
+          <p className="text-xs text-text-muted">
+            This project is marked internal, so new sessions default to non-billable.
+          </p>
+        )}
+      </div>
+    </Panel>
   );
 }
 

@@ -1,7 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { getSupabaseClient, getServiceRoleClient } from '../_shared/supabase.ts';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
-import { validateUUID } from '../_shared/validators.ts';
+import {
+  validateUUID,
+  rateDollars,
+  budgetDollars as resolveBudgetDollars,
+} from '../_shared/validators.ts';
 
 // ─── Constants (keep in sync with src/lib/report/share-types.ts) ─────────────
 
@@ -293,15 +297,6 @@ function getData(row: any): Record<string, any> {
 
 function firstDefined(...values: any[]) {
   return values.find((v) => v !== undefined && v !== null);
-}
-
-function rateDollars(row: any): number | undefined {
-  const d = getData(row);
-  const raw = firstDefined(row.hourly_rate, d.hourlyRate, row.hourlyRate);
-  if (typeof raw === 'number' && raw > 0) return raw;
-  const cents = row.hourly_rate_cents;
-  if (typeof cents === 'number' && cents > 0) return cents / 100;
-  return undefined;
 }
 
 function isConfirmedSession(row: any): boolean {
@@ -628,10 +623,8 @@ async function buildPublicSource(
     if (options.showEarnings) {
       const rate = rateDollars(p);
       if (rate != null) out.hourlyRate = rate;
-      const budget = firstDefined(d.budget, p.budget, p.budget_cents);
-      if (typeof budget === 'number' && budget > 0) {
-        out.budget = p.budget_cents && !d.budget ? budget / 100 : budget;
-      }
+      const budget = resolveBudgetDollars(p);
+      if (budget != null) out.budget = budget;
     }
     return out;
   });

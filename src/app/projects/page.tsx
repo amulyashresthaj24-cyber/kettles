@@ -13,6 +13,7 @@ import {
   FolderOpen,
 } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
+import { formatHourlyRate, resolveHourlyRate } from "@/lib/rates";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -202,6 +203,7 @@ export default function ProjectsPage() {
               const client = project.clientId
                 ? clients.find((candidate) => candidate.id === project.clientId)
                 : undefined;
+              const rate = resolveHourlyRate(project, client);
               const isArchived = project.archived || project.status === "archived";
 
               return (
@@ -255,7 +257,7 @@ export default function ProjectsPage() {
                             className="transition-all duration-200 ease-out origin-left transform group-hover:opacity-100 group-hover:scale-100 opacity-0 scale-95 pointer-events-none"
                           >
                             <CurrencyDollar size={11} />
-                            Billable
+                            {rate.dollarsPerHour > 0 ? formatHourlyRate(rate.dollarsPerHour) : "Billable"}
                           </Badge>
                         )}
                       </div>

@@ -31,6 +31,7 @@ serve(async (req) => {
 ```
 
 ## Conventions
+- Money fields (`hourlyRate`, `budget`): run bodies through `normalizeMoneyFields()`, merge with `mergeEntityData()` so an explicit `null` clears the key, and read rates with `rateDollars()` / `budgetDollars()` (they convert `*_cents` columns). Rate precedence is project → client → none.
 - All responses: `{ ...corsHeaders, 'Content-Type': 'application/json' }`
 - ID from URL: `pathParts[pathParts.length - 1]` — always validate with `validateUUID()`
 - RLS enforced by Supabase — always filter by `user_id` anyway as defense-in-depth

@@ -1,6 +1,44 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { getSupabaseClient } from '../_shared/supabase.ts';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
+import { rateDollars } from '../_shared/validators.ts';
+
+/**
+ * Project ID -> effective hourly rate in dollars. Mirrors the client pipeline
+ * in src/lib/rates.ts: project rate wins over client rate, unset earns nothing.
+ */
+async function loadProjectRates(
+  supabase: any,
+  userId: string
+): Promise<Map<string, number>> {
+  const [{ data: projects, error: projectsError }, { data: clients, error: clientsError }] =
+    await Promise.all([
+      supabase.from('projects').select('*').eq('user_id', userId),
+      supabase.from('clients').select('*').eq('user_id', userId),
+    ]);
+
+  if (projectsError) throw projectsError;
+  if (clientsError) throw clientsError;
+
+  const clientRates = new Map<string, number>();
+  (clients || []).forEach((c: any) => {
+    const rate = rateDollars(c);
+    if (rate != null) clientRates.set(c.id, rate);
+  });
+
+  const projectRates = new Map<string, number>();
+  (projects || []).forEach((p: any) => {
+    const own = rateDollars(p);
+    const rate = own ?? (p.client_id ? clientRates.get(p.client_id) : undefined);
+    if (rate != null && rate > 0) projectRates.set(p.id, rate);
+  });
+  return projectRates;
+}
+
+function earningsCents(seconds: number, dollarsPerHour: number): number {
+  if (!(dollarsPerHour > 0) || !(seconds > 0)) return 0;
+  return Math.round(dollarsPerHour * 100 * (seconds / 3600));
+}
 
 serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -71,47 +109,13 @@ serve(async (req) => {
           todo: tasks?.filter(t => t.data?.status === 'todo').length || 0,
         };
 
-        // Get projects and their client_id
-        const { data: projects, error: projectsError } = await supabase
-          .from('projects')
-          .select('id, client_id')
-          .eq('user_id', user.id);
-        
-        if (projectsError) throw projectsError;
+        const projectRates = await loadProjectRates(supabase, user.id);
 
-        // Get clients and their hourly rates
-        const { data: clients, error: clientsError } = await supabase
-          .from('clients')
-          .select('id, data, hourly_rate_cents')
-          .eq('user_id', user.id);
-        
-        if (clientsError) throw clientsError;
-
-        // Map client ID -> hourly rate in cents (converting dollar values if stored in data)
-        const clientRates = new Map();
-        clients?.forEach(c => {
-          const rateDollars = c.data?.hourlyRate ?? 0;
-          const rateCents = c.hourly_rate_cents ?? (rateDollars * 100) ?? 0;
-          clientRates.set(c.id, rateCents);
-        });
-
-        // Map project ID -> client rate (in cents)
-        const projectRates = new Map();
-        projects?.forEach(p => {
-          if (p.client_id) {
-            const rate = clientRates.get(p.client_id) || 0;
-            projectRates.set(p.id, rate);
-          }
-        });
-
-        // Calculate billable amount (assumes $75/hr default if no custom client rate)
-        const DEFAULT_RATE = 7500; // cents per hour (=$75/hr)
         const weekBillableCents = weekSessions
           ?.filter(s => s.billable)
           .reduce((acc, s) => {
-            const rate = projectRates.get(s.project_id) || DEFAULT_RATE;
-            const hours = (s.duration_seconds || 0) / 3600;
-            return acc + Math.round(hours * rate);
+            const rate = s.project_id ? projectRates.get(s.project_id) ?? 0 : 0;
+            return acc + earningsCents(s.duration_seconds || 0, rate);
           }, 0) || 0;
 
         return new Response(JSON.stringify({
@@ -155,6 +159,8 @@ serve(async (req) => {
         
         if (error) throw error;
 
+        const rates = await loadProjectRates(supabase, user.id);
+
         // Group by project
         const projectStats = sessions?.reduce((acc, s) => {
           const pid = s.project_id || 'unassigned';
@@ -163,11 +169,16 @@ serve(async (req) => {
               totalSeconds: 0, 
               billableSeconds: 0, 
               sessions: 0,
+              hourlyRate: rates.get(pid) ?? 0,
+              earningsCents: 0,
               lastSession: s.started_at 
             };
           }
           acc[pid].totalSeconds += s.duration_seconds || 0;
-          if (s.billable) acc[pid].billableSeconds += s.duration_seconds || 0;
+          if (s.billable) {
+            acc[pid].billableSeconds += s.duration_seconds || 0;
+            acc[pid].earningsCents += earningsCents(s.duration_seconds || 0, acc[pid].hourlyRate);
+          }
           acc[pid].sessions++;
           if (s.started_at > acc[pid].lastSession) {
             acc[pid].lastSession = s.started_at;

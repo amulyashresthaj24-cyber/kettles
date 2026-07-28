@@ -13,6 +13,11 @@ import type {
 import { uid } from "./format";
 import { getSyncEngine } from "./sync-engine";
 import { isOnline } from "./desktop";
+import {
+  applyProjectClientPatch,
+  findClientByNormalizedName,
+  planProjectClientLink,
+} from "./clients";
 
 type SyncEntity = "clients" | "projects" | "tasks" | "sessions";
 type SyncAction = "create" | "update" | "delete";
@@ -106,17 +111,33 @@ function freezeStaleRunning(sessions: Session[]): Session[] {
   });
 }
 
-function reportableSession(session: Session) {
-  return normalizeSession(session).state === "confirmed";
-}
-
 function mergeSessionLists(remoteSessions: Session[], localSessions: Session[]) {
   const localSessionsMap = new Map(localSessions.map((s) => [s.id, s]));
   const remoteIds = new Set(remoteSessions.map((session) => session.id));
-  
+  const pendingUpdates = getSyncEngine().getPendingUpdates("sessions");
+
   const mergedRemote = remoteSessions.map((remote) => {
+    const pending = pendingUpdates.get(remote.id);
+    if (pending) {
+      return normalizeSession({ ...remote, ...(pending as Partial<Session>) });
+    }
+
     const local = localSessionsMap.get(remote.id);
-    if (local && (local.estimateMinutes || local.completionAckMinutes)) {
+    if (!local) return remote;
+
+    // Prefer a newer local edit (offline / pre-sync) over a stale remote row.
+    const localUpdated = local.updatedAt ?? 0;
+    const remoteUpdated = remote.updatedAt ?? 0;
+    if (localUpdated > remoteUpdated) {
+      return normalizeSession({
+        ...remote,
+        ...local,
+        estimateMinutes: local.estimateMinutes ?? remote.estimateMinutes,
+        completionAckMinutes: local.completionAckMinutes ?? remote.completionAckMinutes,
+      });
+    }
+
+    if (local.estimateMinutes || local.completionAckMinutes) {
       return {
         ...remote,
         estimateMinutes: local.estimateMinutes ?? remote.estimateMinutes,
@@ -132,6 +153,15 @@ function mergeSessionLists(remoteSessions: Session[], localSessions: Session[]) 
     (session) => !remoteIds.has(session.id) && !getSyncEngine().getPendingDeletes("sessions").has(session.id)
   );
   return [...mergedRemote, ...localOnly].map(normalizeSession);
+}
+
+function applyPendingTaskUpdates(tasks: Task[]): Task[] {
+  const pending = getSyncEngine().getPendingUpdates("tasks");
+  if (pending.size === 0) return tasks;
+  return tasks.map((task) => {
+    const patch = pending.get(task.id);
+    return patch ? ({ ...task, ...(patch as Partial<Task>) } as Task) : task;
+  });
 }
 
 function withTaskDisplayFallbacks(tasks: Task[]) {
@@ -201,6 +231,14 @@ interface State {
   addClient: (c: Omit<Client, "id">) => Promise<Client>;
   updateClient: (id: string, updates: Partial<Omit<Client, "id">>) => Promise<Client>;
   deleteClient: (id: string) => Promise<void>;
+  /**
+   * Resolve a project form’s client name field into a clientId.
+   * Edits the linked client in place; empty name clears. Never opens a picker.
+   */
+  resolveProjectClientLink: (input: {
+    linkedClientId?: string | null;
+    clientName: string;
+  }) => Promise<string | null>;
   addProject: (p: Omit<Project, "id">) => Promise<Project>;
   updateProject: (id: string, patch: Partial<Omit<Project, "id">>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
@@ -366,14 +404,24 @@ persist((set, get) => ({
   addClient: async (c) => {
     set({ isLoading: true, error: null });
     try {
+      // Prevent duplicates: normalized name match returns the existing client.
+      const existing = findClientByNormalizedName(get().clients, c.name);
+      if (existing) return existing;
+
+      const payload = { ...c, name: c.name.trim() };
       if (!isOnline()) {
-        const local = { ...c, id: uid() } as Client;
+        const local = { ...payload, id: uid() } as Client;
         set({ clients: [...get().clients, local] });
-        queueMutation("clients", "create", local.id, { ...c });
+        queueMutation("clients", "create", local.id, { ...payload });
         return local;
       }
-      const created = await api.clients.create(c);
-      set({ clients: [...get().clients, created] });
+      const created = await api.clients.create(payload);
+      // Race-safe: if server/another path returned a name we already hold, reuse it.
+      const again = findClientByNormalizedName(get().clients, created.name);
+      if (again && again.id !== created.id) return again;
+      if (!get().clients.some((x) => x.id === created.id)) {
+        set({ clients: [...get().clients, created] });
+      }
       return created;
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to create client' });
@@ -405,18 +453,56 @@ persist((set, get) => ({
   deleteClient: async (id) => {
     set({ isLoading: true, error: null });
     try {
+      const clearProjects = (projects: Project[]) =>
+        projects.map((p) => {
+          if (p.clientId !== id) return p;
+          const next = { ...p };
+          delete (next as { clientId?: string | null }).clientId;
+          return next;
+        });
+
       if (!isOnline()) {
-        set({ clients: get().clients.filter((c) => c.id !== id) });
+        set({
+          clients: get().clients.filter((c) => c.id !== id),
+          projects: clearProjects(get().projects),
+        });
         queueMutation("clients", "delete", id, {});
         return;
       }
       await api.clients.delete(id);
-      set({ clients: get().clients.filter((c) => c.id !== id) });
+      set({
+        clients: get().clients.filter((c) => c.id !== id),
+        projects: clearProjects(get().projects),
+      });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to delete client' });
       throw error;
     } finally {
       set({ isLoading: false });
+    }
+  },
+
+  resolveProjectClientLink: async ({ linkedClientId, clientName }) => {
+    const plan = planProjectClientLink({
+      linkedClientId,
+      clientName,
+      clients: get().clients,
+    });
+
+    switch (plan.action) {
+      case "clear":
+        return null;
+      case "keep":
+      case "assignExisting":
+        return plan.clientId;
+      case "rename": {
+        await get().updateClient(plan.clientId, { name: plan.name });
+        return plan.clientId;
+      }
+      case "create": {
+        const created = await get().addClient({ name: plan.name, hourlyRate: 0 });
+        return created.id;
+      }
     }
   },
 
@@ -444,13 +530,30 @@ persist((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       if (!isOnline()) {
-        set({ projects: get().projects.map((p) => (p.id === id ? { ...p, ...patch } : p)) });
+        set({
+          projects: get().projects.map((p) =>
+            p.id === id ? applyProjectClientPatch(p, patch) : p
+          ),
+        });
         queueMutation("projects", "update", id, { ...patch });
         return;
       }
       const updated = await api.projects.update(id, patch);
+      // Apply patch first so cleared fields (null clientId / rates) stick when
+      // the server response omits them; then layer server fields on top and
+      // re-clear client when the patch explicitly unassigned.
       set({
-        projects: get().projects.map((p) => (p.id === id ? { ...p, ...updated } : p)),
+        projects: get().projects.map((p) => {
+          if (p.id !== id) return p;
+          let next = applyProjectClientPatch(p, patch);
+          next = { ...next, ...updated };
+          if (patch.clientId === null || patch.clientId === "") {
+            next = applyProjectClientPatch(next, { clientId: null });
+          } else if (patch.clientId) {
+            next = { ...next, clientId: patch.clientId };
+          }
+          return next;
+        }),
       });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to update project' });
@@ -1143,6 +1246,7 @@ persist((set, get) => ({
         state: "confirmed" as const,
         isDraft: false,
         notes,
+        updatedAt: Date.now(),
       };
 
       if (!isOnline()) {
@@ -1236,23 +1340,64 @@ persist((set, get) => ({
         state: "confirmed" as const,
         isDraft: false,
         notes,
+        updatedAt: Date.now(),
       };
 
-      if (!isOnline() || !isRemoteId(id)) {
+      // Local-only ids must be created on the server (same as confirmSession),
+      // otherwise edits only live in memory and vanish after restart.
+      if (!isRemoteId(id)) {
+        if (isOnline()) {
+          const created = await api.sessions.create({ ...patch, id: undefined });
+          const session = normalizeSession({
+            ...created,
+            ...patch,
+            notes: created.notes?.length ? created.notes : notes,
+          });
+          set({ sessions: get().sessions.map((s) => (s.id === id ? session : s)) });
+          return session;
+        }
         const updated = normalizeSession({ ...existing, ...patch, id });
         set({ sessions: get().sessions.map((s) => (s.id === id ? updated : s)) });
-        if (isRemoteId(id)) queueMutation("sessions", "update", id, { ...patch });
-        else queueMutation("sessions", "create", id, { ...patch });
+        queueMutation("sessions", "create", id, { ...patch });
+        return updated;
+      }
+
+      if (!isOnline()) {
+        const updated = normalizeSession({ ...existing, ...patch, id });
+        set({ sessions: get().sessions.map((s) => (s.id === id ? updated : s)) });
+        queueMutation("sessions", "update", id, { ...patch });
         return updated;
       }
 
       const remote = await api.sessions.update(id, patch);
+      // Trust what the server actually stored — overlaying `patch` last hid
+      // partial writes (e.g. startedAt only in JSONB) until the next reload.
       const session = normalizeSession({
         ...existing,
         ...remote,
-        ...patch,
-        notes: remote.notes?.length ? remote.notes : notes,
+        // Keep client-only latches the API does not round-trip.
+        estimateMinutes: existing.estimateMinutes,
+        completionAckMinutes: existing.completionAckMinutes,
+        notes: Array.isArray(remote.notes) && remote.notes.length ? remote.notes : notes,
+        state: "confirmed",
+        paused: true,
+        isDraft: false,
       });
+
+      const startedDrift =
+        typeof session.startedAt === "number" &&
+        Math.abs(session.startedAt - patch.startedAt) > 60_000;
+      const endedDrift =
+        typeof session.endedAt === "number" &&
+        Math.abs((session.endedAt ?? 0) - patch.endedAt) > 60_000;
+      if (startedDrift || endedDrift) {
+        set({
+          error:
+            "Server did not persist the new time range. Redeploy the sessions edge function, then try again.",
+        });
+        return null;
+      }
+
       set({ sessions: get().sessions.map((s) => (s.id === id ? session : s)) });
       return session;
     } catch (error) {
@@ -1299,6 +1444,13 @@ persist((set, get) => ({
 
   loadSessions: async () => {
     try {
+      // Push queued edits before reading so a restart cannot reload stale rows.
+      try {
+        await getSyncEngine().flush();
+      } catch (error) {
+        console.warn("Sync flush before loadSessions failed:", error);
+      }
+
       const { sessions } = await api.sessions.list();
       const deletedSessions = getSyncEngine().getPendingDeletes("sessions");
       const remoteSessionsFiltered = (sessions || [])
@@ -1319,6 +1471,14 @@ persist((set, get) => ({
   loadAll: async () => {
     set({ isLoading: true, error: null });
     try {
+      // Flush offline edits first — otherwise loadAll overwrites them with
+      // stale server data and time-entry changes look like they "reverted".
+      try {
+        await getSyncEngine().flush();
+      } catch (error) {
+        console.warn("Sync flush before loadAll failed:", error);
+      }
+
       const [clientsResult, projectsResult, tasksResult, sessionsResult] = await Promise.all([
         api.clients.list(),
         api.projects.list(),
@@ -1340,8 +1500,9 @@ persist((set, get) => ({
         mergeSessionLists(remoteSessionsFiltered, get().sessions.filter((s) => !deletedSessions.has(s.id)))
       );
 
-      const remoteTasksFiltered = (tasksResult.tasks || [])
-        .filter((t) => !deletedTasks.has(t.id));
+      const remoteTasksFiltered = applyPendingTaskUpdates(
+        (tasksResult.tasks || []).filter((t) => !deletedTasks.has(t.id))
+      );
 
       const tasks = reconcileSessionTasks(withTaskDisplayFallbacks(remoteTasksFiltered), sessions);
 
@@ -1488,7 +1649,10 @@ persist((set, get) => ({
 }), {
   name: "flowmate-supabase-session-store",
   partialize: (state) => ({
-    sessions: state.sessions.filter((session) => !reportableSession(session)),
+    // Persist confirmed logs too — previously only active/draft sessions were
+    // kept, so offline or queued time-entry edits vanished on restart before
+    // the sync queue could replay them.
+    sessions: state.sessions,
     activeSessionId: state.activeSessionId,
     preferences: state.preferences,
   }),

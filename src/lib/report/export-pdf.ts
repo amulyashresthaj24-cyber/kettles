@@ -3,6 +3,7 @@
 
 import type { jsPDF } from "jspdf";
 import { formatCurrency, formatDuration } from "@/lib/format";
+import { formatHourlyRate } from "@/lib/rates";
 import { formatRangeForFilename } from "@/lib/report-dates";
 import { BRAND_NAME, FILE_PREFIX } from "./constants";
 import type { EnrichedSession, ProjectRollup, ReportData } from "./data";
@@ -118,13 +119,14 @@ function projectsTable(doc: jsPDF, autoTable: AutoTableFn, projects: ProjectRoll
   autoTable(doc, {
     ...TABLE_STYLES,
     startY,
-    head: [["Project", "Client", "Hours", "Billable", "Sessions", "Earnings"]],
+    head: [["Project", "Client", "Hours", "Billable", "Sessions", "Rate", "Earnings"]],
     body: projects.map((p) => [
       p.name,
       p.clientName ?? "—",
       formatDuration(p.seconds) || "0m",
       formatDuration(p.billableSeconds) || "—",
       String(p.sessionCount),
+      p.hourlyRate > 0 ? formatHourlyRate(p.hourlyRate) : "—",
       p.earningsCents > 0 ? formatCurrency(p.earningsCents) : "—",
     ]),
     foot: [[
@@ -133,6 +135,7 @@ function projectsTable(doc: jsPDF, autoTable: AutoTableFn, projects: ProjectRoll
       formatDuration(data.totals.totalSeconds) || "0m",
       formatDuration(data.totals.billableSeconds) || "—",
       String(data.totals.sessionCount),
+      "",
       data.totals.earningsCents > 0 ? formatCurrency(data.totals.earningsCents) : "—",
     ]],
   });

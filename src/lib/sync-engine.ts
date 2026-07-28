@@ -72,6 +72,12 @@ class SyncEngine {
         this.flush();
       }
     }, 3 * 60 * 1000);
+
+    // Replay anything left from the previous run (edits were otherwise lost
+    // until the first 3-minute tick or a reconnect event).
+    if (isOnline() && this.queue.length > 0) {
+      void this.flush();
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -80,6 +86,19 @@ class SyncEngine {
 
   /** Enqueue a mutation. If online, flush immediately. */
   enqueue(op: Omit<SyncOperation, "id" | "timestamp" | "retries">): void {
+    // Keep only the latest create/update per entity so older queued edits
+    // cannot overwrite a newer one after restart.
+    if (op.action === "create" || op.action === "update") {
+      this.queue = this.queue.filter(
+        (q) =>
+          !(
+            q.entity === op.entity &&
+            q.entityId === op.entityId &&
+            (q.action === "create" || q.action === "update")
+          )
+      );
+    }
+
     const entry: SyncOperation = {
       ...op,
       id: `sync_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -115,6 +134,22 @@ class SyncEngine {
       }
     }
     return ids;
+  }
+
+  /**
+   * Latest pending create/update payload per entity id. Used when merging
+   * remote lists so in-flight edits are not overwritten by stale server rows.
+   */
+  getPendingUpdates(
+    entity: "clients" | "projects" | "tasks" | "sessions"
+  ): Map<string, Record<string, unknown>> {
+    const map = new Map<string, Record<string, unknown>>();
+    for (const op of this.queue) {
+      if (op.entity === entity && (op.action === "create" || op.action === "update")) {
+        map.set(op.entityId, op.payload);
+      }
+    }
+    return map;
   }
 
   /** Subscribe to sync status changes. Returns unsubscribe function. */

@@ -153,7 +153,7 @@ function subRangeSheet(data: ReportData, subRanges: DateRange[]): SheetSpec {
 function projectsSheet(data: ReportData): SheetSpec {
   return {
     rows: [
-      ["Project", "Client", "Hours", "Billable Hours", "Sessions", "Tasks Completed", "Earnings (USD)", "Budget (USD)", "Budget Used %"],
+      ["Project", "Client", "Hours", "Billable Hours", "Sessions", "Tasks Completed", "Rate (USD/hr)", "Earnings (USD)", "Budget (USD)", "Budget Used %"],
       ...data.projects.map((p) => [
         p.name,
         p.clientName ?? "—",
@@ -161,6 +161,7 @@ function projectsSheet(data: ReportData): SheetSpec {
         hours(p.billableSeconds),
         p.sessionCount,
         p.tasksCompleted,
+        p.hourlyRate > 0 ? p.hourlyRate : null,
         dollars(p.earningsCents),
         p.budgetDollars ?? null,
         p.budgetUsedPct !== undefined ? `${p.budgetUsedPct.toFixed(1)}%` : null,
@@ -172,13 +173,14 @@ function projectsSheet(data: ReportData): SheetSpec {
         hours(data.totals.billableSeconds),
         data.totals.sessionCount,
         data.totals.tasksCompleted,
+        null,
         dollars(data.totals.earningsCents),
         null,
         null,
       ],
     ],
-    widths: [28, 20, 10, 14, 10, 16, 14, 14, 14],
-    formats: { 2: HOURS_FMT, 3: HOURS_FMT, 6: CURRENCY_FMT, 7: CURRENCY_FMT },
+    widths: [28, 20, 10, 14, 10, 16, 14, 14, 14, 14],
+    formats: { 2: HOURS_FMT, 3: HOURS_FMT, 6: CURRENCY_FMT, 7: CURRENCY_FMT, 8: CURRENCY_FMT },
   };
 }
 

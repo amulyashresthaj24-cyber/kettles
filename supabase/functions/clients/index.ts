@@ -1,7 +1,18 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { getSupabaseClient } from '../_shared/supabase.ts';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
-import { validateUUID, validateRequired, sanitizeData, formatEntityResponse } from '../_shared/validators.ts';
+import {
+  validateUUID,
+  validateRequired,
+  sanitizeData,
+  formatEntityResponse,
+  normalizeMoneyFields,
+  mergeEntityData,
+} from '../_shared/validators.ts';
+
+function normalizeClientName(name: unknown): string {
+  return String(name ?? '').trim().toLowerCase();
+}
 
 serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -69,11 +80,47 @@ serve(async (req) => {
           });
         }
 
+        const trimmedName = String(body.name).trim();
+        if (!trimmedName) {
+          return new Response(JSON.stringify({ error: 'name is required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Duplicate prevention: return existing client on normalized name match.
+        const { data: existingRows, error: listError } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('user_id', user.id);
+        if (listError) throw listError;
+
+        const normalized = normalizeClientName(trimmedName);
+        const match = (existingRows || []).find((row: Record<string, unknown>) => {
+          const data = (row.data ?? {}) as Record<string, unknown>;
+          const n = normalizeClientName(data.name ?? row.name);
+          return n === normalized;
+        });
+        if (match) {
+          return new Response(JSON.stringify(formatEntityResponse(match)), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const money = normalizeMoneyFields(sanitizeData({ ...body, name: trimmedName }));
+        if (money.error) {
+          return new Response(JSON.stringify({ error: money.error }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
         const { data, error } = await supabase
           .from('clients')
           .insert({
             user_id: user.id,
-            data: sanitizeData(body),
+            data: mergeEntityData({}, money.data),
           })
           .select()
           .single();
@@ -110,12 +157,17 @@ serve(async (req) => {
           .single();
         
         if (fetchError) throw fetchError;
-        
-        // Merge new data with existing data instead of replacing
-        const mergedData = {
-          ...currentData?.data,
-          ...sanitizeData(body),
-        };
+
+        const money = normalizeMoneyFields(sanitizeData(body));
+        if (money.error) {
+          return new Response(JSON.stringify({ error: money.error }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Merge new data with existing data instead of replacing; nulls clear.
+        const mergedData = mergeEntityData(currentData?.data, money.data);
         
         const { data, error } = await supabase
           .from('clients')

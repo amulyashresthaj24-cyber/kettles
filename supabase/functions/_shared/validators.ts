@@ -18,6 +18,75 @@ export function sanitizeData(data: Record<string, any>): Record<string, any> {
   return clean;
 }
 
+/** Money-ish fields the client may send as strings, and may clear with null. */
+const MONEY_FIELDS = ['hourlyRate', 'budget'] as const;
+
+export const MAX_HOURLY_RATE = 100_000;
+
+/**
+ * Coerce money fields to positive numbers, map 0 / "" / null to null (cleared),
+ * and reject values that can't be money. Returns an error message on bad input.
+ */
+export function normalizeMoneyFields(
+  data: Record<string, any>
+): { data: Record<string, any>; error?: string } {
+  const out = { ...data };
+  for (const field of MONEY_FIELDS) {
+    if (!(field in out)) continue;
+    const raw = out[field];
+    if (raw === null || raw === undefined || raw === '') {
+      out[field] = null;
+      continue;
+    }
+    const num = typeof raw === 'string' ? Number(raw) : raw;
+    if (typeof num !== 'number' || !Number.isFinite(num)) {
+      return { data: out, error: `${field} must be a number` };
+    }
+    if (num < 0) return { data: out, error: `${field} must not be negative` };
+    if (field === 'hourlyRate' && num > MAX_HOURLY_RATE) {
+      return { data: out, error: `hourlyRate must be at most ${MAX_HOURLY_RATE}` };
+    }
+    out[field] = num === 0 ? null : Math.round(num * 100) / 100;
+  }
+  return { data: out };
+}
+
+/** Drop keys explicitly set to null so a cleared field leaves the JSONB blob. */
+export function mergeEntityData(
+  current: Record<string, any> | null | undefined,
+  patch: Record<string, any>
+): Record<string, any> {
+  const merged: Record<string, any> = { ...(current || {}) };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) delete merged[key];
+    else merged[key] = value;
+  }
+  return merged;
+}
+
+/**
+ * Hourly rate in dollars. JSONB `hourlyRate` and a `hourly_rate` column are
+ * already dollars; `hourly_rate_cents` must be divided by 100.
+ */
+export function rateDollars(row: any): number | undefined {
+  const rowData = getData(row);
+  const raw = firstDefined(rowData.hourlyRate, row?.hourlyRate, row?.hourly_rate);
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw;
+  const cents = row?.hourly_rate_cents;
+  if (typeof cents === 'number' && Number.isFinite(cents) && cents > 0) return cents / 100;
+  return undefined;
+}
+
+/** Budget in dollars, from JSONB, a dollar column, or a cents column. */
+export function budgetDollars(row: any): number | undefined {
+  const rowData = getData(row);
+  const raw = firstDefined(rowData.budget, row?.budget);
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw;
+  const cents = row?.budget_cents;
+  if (typeof cents === 'number' && Number.isFinite(cents) && cents > 0) return cents / 100;
+  return undefined;
+}
+
 function timestampToMillis(value: any): number | undefined {
   if (value === null || value === undefined || value === '') return undefined;
   if (typeof value === 'number') return value;
@@ -34,6 +103,37 @@ function addIfDefined(target: Record<string, any>, key: string, value: any) {
   if (value !== undefined && value !== null) {
     target[key] = value;
   }
+}
+
+/**
+ * When a session column and its JSONB twin disagree (legacy edge PUT wrote
+ * only JSONB), pick the bound that best matches durationSeconds.
+ */
+function pickConsistentBound(
+  columnMs: number | undefined,
+  dataMs: number | undefined,
+  otherMs: number | undefined,
+  durationSeconds: any,
+  side: 'start' | 'end'
+): number | undefined {
+  const col = typeof columnMs === 'number' && Number.isFinite(columnMs) ? columnMs : undefined;
+  const data = typeof dataMs === 'number' && Number.isFinite(dataMs) ? dataMs : undefined;
+  if (col === undefined) return data;
+  if (data === undefined) return col;
+  if (Math.abs(col - data) <= 60_000) return col;
+
+  const dur = typeof durationSeconds === 'number' ? durationSeconds : Number(durationSeconds);
+  const other = typeof otherMs === 'number' && Number.isFinite(otherMs) ? otherMs : undefined;
+  if (!other || !Number.isFinite(dur) || dur <= 0) {
+    // Prefer the JSONB value — that's what modern clients write on edit.
+    return data;
+  }
+
+  const expectedOther = (ms: number) =>
+    side === 'start' ? ms + dur * 1000 : ms - dur * 1000;
+  const colErr = Math.abs(other - expectedOther(col));
+  const dataErr = Math.abs(other - expectedOther(data));
+  return dataErr < colErr ? data : col;
 }
 
 function getData(row: any): Record<string, any> {
@@ -90,8 +190,8 @@ export function formatEntityResponse(row: any): any {
   addIfDefined(result, 'tags', firstDefined(row.tags, rowData.tags));
   addIfDefined(result, 'assignees', firstDefined(row.assignees, rowData.assignees));
   addIfDefined(result, 'archived', firstDefined(row.archived, rowData.archived));
-  addIfDefined(result, 'budget', firstDefined(row.budget, row.budget_cents, rowData.budget));
-  addIfDefined(result, 'hourlyRate', firstDefined(row.hourlyRate, row.hourly_rate, row.hourly_rate_cents, rowData.hourlyRate));
+  addIfDefined(result, 'budget', budgetDollars(row));
+  addIfDefined(result, 'hourlyRate', rateDollars(row));
   addIfDefined(result, 'estimateMinutes', firstDefined(row.estimateMinutes, row.estimate_minutes, rowData.estimateMinutes));
   addIfDefined(result, 'actualMinutes', firstDefined(row.actualMinutes, row.actual_minutes, rowData.actualMinutes));
 
@@ -109,8 +209,24 @@ export function formatEntityResponse(row: any): any {
   if (row.task_id) result.taskId = row.task_id;
   if (row.duration_seconds !== undefined) result.durationSeconds = row.duration_seconds;
   if (row.billable !== undefined) result.billable = row.billable;
-  if (row.started_at) result.startedAt = new Date(row.started_at).getTime();
-  if (row.ended_at) result.endedAt = new Date(row.ended_at).getTime();
+
+  // Session bounds: columns are authoritative once the edge function writes them,
+  // but older deployed PUTs only updated data.startedAt in JSONB. When column and
+  // JSONB disagree by >60s, prefer the value that agrees with durationSeconds + endedAt.
+  if (entityKind === 'session') {
+    const colStarted = row.started_at ? new Date(row.started_at).getTime() : undefined;
+    const dataStarted = timestampToMillis(rowData.startedAt);
+    const colEnded = row.ended_at ? new Date(row.ended_at).getTime() : undefined;
+    const dataEnded = timestampToMillis(rowData.endedAt);
+    const duration = firstDefined(row.duration_seconds, rowData.durationSeconds);
+
+    result.startedAt = pickConsistentBound(colStarted, dataStarted, colEnded ?? dataEnded, duration, 'start');
+    const ended = pickConsistentBound(colEnded, dataEnded, result.startedAt, duration, 'end');
+    if (ended !== undefined) result.endedAt = ended;
+  } else {
+    if (row.started_at) result.startedAt = new Date(row.started_at).getTime();
+    if (row.ended_at) result.endedAt = new Date(row.ended_at).getTime();
+  }
   if (row.paused !== undefined) result.paused = row.paused;
   
   // Handle timestamp fields from JSONB data

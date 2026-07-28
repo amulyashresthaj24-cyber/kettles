@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { formatCurrency, formatDuration } from "@/lib/format";
+import { formatHourlyRate } from "@/lib/rates";
 import { Button } from "@/components/ui/button";
 import { useNotification } from "@/components/ui/notification";
 import { cn } from "@/lib/utils";
@@ -318,6 +319,11 @@ export default function ReportPage() {
                         </span>
                         <span className="text-[13px] tabular-nums text-text-secondary text-right">
                           {p.earningsCents > 0 ? formatCurrency(p.earningsCents) : "–"}
+                          {p.hourlyRate > 0 && (
+                            <span className="block text-[11px] text-text-faint">
+                              {formatHourlyRate(p.hourlyRate)}
+                            </span>
+                          )}
                         </span>
                       </div>
                     );

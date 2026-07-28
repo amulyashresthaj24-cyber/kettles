@@ -5,6 +5,7 @@
 import type { Client, Project, Session, Task, TaskStatus } from "@/lib/types";
 import type { DateRange } from "@/lib/report-dates";
 import { eachDayOf } from "@/lib/report-dates";
+import { earningsCents, resolveHourlyRate, type RateSource } from "@/lib/rates";
 
 // ─── Inputs ──────────────────────────────────────────────────────────────────
 
@@ -94,6 +95,9 @@ export interface EnrichedSession {
   seconds: number;
   billable: boolean;
   earningsCents: number;
+  /** Effective rate applied to this session, in dollars per hour. */
+  hourlyRate: number;
+  rateSource: RateSource;
   endedAt: number;
   startedAt: number;
 }
@@ -131,12 +135,7 @@ export function selectSessions(src: ReportSource, filters: ReportFilters): Enric
 
     const seconds = s.durationSeconds;
     const bounds = reconcileSessionBounds(s.startedAt, endedAt, seconds);
-    const rate =
-      project?.hourlyRate != null && project.hourlyRate > 0
-        ? project.hourlyRate
-        : client?.hourlyRate ?? 0;
-    const earningsCents =
-      billable && rate > 0 ? Math.round(rate * 100 * (seconds / 3600)) : 0;
+    const rate = resolveHourlyRate(project, client);
 
     rows.push({
       session: s,
@@ -147,7 +146,9 @@ export function selectSessions(src: ReportSource, filters: ReportFilters): Enric
       color: colorForProject(project, s.projectId || "_none"),
       seconds,
       billable,
-      earningsCents,
+      earningsCents: earningsCents(seconds, rate.dollarsPerHour, billable),
+      hourlyRate: rate.dollarsPerHour,
+      rateSource: rate.source,
       endedAt: bounds.endedAt,
       startedAt: bounds.startedAt,
     });
@@ -223,6 +224,9 @@ export interface ProjectRollup {
   earningsCents: number;
   sessionCount: number;
   tasksCompleted: number;
+  /** Effective rate in dollars per hour; 0 when no project or client rate is set. */
+  hourlyRate: number;
+  rateSource: RateSource;
   budgetDollars?: number;
   budgetUsedPct?: number;
   tasks: TaskRollup[];
@@ -245,7 +249,9 @@ export function rollupByProject(rows: EnrichedSession[]): ProjectRollup[] {
         earningsCents: 0,
         sessionCount: 0,
         tasksCompleted: 0,
-        budgetDollars: r.project?.budget,
+        hourlyRate: r.hourlyRate,
+        rateSource: r.rateSource,
+        budgetDollars: r.project?.budget ?? undefined,
         tasks: [],
         _tasks: new Map(),
         _done: new Set(),

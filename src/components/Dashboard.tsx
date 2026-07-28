@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { formatDuration, formatCurrency } from "@/lib/format";
+import { earningsCents, resolveHourlyRate } from "@/lib/rates";
 import { isTaskOnDay } from "@/lib/task-dates";
 import { AddTaskModal } from "./AddTaskModal";
 import { Button } from "@/components/ui/button";
@@ -143,44 +144,34 @@ export default function Dashboard() {
     [todaySessions]
   );
 
-  const todayBillableCents = useMemo(() => {
-    let cents = 0;
-    for (const s of todaySessions) {
-      if (!s.billable) continue;
-      const proj = projects.find((p) => p.id === s.projectId);
-      const rate =
-        proj?.hourlyRate != null && proj.hourlyRate > 0
-          ? proj.hourlyRate
-          : proj?.clientId
-            ? clients.find((c) => c.id === proj.clientId)?.hourlyRate ?? 0
-            : 0;
-      if (rate <= 0) continue;
-      cents += Math.round((rate * s.durationSeconds * 100) / 3600);
-    }
-    return cents;
-  }, [todaySessions, projects, clients]);
+  /** Same project-rate-then-client-rate cascade the report uses. */
+  const sessionEarnings = useMemo(() => {
+    const projectById = new Map(projects.map((p) => [p.id, p]));
+    const clientById = new Map(clients.map((c) => [c.id, c]));
+    return (sessionList: typeof sessions) =>
+      sessionList.reduce((cents, s) => {
+        if (!s.billable) return cents;
+        const proj = s.projectId ? projectById.get(s.projectId) : undefined;
+        const client = proj?.clientId ? clientById.get(proj.clientId) : undefined;
+        const rate = resolveHourlyRate(proj, client);
+        return cents + earningsCents(s.durationSeconds, rate.dollarsPerHour, true);
+      }, 0);
+  }, [projects, clients]);
+
+  const todayBillableCents = useMemo(
+    () => sessionEarnings(todaySessions),
+    [sessionEarnings, todaySessions]
+  );
 
   const weekTracked = useMemo(
     () => weekSessions.reduce((a, s) => a + s.durationSeconds, 0),
     [weekSessions]
   );
 
-  const weekEarnings = useMemo(() => {
-    let cents = 0;
-    for (const s of weekSessions) {
-      if (!s.billable) continue;
-      const proj = projects.find((p) => p.id === s.projectId);
-      const rate =
-        proj?.hourlyRate != null && proj.hourlyRate > 0
-          ? proj.hourlyRate
-          : proj?.clientId
-            ? clients.find((c) => c.id === proj.clientId)?.hourlyRate ?? 0
-            : 0;
-      if (rate <= 0) continue;
-      cents += Math.round((rate * s.durationSeconds * 100) / 3600);
-    }
-    return cents;
-  }, [weekSessions, projects, clients]);
+  const weekEarnings = useMemo(
+    () => sessionEarnings(weekSessions),
+    [sessionEarnings, weekSessions]
+  );
 
   const tasksDone = useMemo(
     () => tasks.filter((t) => t.status === "done").length,

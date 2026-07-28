@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { CaretDown, CheckCircle, Circle } from "@/components/ui/icon";
 import { formatDuration, formatCurrency } from "@/lib/format";
+import { formatHourlyRate } from "@/lib/rates";
 import { cn } from "@/lib/utils";
 import type { ProjectRollup, ReportTotals } from "@/lib/report/data";
 import { ReportEmptyState } from "./ReportCard";
 
-const GRID = "grid grid-cols-[minmax(0,1fr)_110px_70px_110px_110px_130px] items-center";
+const GRID = "grid grid-cols-[minmax(0,1fr)_110px_70px_110px_90px_110px_130px] items-center";
 
 interface ProjectsTableProps {
   projects: ProjectRollup[];
@@ -52,6 +53,7 @@ export function ProjectsTable({ projects, totals, groupByClient }: ProjectsTable
         <HeaderCell>Duration</HeaderCell>
         <HeaderCell>%</HeaderCell>
         <HeaderCell>Billable</HeaderCell>
+        <HeaderCell>Rate</HeaderCell>
         <HeaderCell>Earnings</HeaderCell>
         <HeaderCell>Budget</HeaderCell>
       </div>
@@ -97,6 +99,21 @@ export function ProjectsTable({ projects, totals, groupByClient }: ProjectsTable
                   <span className="text-[12px] text-text-muted tabular-nums">
                     {proj.billableSeconds > 0 ? formatDuration(proj.billableSeconds) : "–"}
                   </span>
+                  <span
+                    className={cn(
+                      "text-[12px] tabular-nums",
+                      proj.rateSource === "client" ? "text-text-faint" : "text-text-muted"
+                    )}
+                    title={
+                      proj.rateSource === "client"
+                        ? "Inherited from the client rate"
+                        : proj.rateSource === "project"
+                          ? "Project rate"
+                          : "No rate set"
+                    }
+                  >
+                    {proj.hourlyRate > 0 ? formatHourlyRate(proj.hourlyRate) : "–"}
+                  </span>
                   <span className="text-[13px] tabular-nums text-text-secondary">
                     {proj.earningsCents > 0 ? formatCurrency(proj.earningsCents) : "–"}
                   </span>
@@ -125,6 +142,7 @@ export function ProjectsTable({ projects, totals, groupByClient }: ProjectsTable
                       <span className="text-[12px] text-text-muted tabular-nums">
                         {task.billableSeconds > 0 ? formatDuration(task.billableSeconds) : "–"}
                       </span>
+                      <span />
                       <span className="text-[13px] tabular-nums text-text-muted">
                         {task.earningsCents > 0 ? formatCurrency(task.earningsCents) : "–"}
                       </span>
@@ -146,6 +164,7 @@ export function ProjectsTable({ projects, totals, groupByClient }: ProjectsTable
         <span className="text-[13px] tabular-nums font-semibold text-text-primary">
           {totals.billableSeconds > 0 ? formatDuration(totals.billableSeconds) : "–"}
         </span>
+        <span />
         <span className="text-[13px] tabular-nums font-semibold text-text-primary">
           {totals.earningsCents > 0 ? formatCurrency(totals.earningsCents) : "–"}
         </span>

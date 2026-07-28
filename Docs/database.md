@@ -78,6 +78,7 @@ Sourced from: `data.json → projects`, `types.ts → Project`, `store.ts → ad
 | `color` | `varchar(20)` | NOT NULL, default `'indigo'` | enum: teal/amber/rose/indigo |
 | `billable` | `boolean` | NOT NULL, default false | default for new sessions |
 | `status` | `varchar(20)` | NOT NULL, default `'active'` | enum: active/paused/completed/archived |
+| `hourly_rate_cents` | `integer` | NULL | project rate; overrides the client rate |
 | `budget_cents` | `integer` | NOT NULL, default 0 | |
 | `tags` | `text[]` | default `'{}'` | |
 | `start_date` | `timestamptz` | | |
@@ -85,7 +86,11 @@ Sourced from: `data.json → projects`, `types.ts → Project`, `store.ts → ad
 | `created_at` | `timestamptz` | NOT NULL, default now() | |
 | `updated_at` | `timestamptz` | NOT NULL, default now() | |
 
-**data.json fields used:** `id`, `name`, `description`, `clientId`, `color`, `billable`, `status`, `startDate`, `endDate`, `budget`, `tags`, `createdAt`
+**data.json fields used:** `id`, `name`, `description`, `clientId`, `color`, `billable`, `status`, `startDate`, `endDate`, `hourlyRate`, `budget`, `tags`, `createdAt`
+
+**Rate resolution:** a project's own `hourlyRate` wins; otherwise the client rate applies; otherwise earnings are $0 (there is no default rate). The one implementation is `src/lib/rates.ts` on the client and `_shared/validators.ts → rateDollars()` in edge functions.
+
+**Units:** JSONB `hourlyRate` / `budget` are dollars; the `*_cents` columns are cents and are divided by 100 on read. Sending `null` for either field clears it.
 
 **Used by:** Sidebar nav, task filtering, session billing lookup, report grouping.
 
@@ -186,7 +191,7 @@ These are calculated at query time, not stored:
 |--------|-------|---------|
 | Today tracked seconds | `SUM(duration_seconds) WHERE ended_at >= today_start` | Dashboard |
 | Week tracked seconds | `SUM(duration_seconds) WHERE ended_at >= week_start` | Dashboard |
-| Week billable earnings | `SUM((hourly_rate_cents * duration_seconds) / 3600) WHERE billable = true` | Dashboard |
+| Week billable earnings | `SUM((effective_rate_cents * duration_seconds) / 3600) WHERE billable = true`, where effective rate = project rate ?? client rate ?? 0 | Dashboard, Report |
 | Project completion % | `COUNT(*) FILTER (WHERE status='done') / COUNT(*)` | Dashboard |
 | Session elapsed (active) | `duration_seconds + EXTRACT(EPOCH FROM now() - started_at)` | TimerPage |
 
@@ -200,6 +205,7 @@ These are calculated at query time, not stored:
 |-----------|-------------|-----------|
 | `user.createdAt` | `users.created_at` | ms → timestamptz |
 | `clients[].hourlyRate` | `clients.hourly_rate_cents` | `value * 100` |
+| `projects[].hourlyRate` | `projects.hourly_rate_cents` | `value * 100`, null when unset |
 | `projects[].clientId` | `projects.client_id` | string → uuid |
 | `tasks[].projectId` | `tasks.project_id` | string → uuid |
 | `tasks[].dateRange.startDate` | `tasks.start_date` | ms → timestamptz |
