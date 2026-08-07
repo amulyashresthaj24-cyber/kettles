@@ -1,7 +1,17 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { getSupabaseClient } from '../_shared/supabase.ts';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
-import { validateUUID, validateRequired, sanitizeData, formatEntityResponse } from '../_shared/validators.ts';
+import {
+  validateUUID,
+  validateRequired,
+  sanitizeData,
+  formatEntityResponse,
+  assertOwnedRow,
+  readJsonBody,
+  publicErrorMessage,
+} from '../_shared/validators.ts';
+
+const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
 
 serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -13,7 +23,7 @@ serve(async (req) => {
   if (!user) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: jsonHeaders,
     });
   }
 
@@ -28,7 +38,7 @@ serve(async (req) => {
           if (!validateUUID(id)) {
             return new Response(JSON.stringify({ error: 'Invalid task ID' }), {
               status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              headers: jsonHeaders,
             });
           }
           
@@ -41,14 +51,11 @@ serve(async (req) => {
           
           if (error) throw error;
           
-          const response = formatEntityResponse(data);
-          
-          return new Response(JSON.stringify(response), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          return new Response(JSON.stringify(formatEntityResponse(data)), {
+            headers: jsonHeaders,
           });
         }
         
-        // List all tasks with optional filtering
         let query = supabase
           .from('tasks')
           .select('*')
@@ -68,28 +75,39 @@ serve(async (req) => {
         
         if (error) throw error;
         
-        const tasks = (data || []).map(t => formatEntityResponse(t));
-        
-        return new Response(JSON.stringify({ tasks }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ tasks: (data || []).map(formatEntityResponse) }), {
+          headers: jsonHeaders,
         });
       }
 
       case 'POST': {
-        const body = await req.json();
+        const parsed = await readJsonBody(req);
+        if (parsed.error) {
+          return new Response(JSON.stringify({ error: parsed.error }), {
+            status: parsed.error === 'Request too large' ? 413 : 400,
+            headers: jsonHeaders,
+          });
+        }
+        const body = parsed.body;
         const validation = validateRequired(body, ['title']);
         if (validation) {
           return new Response(JSON.stringify({ error: validation }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
-        // Project is optional — tasks may have no project. Validate only if provided.
-        if (body.projectId && !validateUUID(body.projectId)) {
-          return new Response(JSON.stringify({ error: 'Invalid project ID' }), {
+        const projectErr = await assertOwnedRow(
+          supabase,
+          'projects',
+          body.projectId || null,
+          user.id,
+          'project ID'
+        );
+        if (projectErr) {
+          return new Response(JSON.stringify({ error: projectErr }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
@@ -110,11 +128,9 @@ serve(async (req) => {
         
         if (error) throw error;
         
-        const response = formatEntityResponse(data);
-        
-        return new Response(JSON.stringify(response), {
+        return new Response(JSON.stringify(formatEntityResponse(data)), {
           status: 201,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: jsonHeaders,
         });
       }
 
@@ -122,19 +138,25 @@ serve(async (req) => {
         if (!id) {
           return new Response(JSON.stringify({ error: 'Task ID required' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
         if (!validateUUID(id)) {
           return new Response(JSON.stringify({ error: 'Invalid task ID' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
-        const body = await req.json();
+        const parsed = await readJsonBody(req);
+        if (parsed.error) {
+          return new Response(JSON.stringify({ error: parsed.error }), {
+            status: parsed.error === 'Request too large' ? 413 : 400,
+            headers: jsonHeaders,
+          });
+        }
+        const body = parsed.body;
         
-        // Fetch current task to merge data
         const { data: currentData, error: fetchError } = await supabase
           .from('tasks')
           .select('data')
@@ -144,7 +166,6 @@ serve(async (req) => {
 
         if (fetchError) throw fetchError;
 
-        // Merge new data with existing data instead of replacing
         const sanitized = sanitizeData(body);
         if (sanitized.status === 'in_progress') {
           sanitized.status = 'doing';
@@ -157,7 +178,24 @@ serve(async (req) => {
         const updateData: any = { data: mergedData };
         
         if (body.projectId !== undefined) {
-          updateData.project_id = body.projectId && validateUUID(body.projectId) ? body.projectId : null;
+          if (body.projectId) {
+            const projectErr = await assertOwnedRow(
+              supabase,
+              'projects',
+              body.projectId,
+              user.id,
+              'project ID'
+            );
+            if (projectErr) {
+              return new Response(JSON.stringify({ error: projectErr }), {
+                status: 400,
+                headers: jsonHeaders,
+              });
+            }
+            updateData.project_id = body.projectId;
+          } else {
+            updateData.project_id = null;
+          }
         }
 
         const { data, error } = await supabase
@@ -170,10 +208,8 @@ serve(async (req) => {
         
         if (error) throw error;
         
-        const response = formatEntityResponse(data);
-        
-        return new Response(JSON.stringify(response), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify(formatEntityResponse(data)), {
+          headers: jsonHeaders,
         });
       }
 
@@ -181,13 +217,13 @@ serve(async (req) => {
         if (!id) {
           return new Response(JSON.stringify({ error: 'Task ID required' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
         if (!validateUUID(id)) {
           return new Response(JSON.stringify({ error: 'Invalid task ID' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
@@ -199,7 +235,7 @@ serve(async (req) => {
         
         if (error) throw error;
         return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: jsonHeaders,
         });
       }
 
@@ -209,10 +245,10 @@ serve(async (req) => {
           headers: corsHeaders,
         });
     }
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    return new Response(JSON.stringify({ error: publicErrorMessage(error) }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: jsonHeaders,
     });
   }
 });

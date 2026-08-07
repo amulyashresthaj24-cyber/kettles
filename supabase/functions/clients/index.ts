@@ -8,7 +8,11 @@ import {
   formatEntityResponse,
   normalizeMoneyFields,
   mergeEntityData,
+  readJsonBody,
+  publicErrorMessage,
 } from '../_shared/validators.ts';
+
+const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
 
 function normalizeClientName(name: unknown): string {
   return String(name ?? '').trim().toLowerCase();
@@ -24,7 +28,7 @@ serve(async (req) => {
   if (!user) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: jsonHeaders,
     });
   }
 
@@ -40,7 +44,7 @@ serve(async (req) => {
           if (!validateUUID(id)) {
             return new Response(JSON.stringify({ error: 'Invalid client ID' }), {
               status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              headers: jsonHeaders,
             });
           }
           
@@ -53,11 +57,10 @@ serve(async (req) => {
           
           if (error) throw error;
           return new Response(JSON.stringify(formatEntityResponse(data)), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
         
-        // List all clients
         const { data, error } = await supabase
           .from('clients')
           .select('*')
@@ -66,17 +69,24 @@ serve(async (req) => {
         
         if (error) throw error;
         return new Response(JSON.stringify({ clients: (data || []).map(formatEntityResponse) }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: jsonHeaders,
         });
       }
 
       case 'POST': {
-        const body = await req.json();
+        const parsed = await readJsonBody(req);
+        if (parsed.error) {
+          return new Response(JSON.stringify({ error: parsed.error }), {
+            status: parsed.error === 'Request too large' ? 413 : 400,
+            headers: jsonHeaders,
+          });
+        }
+        const body = parsed.body;
         const validation = validateRequired(body, ['name']);
         if (validation) {
           return new Response(JSON.stringify({ error: validation }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
@@ -84,7 +94,7 @@ serve(async (req) => {
         if (!trimmedName) {
           return new Response(JSON.stringify({ error: 'name is required' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
@@ -104,7 +114,7 @@ serve(async (req) => {
         if (match) {
           return new Response(JSON.stringify(formatEntityResponse(match)), {
             status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
@@ -112,7 +122,7 @@ serve(async (req) => {
         if (money.error) {
           return new Response(JSON.stringify({ error: money.error }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
@@ -128,7 +138,7 @@ serve(async (req) => {
         if (error) throw error;
         return new Response(JSON.stringify(formatEntityResponse(data)), {
           status: 201,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: jsonHeaders,
         });
       }
 
@@ -136,19 +146,25 @@ serve(async (req) => {
         if (!id) {
           return new Response(JSON.stringify({ error: 'Client ID required' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
         if (!validateUUID(id)) {
           return new Response(JSON.stringify({ error: 'Invalid client ID' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
-        const body = await req.json();
+        const parsed = await readJsonBody(req);
+        if (parsed.error) {
+          return new Response(JSON.stringify({ error: parsed.error }), {
+            status: parsed.error === 'Request too large' ? 413 : 400,
+            headers: jsonHeaders,
+          });
+        }
+        const body = parsed.body;
         
-        // Fetch current client to merge data
         const { data: currentData, error: fetchError } = await supabase
           .from('clients')
           .select('data')
@@ -162,11 +178,10 @@ serve(async (req) => {
         if (money.error) {
           return new Response(JSON.stringify({ error: money.error }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
-        // Merge new data with existing data instead of replacing; nulls clear.
         const mergedData = mergeEntityData(currentData?.data, money.data);
         
         const { data, error } = await supabase
@@ -179,7 +194,7 @@ serve(async (req) => {
         
         if (error) throw error;
         return new Response(JSON.stringify(formatEntityResponse(data)), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: jsonHeaders,
         });
       }
 
@@ -187,13 +202,13 @@ serve(async (req) => {
         if (!id) {
           return new Response(JSON.stringify({ error: 'Client ID required' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
         if (!validateUUID(id)) {
           return new Response(JSON.stringify({ error: 'Invalid client ID' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
@@ -205,7 +220,7 @@ serve(async (req) => {
         
         if (error) throw error;
         return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: jsonHeaders,
         });
       }
 
@@ -215,10 +230,10 @@ serve(async (req) => {
           headers: corsHeaders,
         });
     }
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    return new Response(JSON.stringify({ error: publicErrorMessage(error) }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: jsonHeaders,
     });
   }
 });

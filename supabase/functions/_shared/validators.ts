@@ -12,10 +12,109 @@ export function validateRequired(data: Record<string, any>, fields: string[]): s
   return null;
 }
 
+/** Max JSON body size for authenticated CRUD edge functions (bytes). */
+export const MAX_JSON_BODY_BYTES = 65_536;
+
+/** Strip internal / FK columns and dangerous prototype keys from client JSONB payloads. */
 export function sanitizeData(data: Record<string, any>): Record<string, any> {
-  // Remove internal fields that shouldn't be stored in JSONB
-  const { id, created_at, updated_at, user_id, client_id, project_id, task_id, ...clean } = data;
+  const {
+    id,
+    created_at,
+    updated_at,
+    user_id,
+    client_id,
+    project_id,
+    task_id,
+    createdAt,
+    updatedAt,
+    userId,
+    clientId,
+    projectId,
+    taskId,
+    ...rest
+  } = data || {};
+
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(rest)) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+    if (key.length > 64) continue;
+    clean[key] = value;
+  }
   return clean;
+}
+
+/** Never return raw DB / stack messages to clients. */
+export function publicErrorMessage(error: unknown, fallback = 'Request failed'): string {
+  if (!error) return fallback;
+  const message =
+    typeof error === 'string'
+      ? error
+      : error instanceof Error
+        ? error.message
+        : typeof (error as { message?: unknown })?.message === 'string'
+          ? String((error as { message: string }).message)
+          : '';
+
+  // Safe, intentional validation messages we control
+  if (
+    /^(Missing required field|Invalid |project_id|client_id|task_id|name is required|hourlyRate|budget)/i.test(
+      message
+    )
+  ) {
+    return message;
+  }
+
+  // Ownership / FK messages from DB triggers
+  if (/does not belong to user/i.test(message)) {
+    return message;
+  }
+
+  console.error('[edge]', message || error);
+  return fallback;
+}
+
+/**
+ * Ensure a foreign key row exists and is owned by userId.
+ * Returns an error string if invalid, otherwise null.
+ */
+export async function assertOwnedRow(
+  supabase: { from: (table: string) => any },
+  table: 'projects' | 'clients' | 'tasks',
+  id: string | null | undefined,
+  userId: string,
+  label: string
+): Promise<string | null> {
+  if (!id) return null;
+  if (!validateUUID(id)) return `Invalid ${label}`;
+  const { data, error } = await supabase
+    .from(table)
+    .select('id')
+    .eq('id', id)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) {
+    console.error(`[assertOwnedRow] ${table}`, error.message);
+    return `Could not verify ${label}`;
+  }
+  if (!data) return `${label} not found or not owned by you`;
+  return null;
+}
+
+/** Reject oversized request bodies early. */
+export async function readJsonBody(
+  req: Request,
+  maxBytes = MAX_JSON_BODY_BYTES
+): Promise<{ body?: any; error?: string }> {
+  const text = await req.text();
+  if (text.length > maxBytes) {
+    return { error: 'Request too large' };
+  }
+  if (!text.trim()) return { body: {} };
+  try {
+    return { body: JSON.parse(text) };
+  } catch {
+    return { error: 'Invalid JSON' };
+  }
 }
 
 /** Money-ish fields the client may send as strings, and may clear with null. */

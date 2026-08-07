@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 /**
  * Data migration script to import existing data.json into Supabase
- * 
+ *
  * Usage:
  * 1. Copy .env.example to .env.local and fill in your credentials
  * 2. Run: npx ts-node scripts/migrate-data.ts
@@ -96,7 +96,8 @@ async function migrate() {
 
   console.log('Creating test user account...');
   const email = data.user.email || 'test@example.com';
-  const password = 'temp-password-123'; // User should change this after first login
+  // One-time random password — never use a fixed default in scripts.
+  const password = require('crypto').randomBytes(18).toString('base64url');
 
   // Create user
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -108,27 +109,18 @@ async function migrate() {
     }
   });
 
+  let userId: string;
   if (authError) {
     console.error('Failed to create user:', authError.message);
-    console.log('User may already exist. Attempting to get existing user...');
-    
-    // Try to sign in to get user ID
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (signInError) {
-      console.error('Could not authenticate:', signInError.message);
-      process.exit(1);
-    }
-    
-    var userId = signInData.user!.id;
+    console.error(
+      'User may already exist. Re-run only after deleting the user, or set a known password via the Supabase dashboard.'
+    );
+    process.exit(1);
   } else {
-    var userId = authData.user!.id;
+    userId = authData.user!.id;
     console.log(`Created user: ${email} (ID: ${userId})`);
-    console.log(`Temporary password: ${password}`);
-    console.log('IMPORTANT: Change this password after first login!');
+    console.log(`One-time temporary password: ${password}`);
+    console.log('IMPORTANT: Change this password after first login. It will not be shown again.');
   }
 
   // Wait for trigger to create user record

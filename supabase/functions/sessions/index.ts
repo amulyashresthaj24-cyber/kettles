@@ -1,7 +1,27 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { getSupabaseClient } from '../_shared/supabase.ts';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
-import { validateUUID, validateRequired, sanitizeData, formatEntityResponse } from '../_shared/validators.ts';
+import {
+  validateUUID,
+  sanitizeData,
+  formatEntityResponse,
+  assertOwnedRow,
+  readJsonBody,
+  publicErrorMessage,
+} from '../_shared/validators.ts';
+
+const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+
+function sessionResponse(data: any) {
+  const response = formatEntityResponse(data);
+  response.taskId = data.task_id;
+  response.projectId = data.project_id;
+  response.durationSeconds = data.duration_seconds;
+  response.billable = data.billable;
+  response.startedAt = new Date(data.started_at).getTime();
+  response.endedAt = data.ended_at ? new Date(data.ended_at).getTime() : undefined;
+  return response;
+}
 
 serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -13,7 +33,7 @@ serve(async (req) => {
   if (!user) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: jsonHeaders,
     });
   }
 
@@ -28,7 +48,7 @@ serve(async (req) => {
           if (!validateUUID(id)) {
             return new Response(JSON.stringify({ error: 'Invalid session ID' }), {
               status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              headers: jsonHeaders,
             });
           }
           
@@ -41,14 +61,11 @@ serve(async (req) => {
           
           if (error) throw error;
           
-          const response = formatEntityResponse(data);
-          
-          return new Response(JSON.stringify(response), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          return new Response(JSON.stringify(formatEntityResponse(data)), {
+            headers: jsonHeaders,
           });
         }
         
-        // List sessions with optional filters
         let query = supabase
           .from('sessions')
           .select('*')
@@ -73,21 +90,52 @@ serve(async (req) => {
         
         if (error) throw error;
         
-        const sessions = (data || []).map(s => formatEntityResponse(s));
-        
-        return new Response(JSON.stringify({ sessions }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ sessions: (data || []).map(formatEntityResponse) }), {
+          headers: jsonHeaders,
         });
       }
 
       case 'POST': {
-        const body = await req.json();
+        const parsed = await readJsonBody(req);
+        if (parsed.error) {
+          return new Response(JSON.stringify({ error: parsed.error }), {
+            status: parsed.error === 'Request too large' ? 413 : 400,
+            headers: jsonHeaders,
+          });
+        }
+        const body = parsed.body;
+
+        const taskErr = await assertOwnedRow(supabase, 'tasks', body.taskId, user.id, 'task ID');
+        if (taskErr) {
+          return new Response(JSON.stringify({ error: taskErr }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        const projectErr = await assertOwnedRow(
+          supabase,
+          'projects',
+          body.projectId,
+          user.id,
+          'project ID'
+        );
+        if (projectErr) {
+          return new Response(JSON.stringify({ error: projectErr }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+
+        const duration =
+          typeof body.durationSeconds === 'number' && Number.isFinite(body.durationSeconds)
+            ? Math.max(0, Math.floor(body.durationSeconds))
+            : 0;
         
         const insertData: any = {
           user_id: user.id,
           started_at: new Date(body.startedAt || Date.now()).toISOString(),
-          duration_seconds: body.durationSeconds || 0,
-          billable: body.billable || false,
+          duration_seconds: duration,
+          billable: Boolean(body.billable),
           data: sanitizeData(body),
         };
         
@@ -109,17 +157,9 @@ serve(async (req) => {
         
         if (error) throw error;
         
-        const response = formatEntityResponse(data);
-        response.taskId = data.task_id;
-        response.projectId = data.project_id;
-        response.durationSeconds = data.duration_seconds;
-        response.billable = data.billable;
-        response.startedAt = new Date(data.started_at).getTime();
-        response.endedAt = data.ended_at ? new Date(data.ended_at).getTime() : undefined;
-        
-        return new Response(JSON.stringify(response), {
+        return new Response(JSON.stringify(sessionResponse(data)), {
           status: 201,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: jsonHeaders,
         });
       }
 
@@ -127,19 +167,25 @@ serve(async (req) => {
         if (!id) {
           return new Response(JSON.stringify({ error: 'Session ID required' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
         if (!validateUUID(id)) {
           return new Response(JSON.stringify({ error: 'Invalid session ID' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
-        const body = await req.json();
+        const parsed = await readJsonBody(req);
+        if (parsed.error) {
+          return new Response(JSON.stringify({ error: parsed.error }), {
+            status: parsed.error === 'Request too large' ? 413 : 400,
+            headers: jsonHeaders,
+          });
+        }
+        const body = parsed.body;
         
-        // Fetch current session to merge data
         const { data: currentData, error: fetchError } = await supabase
           .from('sessions')
           .select('data')
@@ -148,16 +194,15 @@ serve(async (req) => {
           .single();
         
         if (fetchError) {
-          if (fetchError.code === 'PGRST116') {
+          if ((fetchError as { code?: string }).code === 'PGRST116') {
             return new Response(JSON.stringify({ error: 'Session not found' }), {
               status: 404,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              headers: jsonHeaders,
             });
           }
           throw fetchError;
         }
         
-        // Merge new data with existing data instead of replacing
         const mergedData = {
           ...currentData?.data,
           ...sanitizeData(body),
@@ -168,10 +213,17 @@ serve(async (req) => {
         };
         
         if (body.durationSeconds !== undefined) {
-          updateData.duration_seconds = body.durationSeconds;
+          const duration = Number(body.durationSeconds);
+          if (!Number.isFinite(duration) || duration < 0) {
+            return new Response(JSON.stringify({ error: 'durationSeconds must be a non-negative number' }), {
+              status: 400,
+              headers: jsonHeaders,
+            });
+          }
+          updateData.duration_seconds = Math.floor(duration);
         }
         if (body.billable !== undefined) {
-          updateData.billable = body.billable;
+          updateData.billable = Boolean(body.billable);
         }
         if (body.startedAt !== undefined) {
           updateData.started_at = new Date(body.startedAt).toISOString();
@@ -180,10 +232,38 @@ serve(async (req) => {
           updateData.ended_at = body.endedAt ? new Date(body.endedAt).toISOString() : null;
         }
         if (body.taskId !== undefined) {
-          updateData.task_id = body.taskId && validateUUID(body.taskId) ? body.taskId : null;
+          if (body.taskId) {
+            const taskErr = await assertOwnedRow(supabase, 'tasks', body.taskId, user.id, 'task ID');
+            if (taskErr) {
+              return new Response(JSON.stringify({ error: taskErr }), {
+                status: 400,
+                headers: jsonHeaders,
+              });
+            }
+            updateData.task_id = body.taskId;
+          } else {
+            updateData.task_id = null;
+          }
         }
         if (body.projectId !== undefined) {
-          updateData.project_id = body.projectId && validateUUID(body.projectId) ? body.projectId : null;
+          if (body.projectId) {
+            const projectErr = await assertOwnedRow(
+              supabase,
+              'projects',
+              body.projectId,
+              user.id,
+              'project ID'
+            );
+            if (projectErr) {
+              return new Response(JSON.stringify({ error: projectErr }), {
+                status: 400,
+                headers: jsonHeaders,
+              });
+            }
+            updateData.project_id = body.projectId;
+          } else {
+            updateData.project_id = null;
+          }
         }
 
         const { data, error } = await supabase
@@ -196,16 +276,8 @@ serve(async (req) => {
         
         if (error) throw error;
         
-        const response = formatEntityResponse(data);
-        response.taskId = data.task_id;
-        response.projectId = data.project_id;
-        response.durationSeconds = data.duration_seconds;
-        response.billable = data.billable;
-        response.startedAt = new Date(data.started_at).getTime();
-        response.endedAt = data.ended_at ? new Date(data.ended_at).getTime() : undefined;
-        
-        return new Response(JSON.stringify(response), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify(sessionResponse(data)), {
+          headers: jsonHeaders,
         });
       }
 
@@ -213,13 +285,13 @@ serve(async (req) => {
         if (!id) {
           return new Response(JSON.stringify({ error: 'Session ID required' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
         if (!validateUUID(id)) {
           return new Response(JSON.stringify({ error: 'Invalid session ID' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
@@ -231,7 +303,7 @@ serve(async (req) => {
         
         if (error) throw error;
         return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: jsonHeaders,
         });
       }
 
@@ -241,10 +313,10 @@ serve(async (req) => {
           headers: corsHeaders,
         });
     }
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    return new Response(JSON.stringify({ error: publicErrorMessage(error) }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: jsonHeaders,
     });
   }
 });
