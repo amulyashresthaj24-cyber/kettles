@@ -989,7 +989,7 @@ export function KettlesLanding() {
                   <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#3385ff] mb-2 block">Pricing</span>
                   <h3 className="text-[clamp(24px,3vw,36px)] font-bold tracking-[-0.035em] text-[var(--k-ink)] leading-tight">Start free. Brew on.</h3>
                   <p className="mt-3.5 max-w-[52ch] text-[16px] leading-relaxed text-[var(--k-muted)]">
-                    Track your first client and the whole ritual at no cost. Upgrade when your roster grows.
+                    Track every client and the whole ritual at no cost while Kettles is in beta.
                   </p>
                   <div className="mt-5">
                     <PrimaryBtn href="/auth" big magnet>
@@ -1000,10 +1000,10 @@ export function KettlesLanding() {
                 <div className="md:col-span-5 md:border-l md:border-[var(--k-hairline2)] md:pl-12">
                   <div className="flex items-baseline gap-2">
                     <span className="k-mono text-[52px] font-semibold tracking-[-0.035em] text-[var(--k-ink)]">$0</span>
-                    <span className="text-[14px] text-[var(--k-muted)]">to start</span>
+                    <span className="text-[14px] text-[var(--k-muted)]">in beta</span>
                   </div>
-                  <p className="mt-1 text-[14px] text-[var(--k-muted)]">Pro from $8/mo when you add clients.</p>
-                  <p className="mt-5 text-[12px] text-[var(--k-faint)]">No card required · cancel anytime</p>
+                  <p className="mt-1 text-[14px] text-[var(--k-muted)]">No client limits, no feature gates.</p>
+                  <p className="mt-5 text-[12px] text-[var(--k-faint)]">No card required · no trial clock</p>
                 </div>
               </div>
             </div>
