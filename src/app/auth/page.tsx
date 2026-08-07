@@ -13,31 +13,67 @@ import {
 import { BrandMark } from "@/components/BrandMark";
 import { KettleLoader } from "@/components/KettleLoader";
 
+/** Official multicolour G mark — brand logo, not Phosphor. */
+function GoogleMark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden className="shrink-0">
+      <path
+        fill="#4285F4"
+        d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"
+      />
+      <path
+        fill="#34A853"
+        d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z"
+      />
+    </svg>
+  );
+}
+
 export default function AuthPage() {
   const router = useRouter();
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, loading, signIn, signInWithGoogle, signUp } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  // Prefill the email handed off from the marketing landing (/auth?email=...).
+  // Prefill email / surface OAuth callback errors from query string.
   // Read from window to avoid the useSearchParams Suspense requirement.
   useEffect(() => {
-    const handoff = new URLSearchParams(window.location.search).get("email");
+    const params = new URLSearchParams(window.location.search);
+    const handoff = params.get("email");
     if (handoff) setEmail(handoff);
+    const callbackError = params.get("error");
+    if (callbackError) {
+      // Callback may pass a short code or a provider error message.
+      const decoded = decodeURIComponent(callbackError);
+      setError(
+        decoded === "no_auth_code" || decoded === "authentication_failed"
+          ? "Google sign-in failed. Please try again."
+          : decoded
+      );
+    }
   }, []);
 
-  // Redirect if already logged in
+  // Redirect if already logged in (same destination as email sign-in / OAuth callback)
   useEffect(() => {
     if (!loading && user) {
-      router.push("/");
+      router.replace("/dashboard");
     }
   }, [user, loading, router]);
 
@@ -103,6 +139,18 @@ export default function AuthPage() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setIsGoogleSubmitting(true);
+    try {
+      await signInWithGoogle();
+      // Browser redirects to Google; keep spinner until unload.
+    } catch (err) {
+      setError(getFriendlySupabaseErrorMessage(err));
+      setIsGoogleSubmitting(false);
+    }
+  };
+
   const toggleMode = () => {
     setMode(mode === "signin" ? "signup" : "signin");
     setError(null);
@@ -113,6 +161,8 @@ export default function AuthPage() {
     setName("");
     setSuccess(false);
   };
+
+  const formBusy = isSubmitting || isGoogleSubmitting;
 
   if (loading || user) {
     return (
@@ -221,7 +271,7 @@ export default function AuthPage() {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-lg">
+            <div className="space-y-lg">
               {/* Error Message */}
               {error && (
                 <div className="overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--error)_25%,transparent)] bg-[color-mix(in_srgb,var(--error)_8%,transparent)] px-lg py-md">
@@ -231,109 +281,140 @@ export default function AuthPage() {
                 </div>
               )}
 
-              {/* Name Field (Signup Only) */}
-              {mode === "signup" && (
-                <div className="space-y-sm">
-                  <label htmlFor="name" className="font-sans text-[13px] font-medium text-text-secondary">
-                    Full name
-                  </label>
-                  <input
-                    id="name"
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="John Doe"
-                    disabled={isSubmitting}
-                    className="h-12 w-full rounded-lg border border-[color-mix(in_srgb,var(--accent)_10%,var(--border-subtle))] bg-surface-mid px-md font-sans text-[15px] text-text-primary transition-colors duration-150 placeholder:text-text-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)] disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                </div>
-              )}
-
-              {/* Email Field */}
-              <div className="space-y-sm">
-                <label htmlFor="email" className="font-sans text-[13px] font-medium text-text-secondary">
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setEmailError("");
-                  }}
-                  placeholder="you@example.com"
-                  disabled={isSubmitting}
-                  autoFocus
-                  className={`h-12 w-full rounded-lg border px-md font-sans text-[15px] text-text-primary transition-colors duration-150 placeholder:text-text-faint focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)] disabled:cursor-not-allowed disabled:opacity-50 ${
-                    emailError
-                      ? "border-status-error bg-[color-mix(in_srgb,var(--error)_5%,transparent)] focus:border-status-error"
-                      : "border-[color-mix(in_srgb,var(--accent)_10%,var(--border-subtle))] bg-surface-mid focus:border-accent"
-                  }`}
-                />
-                {emailError && (
-                  <p className="font-sans text-[12px] text-status-error">{emailError}</p>
+              {/* Google OAuth */}
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={formBusy}
+                className="flex h-12 w-full items-center justify-center gap-md rounded-lg border border-[color-mix(in_srgb,var(--accent)_10%,var(--border-subtle))] bg-surface-mid font-sans text-[15px] font-semibold text-text-primary transition-all duration-150 hover:border-[color-mix(in_srgb,var(--accent)_25%,var(--border-subtle))] hover:bg-surface-raised active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isGoogleSubmitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Spinner size={16} weight="regular" className="animate-spin" aria-hidden />
+                    Redirecting to Google...
+                  </span>
+                ) : (
+                  <>
+                    <GoogleMark />
+                    Continue with Google
+                  </>
                 )}
+              </button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-md">
+                <div className="h-px flex-1 bg-[color-mix(in_srgb,var(--accent)_12%,var(--border-subtle))]" />
+                <span className="font-sans text-[12px] font-medium uppercase tracking-[0.04em] text-text-faint">
+                  or
+                </span>
+                <div className="h-px flex-1 bg-[color-mix(in_srgb,var(--accent)_12%,var(--border-subtle))]" />
               </div>
 
-              {/* Password Field */}
-              <div className="space-y-sm">
-                <label htmlFor="password" className="font-sans text-[13px] font-medium text-text-secondary">
-                  Password
-                </label>
-                <div className="relative">
+              <form onSubmit={handleSubmit} className="space-y-lg">
+                {/* Name Field (Signup Only) */}
+                {mode === "signup" && (
+                  <div className="space-y-sm">
+                    <label htmlFor="name" className="font-sans text-[13px] font-medium text-text-secondary">
+                      Full name
+                    </label>
+                    <input
+                      id="name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="John Doe"
+                      disabled={formBusy}
+                      className="h-12 w-full rounded-lg border border-[color-mix(in_srgb,var(--accent)_10%,var(--border-subtle))] bg-surface-mid px-md font-sans text-[15px] text-text-primary transition-colors duration-150 placeholder:text-text-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)] disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                  </div>
+                )}
+
+                {/* Email Field */}
+                <div className="space-y-sm">
+                  <label htmlFor="email" className="font-sans text-[13px] font-medium text-text-secondary">
+                    Email address
+                  </label>
                   <input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
+                    id="email"
+                    type="email"
+                    value={email}
                     onChange={(e) => {
-                      setPassword(e.target.value);
-                      setPasswordError("");
+                      setEmail(e.target.value);
+                      setEmailError("");
                     }}
-                    placeholder="••••••••"
-                    disabled={isSubmitting}
-                    className={`h-12 w-full rounded-lg border px-md pr-12 font-sans text-[15px] text-text-primary transition-colors duration-150 placeholder:text-text-faint focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)] disabled:cursor-not-allowed disabled:opacity-50 ${
-                      passwordError
+                    placeholder="you@example.com"
+                    disabled={formBusy}
+                    autoFocus
+                    className={`h-12 w-full rounded-lg border px-md font-sans text-[15px] text-text-primary transition-colors duration-150 placeholder:text-text-faint focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)] disabled:cursor-not-allowed disabled:opacity-50 ${
+                      emailError
                         ? "border-status-error bg-[color-mix(in_srgb,var(--error)_5%,transparent)] focus:border-status-error"
                         : "border-[color-mix(in_srgb,var(--accent)_10%,var(--border-subtle))] bg-surface-mid focus:border-accent"
                     }`}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={isSubmitting}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted transition-colors hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {showPassword ? (
-                      <EyeSlash size={20} aria-hidden />
-                    ) : (
-                      <Eye size={20} aria-hidden />
-                    )}
-                  </button>
+                  {emailError && (
+                    <p className="font-sans text-[12px] text-status-error">{emailError}</p>
+                  )}
                 </div>
-                {passwordError && (
-                  <p className="font-sans text-[12px] text-status-error">{passwordError}</p>
-                )}
-              </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="mt-xl h-12 w-full rounded-lg bg-accent font-sans text-[15px] font-semibold text-white transition-all duration-150 hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Spinner size={16} weight="regular" className="animate-spin" aria-hidden />
-                    {mode === "signin" ? "Signing in..." : "Creating account..."}
-                  </span>
-                ) : mode === "signin" ? (
-                  "Sign in"
-                ) : (
-                  "Create account"
-                )}
-              </button>
-            </form>
+                {/* Password Field */}
+                <div className="space-y-sm">
+                  <label htmlFor="password" className="font-sans text-[13px] font-medium text-text-secondary">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setPasswordError("");
+                      }}
+                      placeholder="••••••••"
+                      disabled={formBusy}
+                      className={`h-12 w-full rounded-lg border px-md pr-12 font-sans text-[15px] text-text-primary transition-colors duration-150 placeholder:text-text-faint focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)] disabled:cursor-not-allowed disabled:opacity-50 ${
+                        passwordError
+                          ? "border-status-error bg-[color-mix(in_srgb,var(--error)_5%,transparent)] focus:border-status-error"
+                          : "border-[color-mix(in_srgb,var(--accent)_10%,var(--border-subtle))] bg-surface-mid focus:border-accent"
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      disabled={formBusy}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted transition-colors hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {showPassword ? (
+                        <EyeSlash size={20} aria-hidden />
+                      ) : (
+                        <Eye size={20} aria-hidden />
+                      )}
+                    </button>
+                  </div>
+                  {passwordError && (
+                    <p className="font-sans text-[12px] text-status-error">{passwordError}</p>
+                  )}
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={formBusy}
+                  className="mt-xl h-12 w-full rounded-lg bg-accent font-sans text-[15px] font-semibold text-white transition-all duration-150 hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Spinner size={16} weight="regular" className="animate-spin" aria-hidden />
+                      {mode === "signin" ? "Signing in..." : "Creating account..."}
+                    </span>
+                  ) : mode === "signin" ? (
+                    "Sign in"
+                  ) : (
+                    "Create account"
+                  )}
+                </button>
+              </form>
+            </div>
           )}
 
           {/* Toggle Mode */}
@@ -344,7 +425,7 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={toggleMode}
-                  disabled={isSubmitting}
+                  disabled={formBusy}
                   className="font-semibold text-accent transition-colors hover:text-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {mode === "signin" ? "Create one" : "Sign in"}
