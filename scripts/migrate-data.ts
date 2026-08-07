@@ -1,6 +1,9 @@
 #!/usr/bin/env ts-node
 /**
- * Data migration script to import existing data.json into Supabase
+ * Data migration script to import the legacy data.json seed into Supabase.
+ *
+ * The fixture lives in scripts/fixtures/ rather than public/ — it was served
+ * at /data.json for the old localStorage store, which no longer exists.
  *
  * Usage:
  * 1. Copy .env.example to .env.local and fill in your credentials
@@ -91,7 +94,7 @@ interface DataJSON {
 
 async function migrate() {
   console.log('Loading data.json...');
-  const dataPath = path.join(__dirname, '../public/data.json');
+  const dataPath = path.join(__dirname, 'fixtures/data.json');
   const data: DataJSON = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
 
   console.log('Creating test user account...');
