@@ -10,6 +10,7 @@ import type {
   Session,
   Urgency,
   TaskStatus,
+  UserPreferences,
   UserProfile,
   UserProfilePatch,
 } from "./types";
@@ -27,6 +28,49 @@ import {
   findClientByNormalizedName,
   planProjectClientLink,
 } from "./clients";
+
+/**
+ * Single source of defaults. Previously the initial state and setPreferences
+ * each declared their own copy, and they had already drifted — setPreferences
+ * omitted alarmSound, so changing any preference silently dropped it.
+ */
+const DEFAULT_PREFERENCES: UserPreferences = {
+  /** 0 = open-ended (count up from zero). Only apply when user sets a real default. */
+  defaultFocusDuration: 0,
+  weeklyTargetHours: 40,
+  whistleSoundEnabled: true,
+  alarmSound: "kettle",
+  autoBreakEnabled: false,
+  autoPauseOnIdleEnabled: true,
+  activeMascot: "kettle",
+  mascotAnimationFrequency: "normal",
+  mascotDefaultAnimation: "waiting",
+  petBreakRemindersEnabled: false,
+  petBreakIntervalMinutes: 45,
+  petCustomRemindersEnabled: false,
+  petCustomReminders: [],
+  petNotesIntegrationEnabled: false,
+};
+
+/** Debounce window for preference writes (ms). */
+const PREFERENCES_PUSH_DELAY = 800;
+
+let preferencesPushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function schedulePreferencesPush(run: () => void) {
+  cancelPreferencesPush();
+  preferencesPushTimer = setTimeout(() => {
+    preferencesPushTimer = null;
+    run();
+  }, PREFERENCES_PUSH_DELAY);
+}
+
+function cancelPreferencesPush() {
+  if (preferencesPushTimer) {
+    clearTimeout(preferencesPushTimer);
+    preferencesPushTimer = null;
+  }
+}
 
 type SyncEntity = "clients" | "projects" | "tasks" | "sessions";
 type SyncAction = "create" | "update" | "delete";
@@ -334,27 +378,14 @@ interface State {
   loadProfile: () => Promise<UserProfile | null>;
   saveProfile: (patch: UserProfilePatch) => Promise<UserProfile>;
 
-  preferences?: {
-    defaultFocusDuration: number;
-    weeklyTargetHours?: number;
-    whistleSoundEnabled: boolean;
-    alarmSound?: string;
-    autoBreakEnabled: boolean;
-    autoPauseOnIdleEnabled: boolean;
-    /** "kettle" = default male mascot. "sprite2" is a legacy persisted alias for "female". */
-    activeMascot?: "kettle" | "sprite2" | "female";
-    /** How often the mascot plays a spontaneous idle gesture. */
-    mascotAnimationFrequency?: "off" | "calm" | "normal" | "lively";
-    /** Looping animation the mascot rests in (state name from pet.config.json). */
-    mascotDefaultAnimation?: string;
-    petBreakRemindersEnabled?: boolean;
-    petBreakIntervalMinutes?: number;
-    petCustomRemindersEnabled?: boolean;
-    /** days: 0 (Sun) – 6 (Sat); omitted/empty = every day. */
-    petCustomReminders?: Array<{ id: string; text: string; time: string; active: boolean; days?: number[] }>;
-    petNotesIntegrationEnabled?: boolean;
-  };
-  setPreferences: (patch: Partial<NonNullable<State["preferences"]>>) => void;
+  preferences?: UserPreferences;
+  /** Last local preference edit (ms). Compared against the server clock on load. */
+  preferencesUpdatedAt?: number;
+  /** Local edits not yet accepted by the server. Retried on next edit or load. */
+  preferencesDirty: boolean;
+  setPreferences: (patch: Partial<UserPreferences>) => void;
+  /** Push pending preferences now, bypassing the debounce. */
+  flushPreferences: () => Promise<void>;
 }
 
 export const useApp = create<State>()(
@@ -378,43 +409,48 @@ persist((set, get) => ({
   profile: null,
   profileLoaded: false,
 
-  preferences: {
-    /** 0 = open-ended (count up from zero). Only apply when user sets a real default. */
-    defaultFocusDuration: 0,
-    weeklyTargetHours: 40,
-    whistleSoundEnabled: true,
-    alarmSound: "kettle",
-    autoBreakEnabled: false,
-    autoPauseOnIdleEnabled: true,
-    activeMascot: "kettle",
-    mascotAnimationFrequency: "normal",
-    mascotDefaultAnimation: "waiting",
-    petBreakRemindersEnabled: false,
-    petBreakIntervalMinutes: 45,
-    petCustomRemindersEnabled: false,
-    petCustomReminders: [],
-    petNotesIntegrationEnabled: false,
+  preferences: { ...DEFAULT_PREFERENCES },
+  preferencesUpdatedAt: undefined,
+  preferencesDirty: false,
+
+  setPreferences: (patch) => {
+    set({
+      preferences: { ...DEFAULT_PREFERENCES, ...(get().preferences ?? {}), ...patch },
+      preferencesUpdatedAt: Date.now(),
+      preferencesDirty: true,
+    });
+    // Settings fires this per keystroke (weekly target is a number input), so
+    // coalesce rather than issuing a write per character.
+    schedulePreferencesPush(() => {
+      void get().flushPreferences();
+    });
   },
 
-  setPreferences: (patch) => set({
-    preferences: {
-      defaultFocusDuration: 0,
-      weeklyTargetHours: 40,
-      whistleSoundEnabled: true,
-      autoBreakEnabled: false,
-      autoPauseOnIdleEnabled: true,
-      activeMascot: "kettle",
-      mascotAnimationFrequency: "normal",
-      mascotDefaultAnimation: "waiting",
-      petBreakRemindersEnabled: false,
-      petBreakIntervalMinutes: 45,
-      petCustomRemindersEnabled: false,
-      petCustomReminders: [],
-      petNotesIntegrationEnabled: false,
-      ...(get().preferences ?? {}),
-      ...patch,
+  flushPreferences: async () => {
+    cancelPreferencesPush();
+    if (!get().preferencesDirty) return;
+
+    const preferences = get().preferences;
+    if (!preferences) return;
+    const stamp = get().preferencesUpdatedAt ?? Date.now();
+
+    try {
+      const profile = await api.profile.upsert({
+        preferences,
+        preferencesUpdatedAt: stamp,
+      });
+      // Only clear the flag if no newer edit landed while the write was in
+      // flight — otherwise that edit would never be pushed.
+      set({
+        profile,
+        profileLoaded: true,
+        preferencesDirty: (get().preferencesUpdatedAt ?? 0) > stamp,
+      });
+    } catch (error) {
+      console.error("Failed to sync preferences:", error);
+      // Stays dirty. Retried on the next edit or the next loadProfile.
     }
-  }),
+  },
 
   setUser: (user) => set({ user }),
 
@@ -1496,6 +1532,11 @@ persist((set, get) => ({
         console.warn("Sync flush before loadAll failed:", error);
       }
 
+      // Profile carries preferences, which must reconcile on every sign-in so
+      // settings follow the user across devices. Kept off the destructured
+      // results because loadProfile handles its own failure and returns null.
+      void get().loadProfile();
+
       const [clientsResult, projectsResult, tasksResult, sessionsResult] = await Promise.all([
         api.clients.list(),
         api.projects.list(),
@@ -1668,6 +1709,26 @@ persist((set, get) => ({
     try {
       const profile = await api.profile.get();
       set({ profile, profileLoaded: true });
+
+      // Reconcile preferences. localStorage stays the synchronous source so the
+      // timer has a value on first paint; the server only overrides it when it
+      // is genuinely newer. Whole-object last-write-wins: an offline edit on one
+      // device loses to a later edit on another. Acceptable for alarm sounds and
+      // mascot settings; it would not be for time entries.
+      const remoteAt = profile?.preferencesUpdatedAt ?? 0;
+      const localAt = get().preferencesUpdatedAt ?? 0;
+
+      if (profile?.preferences && remoteAt > localAt) {
+        set({
+          preferences: { ...DEFAULT_PREFERENCES, ...profile.preferences },
+          preferencesUpdatedAt: remoteAt,
+          preferencesDirty: false,
+        });
+      } else if (get().preferencesDirty || localAt > remoteAt) {
+        // Local is ahead, or an earlier push failed. Retry now.
+        void get().flushPreferences();
+      }
+
       return profile;
     } catch (error) {
       console.error("Failed to load profile:", error);
@@ -1680,6 +1741,16 @@ persist((set, get) => ({
   saveProfile: async (patch) => {
     const profile = await api.profile.upsert(patch);
     set({ profile, profileLoaded: true });
+
+    // A caller that wrote preferences directly (onboarding) has just satisfied
+    // any pending push, so drop the debounce and the dirty flag.
+    if (patch.preferences !== undefined) {
+      cancelPreferencesPush();
+      set({
+        preferencesUpdatedAt: patch.preferencesUpdatedAt ?? Date.now(),
+        preferencesDirty: false,
+      });
+    }
     return profile;
   },
 }), {
@@ -1691,6 +1762,10 @@ persist((set, get) => ({
     sessions: state.sessions,
     activeSessionId: state.activeSessionId,
     preferences: state.preferences,
+    // Both are needed to reconcile after a restart: without them an offline
+    // edit looks older than the server and gets silently overwritten on load.
+    preferencesUpdatedAt: state.preferencesUpdatedAt,
+    preferencesDirty: state.preferencesDirty,
   }),
   onRehydrateStorage: () => (state) => {
     if (!state) return;

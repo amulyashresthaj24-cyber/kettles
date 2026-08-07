@@ -169,7 +169,8 @@ Sourced from: `src/app/onboarding/page.tsx`, `store-supabase.ts → loadProfile(
 | `user_id` | `uuid` | FK → auth.users.id, **UNIQUE**, NOT NULL | one profile per user |
 | `full_name` | `text` | | |
 | `avatar_url` | `text` | | |
-| `default_focus_duration` | `integer` | default 25 | minutes; 0 = open-ended |
+| `preferences` | `jsonb` | NOT NULL, default `'{}'` | all user settings; see below |
+| `preferences_updated_at` | `timestamptz` | | last-write-wins clock across devices |
 | `onboarding_completed` | `boolean` | default false | gates the `/onboarding` redirect |
 | `onboarding_completed_at` | `timestamptz` | | |
 | `created_at` / `updated_at` | `timestamptz` | default now() | `updated_at` via trigger |
@@ -183,6 +184,28 @@ That bug shipped once and stranded completed users in an onboarding loop; it is 
 
 **Reached via:** `api.profile` in `src/lib/supabase.ts` — direct table access under RLS,
 not an edge function. Components must go through `useApp()`, never `api.profile` directly.
+
+**`preferences` (jsonb).** One blob rather than a column per setting — the set is 14
+fields, over half cosmetic (mascot, pet reminders, alarm sound), and columns would mean
+a migration per toggle. Shape is `UserPreferences` in `src/lib/types.ts`; defaults live
+in `DEFAULT_PREFERENCES` in `store-supabase.ts` and are merged over whatever the row
+holds, so older rows missing newer keys are fine.
+
+Sync model (`20260809000000_user_preferences.sql`):
+
+- localStorage stays the **synchronous** source, so the timer has a value on first
+  paint. The server only overrides it when `preferences_updated_at` is strictly newer.
+- Writes are debounced ~800ms — Settings fires `setPreferences` per keystroke on the
+  weekly-target number input — and flushed on `visibilitychange` / `pagehide`.
+- Failed pushes leave `preferencesDirty` set in the persisted store and retry on the
+  next edit or `loadProfile`.
+- **Whole-object last-write-wins.** Edit device A offline, then edit device B, and A's
+  edit is lost on reconnect. Acceptable for alarm sounds; it would not be for time
+  entries, which is why sessions use the sync engine instead.
+
+**Dropped:** `default_focus_duration`, folded into `preferences.defaultFocusDuration`.
+It was written by onboarding and read by nothing, while the timer read a separate
+localStorage value — so a user's onboarding choice was silently discarded.
 
 ---
 
@@ -260,10 +283,9 @@ These are calculated at query time, not stored:
 | `weekly_reports` | Cached report snapshots | Not needed yet — reports compute fast enough live |
 | `tags` | Normalized tag table (replace text[]) | Deferred. `tags?: string[]` exists on Task and Project but nothing reads it; normalizing an unused field is debt, not payoff |
 
-**Dropped:** `pomodoro_configs` — superseded by `user_profiles.default_focus_duration`.
-Note that the wider preference set (`weeklyTargetHours`, alarm sound, auto-break, mascot
-settings) is still localStorage-only in `store-supabase.ts`, so it does not follow a user
-across devices. Syncing it onto `user_profiles` is tracked as Wave 1.2.
+**Dropped:** `pomodoro_configs` — superseded by `user_profiles.preferences`, which now
+carries the full set (focus duration, weekly target, alarm sound, auto-break, mascot and
+pet settings) and syncs across devices.
 
 ---
 

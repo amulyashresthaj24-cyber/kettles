@@ -27,7 +27,7 @@ interface OnboardingData {
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { addProject, addTask, loadProfile, saveProfile } = useApp();
+  const { addProject, addTask, loadProfile, saveProfile, setPreferences } = useApp();
 
   const [step, setStep] = useState<Step>("profile");
   const [data, setData] = useState<OnboardingData>({
@@ -134,12 +134,19 @@ export default function OnboardingPage() {
         description: "",
       });
 
+      // Apply locally first so the timer picks the choice up immediately, then
+      // write the merged blob in the same request as the onboarding flags —
+      // going through setPreferences alone would leave it to the debounce.
+      setPreferences({ defaultFocusDuration: data.focusDuration });
+      const now = Date.now();
+
       await saveProfile({
         fullName: data.fullName,
         avatarUrl: data.avatarUrl,
-        defaultFocusDuration: data.focusDuration,
+        preferences: useApp.getState().preferences,
+        preferencesUpdatedAt: now,
         onboardingCompleted: true,
-        onboardingCompletedAt: Date.now(),
+        onboardingCompletedAt: now,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save onboarding");

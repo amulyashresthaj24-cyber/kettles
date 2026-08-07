@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { NotificationProvider } from "./ui/notification";
 import { getSyncEngine } from "@/lib/sync-engine";
 import { isDesktop } from "@/lib/desktop";
+import { useApp } from "@/lib/store-supabase";
 
 const ActiveSessionBanner = dynamic(
   () => import("./ActiveSessionBanner").then((mod) => mod.ActiveSessionBanner),
@@ -71,6 +72,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isSharePage) return;
     getSyncEngine();
+  }, [isSharePage]);
+
+  // Preference writes are debounced, so a tab closed or backgrounded within
+  // that window would drop the pending edit. Flush on the way out.
+  useEffect(() => {
+    if (isSharePage) return;
+    const flush = () => {
+      if (useApp.getState().preferencesDirty) {
+        void useApp.getState().flushPreferences();
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
   }, [isSharePage]);
 
   useEffect(() => {

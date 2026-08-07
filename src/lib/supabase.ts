@@ -1,5 +1,13 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Client, Project, Session, Task, UserProfile, UserProfilePatch } from './types';
+import type {
+  Client,
+  Project,
+  Session,
+  Task,
+  UserPreferences,
+  UserProfile,
+  UserProfilePatch,
+} from './types';
 import type {
   CreateReportShareInput,
   CreateReportShareResult,
@@ -188,28 +196,40 @@ type UserProfileRow = {
   user_id: string;
   full_name: string | null;
   avatar_url: string | null;
-  default_focus_duration: number | null;
+  preferences: Partial<UserPreferences> | null;
+  preferences_updated_at: string | null;
   onboarding_completed: boolean | null;
   onboarding_completed_at: string | null;
 };
 
+/** Parse a timestamptz to epoch ms, or undefined when absent/unparseable. */
+function parseTimestamp(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const ms = Date.parse(value);
+  return Number.isNaN(ms) ? undefined : ms;
+}
+
 function mapUserProfile(row: UserProfileRow): UserProfile {
-  const completedAt = row.onboarding_completed_at
-    ? Date.parse(row.onboarding_completed_at)
-    : NaN;
+  // Postgres defaults the column to '{}', so an untouched profile arrives as an
+  // empty object rather than null. Treat both as "nothing saved yet".
+  const preferences =
+    row.preferences && Object.keys(row.preferences).length > 0
+      ? row.preferences
+      : undefined;
 
   return {
     userId: row.user_id,
     fullName: row.full_name ?? undefined,
     avatarUrl: row.avatar_url ?? undefined,
-    defaultFocusDuration: row.default_focus_duration ?? undefined,
+    preferences,
+    preferencesUpdatedAt: parseTimestamp(row.preferences_updated_at),
     onboardingCompleted: row.onboarding_completed === true,
-    onboardingCompletedAt: Number.isNaN(completedAt) ? undefined : completedAt,
+    onboardingCompletedAt: parseTimestamp(row.onboarding_completed_at),
   };
 }
 
 const USER_PROFILE_COLUMNS =
-  'user_id, full_name, avatar_url, default_focus_duration, onboarding_completed, onboarding_completed_at';
+  'user_id, full_name, avatar_url, preferences, preferences_updated_at, onboarding_completed, onboarding_completed_at';
 
 async function requireUserId() {
   const supabase = getSupabaseClient();
@@ -253,8 +273,13 @@ export const api = {
       };
       if (patch.fullName !== undefined) row.full_name = patch.fullName;
       if (patch.avatarUrl !== undefined) row.avatar_url = patch.avatarUrl;
-      if (patch.defaultFocusDuration !== undefined) {
-        row.default_focus_duration = patch.defaultFocusDuration;
+      if (patch.preferences !== undefined) {
+        row.preferences = patch.preferences;
+        // Always stamp the clock alongside the blob — an unstamped write would
+        // lose every cross-device comparison against a stamped one.
+        row.preferences_updated_at = new Date(
+          patch.preferencesUpdatedAt ?? Date.now()
+        ).toISOString();
       }
       if (patch.onboardingCompleted !== undefined) {
         row.onboarding_completed = patch.onboardingCompleted;

@@ -10,12 +10,52 @@ export interface SessionNote {
   text: string;
 }
 
+export interface PetCustomReminder {
+  id: string;
+  text: string;
+  time: string;
+  active: boolean;
+  /** days: 0 (Sun) – 6 (Sat); omitted/empty = every day. */
+  days?: number[];
+}
+
+/**
+ * User-tunable settings. Stored as one JSONB blob on `user_profiles` and cached
+ * in localStorage, so adding a field here needs no migration.
+ */
+export interface UserPreferences {
+  /** 0 = open-ended (count up from zero). Only apply when the user sets a real default. */
+  defaultFocusDuration: number;
+  weeklyTargetHours?: number;
+  whistleSoundEnabled: boolean;
+  alarmSound?: string;
+  autoBreakEnabled: boolean;
+  autoPauseOnIdleEnabled: boolean;
+  /** "kettle" = default male mascot. "sprite2" is a legacy persisted alias for "female". */
+  activeMascot?: "kettle" | "sprite2" | "female";
+  /** How often the mascot plays a spontaneous idle gesture. */
+  mascotAnimationFrequency?: "off" | "calm" | "normal" | "lively";
+  /** Looping animation the mascot rests in (state name from pet.config.json). */
+  mascotDefaultAnimation?: string;
+  petBreakRemindersEnabled?: boolean;
+  petBreakIntervalMinutes?: number;
+  petCustomRemindersEnabled?: boolean;
+  petCustomReminders?: PetCustomReminder[];
+  petNotesIntegrationEnabled?: boolean;
+}
+
 /** Per-user profile + onboarding state (`user_profiles` table). One row per user. */
 export interface UserProfile {
   userId: string;
   fullName?: string;
   avatarUrl?: string;
-  defaultFocusDuration?: number;
+  /**
+   * Whatever was last written — may be a subset of UserPreferences, since older
+   * rows predate later fields. Merge over defaults before use.
+   */
+  preferences?: Partial<UserPreferences>;
+  /** Last preference edit (ms). Drives last-write-wins across devices. */
+  preferencesUpdatedAt?: number;
   onboardingCompleted: boolean;
   onboardingCompletedAt?: number;
 }
