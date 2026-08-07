@@ -429,7 +429,7 @@ When timer is running, sentence input becomes a read-only declaration:
 - **Click [▶ Start]:** Validate (task required), POST `/api/sessions/start`, begin elapsed timer.
 - **Click [⏸ Pause]:** Freeze timer, show [Resume], keep elapsed.
 - **Click [▶ Resume]:** Resume elapsed timer.
-- **Click [⏹ Stop]:** Navigate to `/session-complete?sessionId=xxx`.
+- **Click [⏹ Stop]:** Move the session to `state: "finishing"` and render the confirm step inline on `/timer`. No navigation.
 
 ### Data Flow
 
@@ -448,7 +448,7 @@ setInterval counts up every 1s
     ↓
 Sync elapsed to DB every 10s
     ↓
-User stops → navigate to /session-complete
+User stops → session.state = "finishing" → confirm step renders inline on /timer
 ```
 
 ### Edge Cases
@@ -465,7 +465,13 @@ User stops → navigate to /session-complete
 
 ## Screen 3: Session Complete
 
-**Route:** `/session-complete?sessionId=xxx`
+> **As-built note.** This was specced as a standalone route and never built as one.
+> There is no `/session-complete` page. Stopping a timer sets `session.state = "finishing"`
+> and `src/app/timer/page.tsx` renders the confirm step in place, handing off to
+> `TaskFinishedState` once confirmed. The layout below still describes the intended
+> content; treat the route line as historical.
+
+**Route:** none — inline state on `/timer` (`session.state === "finishing"`)
 **Purpose:** Confirm or adjust logged time. Lock to task.
 
 ### Layout

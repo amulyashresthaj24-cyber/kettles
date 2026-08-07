@@ -55,7 +55,7 @@ For solo freelancers and small teams juggling multiple clients, **Kettles** is t
 /features         Deep feature tour (per-pillar sections)
 /how-it-works     The 3-step ritual + the ledger explainer
 /kettle           The mascot / gamification story (emotional page)
-/pricing          Free / Pro / Team
+/pricing          Free / Pro / Team — NOT BUILT; no billing exists (see 3.10)
 /download         Desktop, web, extension
 /blog             SEO + deep-work content
 /changelog        Shipped updates (trust + retention)
@@ -142,8 +142,18 @@ Each section below = goal, content, copy direction, and the marketing effect (se
 - **Effect:** marquee of avatars; numbers count up once in view.
 
 ### 3.10 — Pricing
+> ⚠️ **Unbuilt roadmap, not spec.** There is no billing code, no plan gating, and no
+> `Team` surface in the app. Every tier below is aspirational. As shipped, the landing
+> page states one thing: free while in beta, no limits. Do not reintroduce a price or a
+> tier into marketing copy until billing exists — the earlier "Pro from $8/mo" line was
+> removed for exactly this reason.
+>
+> Also note `Team` implies shared ownership, and every RLS policy in
+> `supabase/migrations/` is currently `auth.uid() = user_id`. Teams is a data-model
+> change across all tables, not a pricing page.
+
 - **Goal:** convert.
-- **Tiers:**
+- **Tiers (proposed, none implemented):**
   - **Free** — solo, 1 client, core timer + tasks + 7-day reports.
   - **Pro** ($/mo) — unlimited clients/projects, full reports + PDF export, desktop + mini-timer, kettle skins.
   - **Team** ($/seat) — shared projects, team reports, admin, priority support.
@@ -337,5 +347,7 @@ Recommended stack: **GSAP + ScrollTrigger** for scroll storytelling; CSS transit
 ## 9. Open decisions (confirm before build)
 1. **Brand name** — ship as "Kettles" publicly while codebase stays "Flowmate"? (assumed yes)
 2. **Palette** — confirmed blue-only (kettle + steam are blue per `KettleAnimation`); warmth stays emotional (copy + soft light + roundness), no orange/amber anywhere. (assumed yes)
-3. **Pricing numbers** — Free/Pro/Team confirmed, actual $ TBD.
+3. **Pricing numbers** — still open, and now blocking: the landing says "free in beta"
+   because no billing exists. Tiers + $ must be decided *and built* before any price
+   returns to the page.
 4. **Primary CTA target** — desktop download vs web signup as the hero default.

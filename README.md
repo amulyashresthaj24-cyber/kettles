@@ -35,7 +35,7 @@ All documentation is organized in the [`Docs/`](./Docs/) folder:
 
 | Category | Documents |
 |----------|-----------|
-| **Getting Started** | [Overview](./Docs/CODEBASE_OVERVIEW.md), [Structure](./Docs/CODEBASE_STRUCTURE.md), [Guide](./Docs/CLAUDE.md) |
+| **Getting Started** | [Guide](./CLAUDE.md), [Doc map](./Docs/CODEBASE_OVERVIEW.md), [Folder Guide](./Docs/folder-guide.md) |
 | **Folder Direction** | [Folder Guide](./Docs/folder-guide.md) |
 | **Backend** | [Supabase Setup](./Docs/SUPABASE_QUICKSTART.md), [Migration](./Docs/SUPABASE_MIGRATION_GUIDE.md), [Deploy](./Docs/DEPLOYMENT_GUIDE.md) |
 | **Design** | [Visual System](./Docs/design.md), [Screens](./Docs/screens.md), [Database](./Docs/database.md) |

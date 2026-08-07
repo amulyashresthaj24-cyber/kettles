@@ -1,8 +1,14 @@
 # Flowmate — Database Schema
 
-Maps `public/data.json` → app code → PostgreSQL schema required for production.
+Maps the legacy `data.json` seed → app code → the PostgreSQL schema running in production.
 
-**Current state:** All data lives in localStorage (Zustand persist). This doc defines the relational schema needed when moving to a real backend.
+**Current state:** Live on Supabase Postgres. `clients`, `projects`, `tasks`, `sessions`,
+`user_profiles`, and `report_shares` are deployed with RLS; see `supabase/migrations/`.
+Zustand still persists `sessions`, `activeSessionId`, and `preferences` to localStorage,
+but only as an offline cache and sync queue — Postgres is the source of truth.
+
+The seed fixture now lives at `scripts/fixtures/data.json` (used by
+`scripts/migrate-data.ts`). It was previously served publicly from `public/`.
 
 ---
 
@@ -153,6 +159,33 @@ Sourced from: `data.json → sessions`, `types.ts → Session`, `store.ts → st
 
 ---
 
+### `user_profiles`
+
+Sourced from: `src/app/onboarding/page.tsx`, `store-supabase.ts → loadProfile()/saveProfile()`
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | `uuid` | PK, default gen_random_uuid() | |
+| `user_id` | `uuid` | FK → auth.users.id, **UNIQUE**, NOT NULL | one profile per user |
+| `full_name` | `text` | | |
+| `avatar_url` | `text` | | |
+| `default_focus_duration` | `integer` | default 25 | minutes; 0 = open-ended |
+| `onboarding_completed` | `boolean` | default false | gates the `/onboarding` redirect |
+| `onboarding_completed_at` | `timestamptz` | | |
+| `created_at` / `updated_at` | `timestamptz` | default now() | `updated_at` via trigger |
+
+**The UNIQUE on `user_id` is load-bearing.** Writes use
+`upsert(row, { onConflict: "user_id" })`. Without both the constraint and the explicit
+conflict target, PostgREST falls back to the primary key — which is generated per insert
+and never conflicts — so every write appends a duplicate row instead of updating.
+That bug shipped once and stranded completed users in an onboarding loop; it is fixed by
+`20260808000000_user_profiles_unique.sql`.
+
+**Reached via:** `api.profile` in `src/lib/supabase.ts` — direct table access under RLS,
+not an edge function. Components must go through `useApp()`, never `api.profile` directly.
+
+---
+
 ## Enums (PostgreSQL `CREATE TYPE`)
 
 ```sql
@@ -220,14 +253,18 @@ These are calculated at query time, not stored:
 
 ## Future Tables (Phase 2)
 
-| Table | Purpose |
-|-------|---------|
-| `pomodoro_configs` | Per-user timer settings (duration, break length) |
-| `weekly_reports` | Cached report snapshots |
-| `calendar_integrations` | Google Calendar OAuth tokens |
-| `invoices` | Generated invoices per client/period |
-| `tags` | Normalized tag table (replace text[]) |
+| Table | Purpose | Status |
+|-------|---------|--------|
+| `invoices` | Generated invoices per client/period | Planned. Rate resolution (`rates.ts`) and report export (PDF/Excel) already exist |
+| `calendar_integrations` | Google Calendar OAuth tokens | Planned. Needs a read-only vs two-way decision first |
+| `weekly_reports` | Cached report snapshots | Not needed yet — reports compute fast enough live |
+| `tags` | Normalized tag table (replace text[]) | Deferred. `tags?: string[]` exists on Task and Project but nothing reads it; normalizing an unused field is debt, not payoff |
+
+**Dropped:** `pomodoro_configs` — superseded by `user_profiles.default_focus_duration`.
+Note that the wider preference set (`weeklyTargetHours`, alarm sound, auto-break, mascot
+settings) is still localStorage-only in `store-supabase.ts`, so it does not follow a user
+across devices. Syncing it onto `user_profiles` is tracked as Wave 1.2.
 
 ---
 
-**Last updated:** 2026-04-28
+**Last updated:** 2026-08-07
