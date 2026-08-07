@@ -10,6 +10,19 @@ export interface SessionNote {
   text: string;
 }
 
+/** Per-user profile + onboarding state (`user_profiles` table). One row per user. */
+export interface UserProfile {
+  userId: string;
+  fullName?: string;
+  avatarUrl?: string;
+  defaultFocusDuration?: number;
+  onboardingCompleted: boolean;
+  onboardingCompletedAt?: number;
+}
+
+/** Fields an onboarding/settings write may set. `userId` is taken from the session. */
+export type UserProfilePatch = Partial<Omit<UserProfile, "userId">>;
+
 export interface Client {
   id: string;
   name: string;

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Client, Project, Session, Task } from './types';
+import type { Client, Project, Session, Task, UserProfile, UserProfilePatch } from './types';
 import type {
   CreateReportShareInput,
   CreateReportShareResult,
@@ -184,8 +184,98 @@ async function edgeFunction<T = unknown>(path: string, options: RequestInit = {}
   return response.json() as Promise<T>;
 }
 
+type UserProfileRow = {
+  user_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  default_focus_duration: number | null;
+  onboarding_completed: boolean | null;
+  onboarding_completed_at: string | null;
+};
+
+function mapUserProfile(row: UserProfileRow): UserProfile {
+  const completedAt = row.onboarding_completed_at
+    ? Date.parse(row.onboarding_completed_at)
+    : NaN;
+
+  return {
+    userId: row.user_id,
+    fullName: row.full_name ?? undefined,
+    avatarUrl: row.avatar_url ?? undefined,
+    defaultFocusDuration: row.default_focus_duration ?? undefined,
+    onboardingCompleted: row.onboarding_completed === true,
+    onboardingCompletedAt: Number.isNaN(completedAt) ? undefined : completedAt,
+  };
+}
+
+const USER_PROFILE_COLUMNS =
+  'user_id, full_name, avatar_url, default_focus_duration, onboarding_completed, onboarding_completed_at';
+
+async function requireUserId() {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  if (!data.user) throw new Error('Please sign in to continue');
+  return data.user.id;
+}
+
 // API Clients for all entities
 export const api = {
+  /**
+   * Profiles go straight to the table under RLS ("Users can CRUD own profile")
+   * rather than through an edge function — there is no user-profiles function
+   * deployed, and a profile read/write never crosses a user boundary. Callers
+   * should still come via the store, not components.
+   */
+  profile: {
+    get: async (): Promise<UserProfile | null> => {
+      const supabase = getSupabaseClient();
+      const userId = await requireUserId();
+
+      // maybeSingle(): a user with no profile yet is a normal state, not an error.
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select(USER_PROFILE_COLUMNS)
+        .eq('user_id', userId)
+        .maybeSingle<UserProfileRow>();
+
+      if (error) throw error;
+      return data ? mapUserProfile(data) : null;
+    },
+
+    upsert: async (patch: UserProfilePatch): Promise<UserProfile> => {
+      const supabase = getSupabaseClient();
+      const userId = await requireUserId();
+
+      const row: Record<string, unknown> = {
+        user_id: userId,
+        updated_at: new Date().toISOString(),
+      };
+      if (patch.fullName !== undefined) row.full_name = patch.fullName;
+      if (patch.avatarUrl !== undefined) row.avatar_url = patch.avatarUrl;
+      if (patch.defaultFocusDuration !== undefined) {
+        row.default_focus_duration = patch.defaultFocusDuration;
+      }
+      if (patch.onboardingCompleted !== undefined) {
+        row.onboarding_completed = patch.onboardingCompleted;
+      }
+      if (patch.onboardingCompletedAt !== undefined) {
+        row.onboarding_completed_at = new Date(patch.onboardingCompletedAt).toISOString();
+      }
+
+      // onConflict: "user_id" is required — without it PostgREST targets the
+      // primary key, which is generated per insert and therefore never conflicts,
+      // so every call would append a duplicate row.
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .upsert(row, { onConflict: 'user_id' })
+        .select(USER_PROFILE_COLUMNS)
+        .single<UserProfileRow>();
+
+      if (error) throw error;
+      return mapUserProfile(data);
+    },
+  },
   clients: {
     list: () => edgeFunction<{ clients: Client[] }>('clients'),
     get: (id: string) => edgeFunction<Client>(`clients/${id}`),

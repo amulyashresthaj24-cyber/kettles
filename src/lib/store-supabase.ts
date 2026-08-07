@@ -3,7 +3,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api } from "./supabase";
-import type { Client, Project, Task, Session, Urgency, TaskStatus } from "./types";
+import type {
+  Client,
+  Project,
+  Task,
+  Session,
+  Urgency,
+  TaskStatus,
+  UserProfile,
+  UserProfilePatch,
+} from "./types";
 import type {
   CreateReportShareInput,
   CreateReportShareResult,
@@ -224,6 +233,9 @@ interface State {
   initialLoadComplete: boolean;
   reportShares: ReportShare[];
   reportSharesLoaded: boolean;
+  /** `user_profiles` row for the signed-in user. null = not loaded, or none yet. */
+  profile: UserProfile | null;
+  profileLoaded: boolean;
 
   // Actions
   setUser: (user: { name: string; email?: string } | null) => void;
@@ -319,6 +331,9 @@ interface State {
   rotateReportShareToken: (id: string) => Promise<CreateReportShareResult>;
   deleteReportShare: (id: string) => Promise<void>;
 
+  loadProfile: () => Promise<UserProfile | null>;
+  saveProfile: (patch: UserProfilePatch) => Promise<UserProfile>;
+
   preferences?: {
     defaultFocusDuration: number;
     weeklyTargetHours?: number;
@@ -360,6 +375,8 @@ persist((set, get) => ({
   initialLoadComplete: false,
   reportShares: [],
   reportSharesLoaded: false,
+  profile: null,
+  profileLoaded: false,
 
   preferences: {
     /** 0 = open-ended (count up from zero). Only apply when user sets a real default. */
@@ -1645,6 +1662,25 @@ persist((set, get) => ({
   deleteReportShare: async (id) => {
     await api.reportShares.delete(id);
     set({ reportShares: get().reportShares.filter((s) => s.id !== id) });
+  },
+
+  loadProfile: async () => {
+    try {
+      const profile = await api.profile.get();
+      set({ profile, profileLoaded: true });
+      return profile;
+    } catch (error) {
+      console.error("Failed to load profile:", error);
+      // profileLoaded stays false so callers can tell "no profile yet" (null)
+      // apart from "we could not find out" and avoid acting on a failed read.
+      return null;
+    }
+  },
+
+  saveProfile: async (patch) => {
+    const profile = await api.profile.upsert(patch);
+    set({ profile, profileLoaded: true });
+    return profile;
   },
 }), {
   name: "flowmate-supabase-session-store",
