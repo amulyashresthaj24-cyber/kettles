@@ -557,7 +557,8 @@ export function KettlesLanding() {
     ["Does the timer survive a tab close?", "Yes. Brews are saved to the cloud, so closing a tab, refreshing, or switching devices doesn't lose a second. Your timer keeps running where it left off."],
     ["Which platforms are supported?", "Kettles runs in the browser, plus native macOS and Windows apps with a floating always-on-top mini-timer. A browser extension keeps everything in sync."],
     ["Can I export for invoicing?", "Every weekly report exports to PDF or CSV in one click, with hours broken down per client, ready to attach to an invoice or send straight to a client."],
-    ["Is my data private?", "Completely. Kettles never takes screenshots, logs keystrokes, or scores your productivity. It records the hours you choose to brew, and nothing else."],
+    ["Is my data private?", "Yes. Kettles never takes screenshots, logs keystrokes, or scores your productivity. It records the hours you choose to brew, and nothing else. Read the full Privacy Policy for details."],
+    ["Why does Kettles request Google account data?", "Only to sign you in. If you use Sign in with Google, we request your basic profile (name and email) to create or open your Kettles account. We do not access Gmail, Drive, Contacts, or other Google services."],
   ];
 
   return (
@@ -863,13 +864,58 @@ export function KettlesLanding() {
           </div>
         </section>
 
-        {/* ===================== TRUST BADGE STRIP (slim) ===================== */}
-        <section id="security" className="relative z-10 border-y border-[var(--k-line)] bg-[var(--k-bg2)] py-12">
-          <div className="mx-auto max-w-[1180px] px-6 text-center">
-            <p className="k-reveal text-[15px] text-[var(--k-muted)]">
-              <span className="font-semibold text-[var(--k-ink)]">No screenshots. No keystroke spying. No productivity scores.</span> Just an accurate record you own.
+        {/* ===================== TRUST / ACCOUNT DATA (OAuth homepage requirement) ===================== */}
+        <section id="security" className="relative z-10 border-y border-[var(--k-line)] bg-[var(--k-bg2)] py-16 md:py-20">
+          <div className="mx-auto max-w-[900px] px-6 text-center">
+            <p className="k-reveal text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--k-muted)]">
+              Privacy &amp; account data
             </p>
-            <div className="k-reveal mt-6 flex flex-wrap justify-center gap-3">
+            <h2 className="k-reveal mt-3 text-[clamp(26px,3.4vw,40px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">
+              Why Kettles asks for your account data
+            </h2>
+            <p className="k-reveal mt-4 text-[16px] leading-relaxed text-[var(--k-muted)]">
+              <span className="font-semibold text-[var(--k-ink)]">No screenshots. No keystroke spying. No productivity scores.</span>{" "}
+              Just an accurate time record you own.
+            </p>
+
+            <div className="k-reveal mt-10 grid gap-4 text-left sm:grid-cols-2">
+              <div className="rounded-2xl border border-[var(--k-line2)] bg-[var(--k-card)] p-5">
+                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--k-line2)] bg-[var(--k-tint)] text-[var(--k-accent2)]">
+                  <User size={18} weight="bold" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-[var(--k-ink)]">Sign-in only</h3>
+                <p className="mt-2 text-[13.5px] leading-relaxed text-[var(--k-muted)]">
+                  If you sign in with Google, Kettles requests your basic Google profile — name and
+                  email — only to create or open your account and keep your workspace secure. We do
+                  not read Gmail, Drive, Calendar, Contacts, or other Google services.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[var(--k-line2)] bg-[var(--k-card)] p-5">
+                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--k-line2)] bg-[var(--k-tint)] text-[var(--k-accent2)]">
+                  <LockKey size={18} weight="bold" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-[var(--k-ink)]">What we store</h3>
+                <p className="mt-2 text-[13.5px] leading-relaxed text-[var(--k-muted)]">
+                  Account identity plus the work data you create: clients, projects, tasks, and time
+                  sessions. That data powers timers, reports, and billing. We do not sell your
+                  personal information or use it for third-party advertising.
+                </p>
+              </div>
+            </div>
+
+            <p className="k-reveal mt-8 text-[14px] leading-relaxed text-[var(--k-muted)]">
+              Full details are in our{" "}
+              <Link href="/legal/privacy" className="font-semibold text-[var(--k-accent2)] underline-offset-2 hover:underline">
+                Privacy Policy
+              </Link>
+              {" "}and{" "}
+              <Link href="/legal/terms" className="font-semibold text-[var(--k-accent2)] underline-offset-2 hover:underline">
+                Terms of Service
+              </Link>
+              . Both are public — no login required.
+            </p>
+
+            <div className="k-reveal mt-8 flex flex-wrap justify-center gap-3">
               {[[SealCheck, "SOC 2 Type II"], [ShieldCheck, "GDPR compliant"], [LockKey, "256-bit encryption"], [EyeSlash, "Zero surveillance"]].map(([Ic, t]) => {
                 const Icon = Ic as typeof SealCheck;
                 return (

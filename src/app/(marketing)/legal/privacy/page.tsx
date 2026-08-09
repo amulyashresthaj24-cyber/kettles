@@ -40,6 +40,14 @@ const sections: LegalSection[] = [
           <li>Display name or profile details you choose to add</li>
           <li>Authentication session tokens needed to keep you signed in</li>
         </ul>
+        <p>
+          <strong>Google Sign-In.</strong> If you choose to sign in with Google, we receive basic
+          profile information from Google (typically your name, email address, and a unique Google
+          account identifier / profile picture if provided). We use this solely to create or
+          authenticate your Kettles account and associate your workspace with you. We do not request
+          access to Gmail, Google Drive, Calendar, Contacts, or other Google services beyond what is
+          required for Sign in with Google (OpenID / email / profile scopes).
+        </p>
         <p><strong>Workspace content.</strong> To deliver the product we store the data you create, including:</p>
         <ul>
           <li>Clients, projects, tasks, tags, and related notes or billing fields</li>
@@ -61,7 +69,7 @@ const sections: LegalSection[] = [
         <p>We use personal information to:</p>
         <ul>
           <li>Provide, operate, and maintain the Service (accounts, sync, timers, reports, shares)</li>
-          <li>Authenticate you and secure your workspace</li>
+          <li>Authenticate you and secure your workspace (including Sign in with Google when you choose it)</li>
           <li>Sync data across web, desktop, and extension clients when you are signed in</li>
           <li>Send transactional messages (for example email confirmation, password reset, or important service notices)</li>
           <li>Diagnose bugs, monitor reliability, and improve product quality</li>
@@ -249,8 +257,8 @@ const sections: LegalSection[] = [
           </li>
           <li>
             Product site:{" "}
-            <a href="https://kettles.app" target="_blank" rel="noopener noreferrer">
-              kettles.app
+            <a href="https://www.kettles.works" target="_blank" rel="noopener noreferrer">
+              www.kettles.works
             </a>
           </li>
         </ul>
