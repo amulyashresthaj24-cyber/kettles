@@ -1083,7 +1083,7 @@ export function KettlesLanding() {
                 ["Product", [["Features", "#features"], ["How it works", "#how"], ["Pricing", "#pricing"], ["Download", "#download"]]],
                 ["Resources", [["Blog", "#"], ["Deep-work guide", "#"], ["FAQ", "#faq"], ["Help center", "#"]]],
                 ["Company", [["About", "#"], ["Mission", "#"], ["Contact", "#"]]],
-                ["Legal", [["Privacy", "#"], ["Terms", "#"], ["Security", "#security"]]],
+                ["Legal", [["Privacy", "/legal/privacy"], ["Terms", "/legal/terms"], ["Security", "#security"]]],
               ].map(([h, links]) => (
                 <div key={h as string}>
                   <h5 className="mb-4 text-[11px] font-bold tracking-[0.1em] uppercase text-[var(--k-muted)]">{h as string}</h5>
@@ -1102,9 +1102,9 @@ export function KettlesLanding() {
           <div className="mt-16 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[var(--k-hairline)] pt-8">
             <p className="text-[13px] text-[var(--k-faint)] font-medium">© 2026 Kettles. Made for focused work.</p>
             <div className="flex gap-4 text-[12.5px] text-[var(--k-faint)] font-medium">
-              <Link href="#" className="hover:text-[var(--k-ink)] transition">Privacy Policy</Link>
+              <Link href="/legal/privacy" className="hover:text-[var(--k-ink)] transition">Privacy Policy</Link>
               <span className="opacity-30">•</span>
-              <Link href="#" className="hover:text-[var(--k-ink)] transition">Terms of Service</Link>
+              <Link href="/legal/terms" className="hover:text-[var(--k-ink)] transition">Terms of Service</Link>
             </div>
           </div>
 

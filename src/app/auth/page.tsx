@@ -357,11 +357,11 @@ export default function AuthPage() {
           <div className="mt-4xl pt-lg text-center">
             <p className="font-sans text-[12px] leading-[1.5] text-text-faint">
               By continuing, you agree to our{" "}
-              <a href="#" className="text-text-muted transition-colors hover:text-text-secondary">
+              <a href="/legal/terms" className="text-text-muted transition-colors hover:text-text-secondary">
                 Terms of Service
               </a>
               {" "}and{" "}
-              <a href="#" className="text-text-muted transition-colors hover:text-text-secondary">
+              <a href="/legal/privacy" className="text-text-muted transition-colors hover:text-text-secondary">
                 Privacy Policy
               </a>
             </p>
