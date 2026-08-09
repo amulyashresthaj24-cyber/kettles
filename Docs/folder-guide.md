@@ -10,7 +10,7 @@ This guide explains the intended folder structure for Flowmate without changing 
 | `src/components/` | Active React components used by the product screens. |
 | `src/lib/` | Active shared logic: Supabase API helpers, Zustand store, sync engine, desktop bridge, dates, types, and formatting. |
 | `src-tauri/` | Active Tauri desktop shell: native window, tray, shortcuts, notifications, idle detection, and bundling. |
-| `extension/` | Chrome extension code. Keep separate from the web and Tauri app unless a shared package is introduced. |
+| `extension/` | Chrome extension code — a thin remote control over the edge functions, not a second client. Scope and limits: [`extension/README.md`](../extension/README.md). Keep separate from the web and Tauri app unless a shared package is introduced. |
 | `supabase/` | Database migrations and Supabase edge functions. |
 | `Docs/` | Product, architecture, design, and implementation documentation. |
 
