@@ -207,6 +207,14 @@ Sync model (`20260809000000_user_preferences.sql`):
 It was written by onboarding and read by nothing, while the timer read a separate
 localStorage value — so a user's onboarding choice was silently discarded.
 
+**Backfill is deliberately conservative** (`20260809000000`). Only rows with
+`onboarding_completed IS TRUE` are carried over, because the dropped column was
+`INTEGER DEFAULT 25` and so was non-null even for users who never onboarded.
+`preferences_updated_at` is left NULL on backfill: every client upgrading into this
+release has preferences in localStorage but no stamp yet, so any server timestamp
+would win the last-write-wins comparison and reset that user's real settings to a
+one-key blob. The client stays authoritative until its next edit pushes the full object.
+
 ---
 
 ## Enums (PostgreSQL `CREATE TYPE`)

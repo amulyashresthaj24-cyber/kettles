@@ -34,7 +34,7 @@ import {
  * each declared their own copy, and they had already drifted — setPreferences
  * omitted alarmSound, so changing any preference silently dropped it.
  */
-const DEFAULT_PREFERENCES: UserPreferences = {
+export const DEFAULT_PREFERENCES: UserPreferences = {
   /** 0 = open-ended (count up from zero). Only apply when user sets a real default. */
   defaultFocusDuration: 0,
   weeklyTargetHours: 40,
@@ -416,7 +416,11 @@ persist((set, get) => ({
   setPreferences: (patch) => {
     set({
       preferences: { ...DEFAULT_PREFERENCES, ...(get().preferences ?? {}), ...patch },
-      preferencesUpdatedAt: Date.now(),
+      // Date.now() only has millisecond granularity. Two edits inside one tick
+      // would share a stamp, and flushPreferences' `> stamp` check would then
+      // clear the dirty flag for an edit it never pushed — a silently lost
+      // setting. Force the stamp strictly upward instead.
+      preferencesUpdatedAt: Math.max(Date.now(), (get().preferencesUpdatedAt ?? 0) + 1),
       preferencesDirty: true,
     });
     // Settings fires this per keystroke (weekly target is a number input), so
@@ -1739,16 +1743,24 @@ persist((set, get) => ({
   },
 
   saveProfile: async (patch) => {
+    // A caller that writes preferences directly (onboarding) satisfies any
+    // pending push. Cancel it *before* the await: a debounced flush firing
+    // mid-write is a second in-flight upsert, and whichever lands last wins on
+    // the server regardless of which carried the newer values.
+    const writesPreferences = patch.preferences !== undefined;
+    const stamp = patch.preferencesUpdatedAt ?? Date.now();
+    if (writesPreferences) cancelPreferencesPush();
+
     const profile = await api.profile.upsert(patch);
     set({ profile, profileLoaded: true });
 
-    // A caller that wrote preferences directly (onboarding) has just satisfied
-    // any pending push, so drop the debounce and the dirty flag.
-    if (patch.preferences !== undefined) {
+    if (writesPreferences) {
       cancelPreferencesPush();
       set({
-        preferencesUpdatedAt: patch.preferencesUpdatedAt ?? Date.now(),
-        preferencesDirty: false,
+        preferencesUpdatedAt: Math.max(get().preferencesUpdatedAt ?? 0, stamp),
+        // Only clear the flag if no newer edit landed while this write was in
+        // flight — same guard as flushPreferences, or that edit never ships.
+        preferencesDirty: (get().preferencesUpdatedAt ?? 0) > stamp,
       });
     }
     return profile;

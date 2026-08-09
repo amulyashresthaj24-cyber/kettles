@@ -76,6 +76,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Preference writes are debounced, so a tab closed or backgrounded within
   // that window would drop the pending edit. Flush on the way out.
+  //
+  // Best-effort by nature: on a real `pagehide` the browser may kill the
+  // document before the fetch completes. The edit is not lost — it stays in
+  // the persisted store with preferencesDirty set, and the next loadProfile
+  // pushes it. visibilitychange fires earlier and usually wins the race.
   useEffect(() => {
     if (isSharePage) return;
     const flush = () => {

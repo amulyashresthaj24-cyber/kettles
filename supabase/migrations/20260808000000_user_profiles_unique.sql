@@ -30,14 +30,15 @@ merged AS (
     -- Newest non-null value wins per column, so a field set on an earlier row is
     -- never lost to a later row that left it null. FILTER drops the null rows
     -- before aggregating; if every row is null, array_agg yields NULL and the
-    -- [1] subscript stays NULL.
+    -- [1] subscript stays NULL. The trailing `p.id` breaks updated_at ties so a
+    -- rerun on the same data picks the same value.
     SELECT
         k.id AS keep_id,
-        (ARRAY_AGG(p.full_name ORDER BY p.updated_at DESC NULLS LAST)
+        (ARRAY_AGG(p.full_name ORDER BY p.updated_at DESC NULLS LAST, p.id)
             FILTER (WHERE p.full_name IS NOT NULL))[1] AS full_name,
-        (ARRAY_AGG(p.avatar_url ORDER BY p.updated_at DESC NULLS LAST)
+        (ARRAY_AGG(p.avatar_url ORDER BY p.updated_at DESC NULLS LAST, p.id)
             FILTER (WHERE p.avatar_url IS NOT NULL))[1] AS avatar_url,
-        (ARRAY_AGG(p.default_focus_duration ORDER BY p.updated_at DESC NULLS LAST)
+        (ARRAY_AGG(p.default_focus_duration ORDER BY p.updated_at DESC NULLS LAST, p.id)
             FILTER (WHERE p.default_focus_duration IS NOT NULL))[1] AS default_focus_duration,
         BOOL_OR(COALESCE(p.onboarding_completed, FALSE)) AS onboarding_completed,
         MIN(p.onboarding_completed_at) AS onboarding_completed_at,
