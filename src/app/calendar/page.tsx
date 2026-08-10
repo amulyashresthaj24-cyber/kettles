@@ -654,6 +654,7 @@ function WeekView({
                 const googleTimed = googleEventsForDay(day).filter(
                   (g) => !g.allDay && new Date(g.startsAt).getHours() === h
                 );
+                const laneCount = dayEvents.length + googleTimed.length;
                 return (
                   <div
                     key={`cell-${h}-${di}`}
@@ -664,11 +665,12 @@ function WeekView({
                     }}
                     onClick={() => dayEvents.length === 0 && googleTimed.length === 0 && onSlotClick(day, h)}
                   >
-                    {dayEvents.map((ev) => (
+                    {dayEvents.map((ev, ei) => (
                       <EventPill
                         key={ev.task.id}
                         ev={ev}
                         compact
+                        style={weekLaneStyle(ei, laneCount)}
                         activeTaskId={activeTaskId}
                         onClick={() => onTaskClick(ev.task.id)}
                       />
@@ -678,7 +680,7 @@ function WeekView({
                         key={g.id}
                         g={g}
                         compact
-                        style={dayEvents.length > 0 ? { top: 18 + gi * 16 } : undefined}
+                        style={weekLaneStyle(dayEvents.length + gi, laneCount)}
                       />
                     ))}
                   </div>
@@ -1598,11 +1600,13 @@ function EventPill({
   compact,
   onClick,
   activeTaskId,
+  style,
 }: {
   ev: CalendarEvent;
   compact?: boolean;
   onClick?: () => void;
   activeTaskId: string | null;
+  style?: React.CSSProperties;
 }) {
   const setTaskStatus = useApp((s) => s.setTaskStatus);
   const isDone = ev.task.status === "done";
@@ -1627,6 +1631,7 @@ function EventPill({
         color: ev.color,
         borderLeft: `2px solid ${ev.color}`,
         ...urgencyOutlineStyle(ev.task.urgency),
+        ...style,
       }}
       title={ev.task.title}
       onClick={onClick}
