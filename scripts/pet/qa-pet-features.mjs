@@ -100,9 +100,13 @@ const femaleSize = fs.statSync(path.join(root, "public/pet/assets/sprite-2.clean
 ok("male spritesheet non-empty", maleSize > 1000, `${maleSize} bytes`);
 ok("female spritesheet non-empty", femaleSize > 1000, `${femaleSize} bytes`);
 
-// 9) pet.html hooks
-const html = read("public/pet/pet.html");
-for (const id of ["shell", "bubble", "completeActions", "notepad", "speechStack", "mascot", "hideToggle", "finishNow", "saveNote", "noteInput"]) {
+// 9) overlay.html hooks
+const html = read("public/pet/overlay.html");
+ok(
+  "rust loads the overlay document that exists",
+  read("src-tauri/src/pet.rs").includes('"pet/overlay.html"')
+);
+for (const id of ["shell", "bubble", "completeActions", "notepad", "speech", "mascot", "hideToggle", "finishNow", "saveNote", "noteInput", "modeClock", "modeAi"]) {
   ok(`html has #${id}`, html.includes(`id="${id}"`));
 }
 for (const ext of ["5", "10", "25"]) ok(`extend chip +${ext}`, html.includes(`data-extend="${ext}"`));

@@ -33,6 +33,16 @@ use tauri_plugin_notification::NotificationExt;
 /// Window label of the pet overlay. Used by the capability file too.
 pub const PET_LABEL: &str = "pet";
 
+/// The overlay's entry document, relative to the frontend root.
+///
+/// Deliberately NOT `pet/pet.html`. WebView2 held a cached permanent redirect
+/// for that URL (`/pet/pet.html` -> `/pet/pet`), and `/pet/pet` is not a route,
+/// so Next answered with a 404 rendered inside the app's root layout — the
+/// overlay came up as the Kettles sidebar instead of the mascot, on every boot.
+/// A path that has never been requested is a fresh cache key, and dropping the
+/// duplicated `pet/pet` segment removes the shape that invited the rewrite.
+const PET_URL_PATH: &str = "pet/overlay.html";
+
 /// Small overlay window (logical px). It is sized snug to the mascot + the note
 /// / bubble that float above it, and the OS moves the whole window around — so
 /// the pet can live on, and be dragged across to, ANY monitor.
@@ -176,13 +186,24 @@ pub fn pet_init(app: &AppHandle) -> Result<(), String> {
     // The default page loads the live v2 config. `FLOWMATE_PET_V2_TEST=1`
     // selects the isolated staged config for regression checks.
     let pet_page = if std::env::var("FLOWMATE_PET_V2_TEST").ok().as_deref() == Some("1") {
-        "pet/pet.html?petConfig=v2"
+        format!("{PET_URL_PATH}?petConfig=v2")
     } else {
-        "pet/pet.html"
+        PET_URL_PATH.to_string()
     };
     let builder =
         WebviewWindowBuilder::new(app, PET_LABEL, WebviewUrl::App(pet_page.into()))
             .title("Agent Pet")
+            // The overlay must never become the main app. If anything sends it
+            // elsewhere — a cached redirect, a stray link — drop the navigation
+            // and say so, instead of silently rendering the Kettles UI inside a
+            // 300x500 always-on-top window with no titlebar to close.
+            .on_navigation(|url| {
+                let allowed = url.scheme() == "about" || url.path().ends_with("/overlay.html");
+                if !allowed {
+                    log::warn!("pet: blocked navigation away from the overlay -> {url}");
+                }
+                allowed
+            })
             .inner_size(PET_W, PET_H)
             .decorations(false)
             .transparent(true)
@@ -316,10 +337,39 @@ pub fn pet_signal(app: AppHandle, signal: PetSignal) -> Result<bool, String> {
 #[tauri::command]
 pub fn pet_set_position(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
     if let Some(win) = app.get_webview_window(PET_LABEL) {
-        win.set_position(PhysicalPosition::new(x as i32, y as i32))
+        let (x, y) = clamp_to_monitor(&win, x, y);
+        win.set_position(PhysicalPosition::new(x, y))
             .map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+/// Keep the overlay fully inside the monitor it sits on. Without this a drag
+/// past an edge parks the window half off-screen, where the mascot is sliced
+/// flat by the screen edge and the remaining sliver is hard to grab back.
+fn clamp_to_monitor(win: &tauri::WebviewWindow, x: f64, y: f64) -> (i32, i32) {
+    let (ww, wh) = win
+        .outer_size()
+        .map(|s| (s.width as f64, s.height as f64))
+        .unwrap_or((PET_W, PET_H));
+
+    let (mx, my, mw, mh) = win
+        .current_monitor()
+        .ok()
+        .flatten()
+        .map(|m| {
+            let p = m.position();
+            let s = m.size();
+            (p.x as f64, p.y as f64, s.width as f64, s.height as f64)
+        })
+        .unwrap_or_else(|| {
+            let (_, _, pw, ph) = primary_screen();
+            (0.0, 0.0, pw as f64, ph as f64)
+        });
+
+    let max_x = mx + (mw - ww).max(0.0);
+    let max_y = my + (mh - wh).max(0.0);
+    (x.clamp(mx, max_x) as i32, y.clamp(my, max_y) as i32)
 }
 
 /// Toggle click-through. `true` = mouse passes through the pet to windows

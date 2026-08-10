@@ -537,7 +537,7 @@ pub fn run() {
 
             // Alt+Shift+R → reload the pet overlay webview. Dev convenience:
             // the pet window serves static /pet assets with no HMR, so this
-            // picks up pet.html/css/js edits without restarting the whole app.
+            // picks up overlay.html/css/js edits without restarting the app.
             // Debug-only: in a release build this drops a running session.
             #[cfg(debug_assertions)]
             let _ = app.global_shortcut().on_shortcut("Alt+Shift+R", {
