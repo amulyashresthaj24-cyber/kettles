@@ -8,7 +8,12 @@ import {
   formatEntityResponse,
   normalizeMoneyFields,
   mergeEntityData,
+  assertOwnedRow,
+  readJsonBody,
+  publicErrorMessage,
 } from '../_shared/validators.ts';
+
+const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
 
 serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -20,7 +25,7 @@ serve(async (req) => {
   if (!user) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: jsonHeaders,
     });
   }
 
@@ -35,7 +40,7 @@ serve(async (req) => {
           if (!validateUUID(id)) {
             return new Response(JSON.stringify({ error: 'Invalid project ID' }), {
               status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              headers: jsonHeaders,
             });
           }
           
@@ -48,10 +53,8 @@ serve(async (req) => {
           
           if (error) throw error;
           
-          const response = formatEntityResponse(data);
-          
-          return new Response(JSON.stringify(response), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          return new Response(JSON.stringify(formatEntityResponse(data)), {
+            headers: jsonHeaders,
           });
         }
         
@@ -63,20 +66,25 @@ serve(async (req) => {
         
         if (error) throw error;
         
-        const projects = (data || []).map(p => formatEntityResponse(p));
-        
-        return new Response(JSON.stringify({ projects }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ projects: (data || []).map(formatEntityResponse) }), {
+          headers: jsonHeaders,
         });
       }
 
       case 'POST': {
-        const body = await req.json();
+        const parsed = await readJsonBody(req);
+        if (parsed.error) {
+          return new Response(JSON.stringify({ error: parsed.error }), {
+            status: parsed.error === 'Request too large' ? 413 : 400,
+            headers: jsonHeaders,
+          });
+        }
+        const body = parsed.body;
         const validation = validateRequired(body, ['name']);
         if (validation) {
           return new Response(JSON.stringify({ error: validation }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
@@ -84,7 +92,7 @@ serve(async (req) => {
         if (money.error) {
           return new Response(JSON.stringify({ error: money.error }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
@@ -93,7 +101,20 @@ serve(async (req) => {
           data: mergeEntityData({}, money.data),
         };
 
-        if (body.clientId && validateUUID(body.clientId)) {
+        if (body.clientId) {
+          const clientErr = await assertOwnedRow(
+            supabase,
+            'clients',
+            body.clientId,
+            user.id,
+            'client ID'
+          );
+          if (clientErr) {
+            return new Response(JSON.stringify({ error: clientErr }), {
+              status: 400,
+              headers: jsonHeaders,
+            });
+          }
           insertData.client_id = body.clientId;
         }
 
@@ -106,7 +127,7 @@ serve(async (req) => {
         if (error) throw error;
         return new Response(JSON.stringify(formatEntityResponse(data)), {
           status: 201,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: jsonHeaders,
         });
       }
 
@@ -114,19 +135,25 @@ serve(async (req) => {
         if (!id) {
           return new Response(JSON.stringify({ error: 'Project ID required' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
         if (!validateUUID(id)) {
           return new Response(JSON.stringify({ error: 'Invalid project ID' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
-        const body = await req.json();
+        const parsed = await readJsonBody(req);
+        if (parsed.error) {
+          return new Response(JSON.stringify({ error: parsed.error }), {
+            status: parsed.error === 'Request too large' ? 413 : 400,
+            headers: jsonHeaders,
+          });
+        }
+        const body = parsed.body;
         
-        // Fetch current project to merge data
         const { data: currentData, error: fetchError } = await supabase
           .from('projects')
           .select('data')
@@ -140,17 +167,33 @@ serve(async (req) => {
         if (money.error) {
           return new Response(JSON.stringify({ error: money.error }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
-        // Merge new data with existing data instead of replacing; nulls clear.
         const mergedData = mergeEntityData(currentData?.data, money.data);
         
         const updateData: any = { data: mergedData };
         
         if (body.clientId !== undefined) {
-          updateData.client_id = body.clientId && validateUUID(body.clientId) ? body.clientId : null;
+          if (body.clientId) {
+            const clientErr = await assertOwnedRow(
+              supabase,
+              'clients',
+              body.clientId,
+              user.id,
+              'client ID'
+            );
+            if (clientErr) {
+              return new Response(JSON.stringify({ error: clientErr }), {
+                status: 400,
+                headers: jsonHeaders,
+              });
+            }
+            updateData.client_id = body.clientId;
+          } else {
+            updateData.client_id = null;
+          }
         }
 
         const { data, error } = await supabase
@@ -163,7 +206,7 @@ serve(async (req) => {
         
         if (error) throw error;
         return new Response(JSON.stringify(formatEntityResponse(data)), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: jsonHeaders,
         });
       }
 
@@ -171,13 +214,13 @@ serve(async (req) => {
         if (!id) {
           return new Response(JSON.stringify({ error: 'Project ID required' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
         if (!validateUUID(id)) {
           return new Response(JSON.stringify({ error: 'Invalid project ID' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           });
         }
 
@@ -189,7 +232,7 @@ serve(async (req) => {
         
         if (error) throw error;
         return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: jsonHeaders,
         });
       }
 
@@ -199,10 +242,10 @@ serve(async (req) => {
           headers: corsHeaders,
         });
     }
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    return new Response(JSON.stringify({ error: publicErrorMessage(error) }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: jsonHeaders,
     });
   }
 });

@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { NotificationProvider } from "./ui/notification";
 import { getSyncEngine } from "@/lib/sync-engine";
 import { isDesktop } from "@/lib/desktop";
+import { useApp } from "@/lib/store-supabase";
 
 const ActiveSessionBanner = dynamic(
   () => import("./ActiveSessionBanner").then((mod) => mod.ActiveSessionBanner),
@@ -73,6 +74,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isSharePage) return;
     getSyncEngine();
+  }, [isSharePage]);
+
+  // Preference writes are debounced, so a tab closed or backgrounded within
+  // that window would drop the pending edit. Flush on the way out.
+  //
+  // Best-effort by nature: on a real `pagehide` the browser may kill the
+  // document before the fetch completes. The edit is not lost — it stays in
+  // the persisted store with preferencesDirty set, and the next loadProfile
+  // pushes it. visibilitychange fires earlier and usually wins the race.
+  useEffect(() => {
+    if (isSharePage) return;
+    const flush = () => {
+      if (useApp.getState().preferencesDirty) {
+        void useApp.getState().flushPreferences();
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
   }, [isSharePage]);
 
   useEffect(() => {

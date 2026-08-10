@@ -193,6 +193,10 @@ Asymmetric bento grid (1 large + 6 small). Each card = icon (inline SVG), title,
 - Stat band (mono numbers): "120k+ hours tracked" · "8,000+ invoices backed" · "31-day longest streak".
 
 ### 10. Pricing (dark)
+> ⚠️ **Unbuilt.** No billing, no plan gating, no Team surface exists in the app. The
+> shipped landing states "free while in beta, no limits" instead. Treat the tiers below
+> as a future concept — do not render a price or a tier until billing is real.
+
 Monthly/annual toggle. Three cards:
 - **Free** — solo, 1 client, core timer + tasks + 7-day reports.
 - **Pro** *(most popular — lift + accent glow)* — unlimited clients/projects, full reports + PDF export, desktop app + mini-timer, kettle skins.

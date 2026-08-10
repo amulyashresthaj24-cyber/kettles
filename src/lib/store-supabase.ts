@@ -2,8 +2,20 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { api } from "./supabase";
-import type { Client, Project, Task, Session, Urgency, TaskStatus } from "./types";
+import { api, getAppOrigin, GoogleCalendarReconnectError } from "./supabase";
+import type {
+  Client,
+  GoogleCalendarConnection,
+  GoogleCalendarEvent,
+  Project,
+  Task,
+  Session,
+  Urgency,
+  TaskStatus,
+  UserPreferences,
+  UserProfile,
+  UserProfilePatch,
+} from "./types";
 import type {
   CreateReportShareInput,
   CreateReportShareResult,
@@ -18,6 +30,63 @@ import {
   findClientByNormalizedName,
   planProjectClientLink,
 } from "./clients";
+
+/**
+ * Single source of defaults. Previously the initial state and setPreferences
+ * each declared their own copy, and they had already drifted — setPreferences
+ * omitted alarmSound, so changing any preference silently dropped it.
+ */
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  /** 0 = open-ended (count up from zero). Only apply when user sets a real default. */
+  defaultFocusDuration: 0,
+  weeklyTargetHours: 40,
+  whistleSoundEnabled: true,
+  alarmSound: "kettle",
+  autoBreakEnabled: false,
+  autoPauseOnIdleEnabled: true,
+  activeMascot: "kettle",
+  mascotAnimationFrequency: "normal",
+  mascotDefaultAnimation: "waiting",
+  petBreakRemindersEnabled: false,
+  petBreakIntervalMinutes: 45,
+  petCustomRemindersEnabled: false,
+  petCustomReminders: [],
+  petNotesIntegrationEnabled: false,
+};
+
+/** Debounce window for preference writes (ms). */
+/**
+ * Where Google sends the user back after consent. Must appear verbatim in the
+ * edge function's GOOGLE_OAUTH_REDIRECT_URIS allowlist *and* in the Google
+ * Cloud console's authorised redirect URIs — Google compares it byte for byte.
+ *
+ * getAppOrigin() rather than window.location.origin: the Tauri desktop build
+ * runs on a tauri.localhost origin that Google will not accept as a redirect
+ * target, and getAppOrigin already resolves that to the public site URL for
+ * exactly this reason (see src/lib/supabase.ts).
+ */
+function googleCalendarRedirectUri(): string {
+  return `${getAppOrigin()}/settings/google-calendar/callback`;
+}
+
+const PREFERENCES_PUSH_DELAY = 800;
+
+let preferencesPushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function schedulePreferencesPush(run: () => void) {
+  cancelPreferencesPush();
+  preferencesPushTimer = setTimeout(() => {
+    preferencesPushTimer = null;
+    run();
+  }, PREFERENCES_PUSH_DELAY);
+}
+
+function cancelPreferencesPush() {
+  if (preferencesPushTimer) {
+    clearTimeout(preferencesPushTimer);
+    preferencesPushTimer = null;
+  }
+}
 
 type SyncEntity = "clients" | "projects" | "tasks" | "sessions";
 type SyncAction = "create" | "update" | "delete";
@@ -224,6 +293,9 @@ interface State {
   initialLoadComplete: boolean;
   reportShares: ReportShare[];
   reportSharesLoaded: boolean;
+  /** `user_profiles` row for the signed-in user. null = not loaded, or none yet. */
+  profile: UserProfile | null;
+  profileLoaded: boolean;
 
   // Actions
   setUser: (user: { name: string; email?: string } | null) => void;
@@ -319,27 +391,37 @@ interface State {
   rotateReportShareToken: (id: string) => Promise<CreateReportShareResult>;
   deleteReportShare: (id: string) => Promise<void>;
 
-  preferences?: {
-    defaultFocusDuration: number;
-    weeklyTargetHours?: number;
-    whistleSoundEnabled: boolean;
-    alarmSound?: string;
-    autoBreakEnabled: boolean;
-    autoPauseOnIdleEnabled: boolean;
-    /** "kettle" = default male mascot. "sprite2" is a legacy persisted alias for "female". */
-    activeMascot?: "kettle" | "sprite2" | "female";
-    /** How often the mascot plays a spontaneous idle gesture. */
-    mascotAnimationFrequency?: "off" | "calm" | "normal" | "lively";
-    /** Looping animation the mascot rests in (state name from pet.config.json). */
-    mascotDefaultAnimation?: string;
-    petBreakRemindersEnabled?: boolean;
-    petBreakIntervalMinutes?: number;
-    petCustomRemindersEnabled?: boolean;
-    /** days: 0 (Sun) – 6 (Sat); omitted/empty = every day. */
-    petCustomReminders?: Array<{ id: string; text: string; time: string; active: boolean; days?: number[] }>;
-    petNotesIntegrationEnabled?: boolean;
-  };
-  setPreferences: (patch: Partial<NonNullable<State["preferences"]>>) => void;
+  loadProfile: () => Promise<UserProfile | null>;
+  saveProfile: (patch: UserProfilePatch) => Promise<UserProfile>;
+
+  preferences?: UserPreferences;
+  /** Last local preference edit (ms). Compared against the server clock on load. */
+  preferencesUpdatedAt?: number;
+  /** Local edits not yet accepted by the server. Retried on next edit or load. */
+  preferencesDirty: boolean;
+  setPreferences: (patch: Partial<UserPreferences>) => void;
+  /** Push pending preferences now, bypassing the debounce. */
+  flushPreferences: () => Promise<void>;
+
+  /**
+   * Google Calendar overlay. Status is cheap and persisted to avoid a flash of
+   * "not connected"; events are view-window caches and stay in memory only.
+   */
+  googleCalendar?: GoogleCalendarConnection;
+  googleCalendarLoaded: boolean;
+  googleEvents: GoogleCalendarEvent[];
+  /** Window currently covered by `googleEvents` — skip refetch when the view is inside it. */
+  googleEventsRange?: { start: number; end: number };
+  googleEventsLoading: boolean;
+  googleCalendarError?: "reconnect_required" | "failed";
+
+  loadGoogleCalendarStatus: () => Promise<void>;
+  loadGoogleEvents: (startMs: number, endMs: number) => Promise<void>;
+  /** Returns the OAuth URL; the caller performs the redirect. */
+  connectGoogleCalendar: () => Promise<string>;
+  completeGoogleCalendarConnect: (code: string, state: string) => Promise<void>;
+  setGoogleCalendars: (ids: string[]) => Promise<void>;
+  disconnectGoogleCalendar: () => Promise<void>;
 }
 
 export const useApp = create<State>()(
@@ -360,44 +442,223 @@ persist((set, get) => ({
   initialLoadComplete: false,
   reportShares: [],
   reportSharesLoaded: false,
+  profile: null,
+  profileLoaded: false,
 
-  preferences: {
-    /** 0 = open-ended (count up from zero). Only apply when user sets a real default. */
-    defaultFocusDuration: 0,
-    weeklyTargetHours: 40,
-    whistleSoundEnabled: true,
-    alarmSound: "kettle",
-    autoBreakEnabled: false,
-    autoPauseOnIdleEnabled: true,
-    activeMascot: "kettle",
-    mascotAnimationFrequency: "normal",
-    mascotDefaultAnimation: "waiting",
-    petBreakRemindersEnabled: false,
-    petBreakIntervalMinutes: 45,
-    petCustomRemindersEnabled: false,
-    petCustomReminders: [],
-    petNotesIntegrationEnabled: false,
+  preferences: { ...DEFAULT_PREFERENCES },
+  preferencesUpdatedAt: undefined,
+  preferencesDirty: false,
+
+  googleCalendar: undefined,
+  googleCalendarLoaded: false,
+  googleEvents: [],
+  googleEventsRange: undefined,
+  googleEventsLoading: false,
+  googleCalendarError: undefined,
+
+  setPreferences: (patch) => {
+    set({
+      preferences: { ...DEFAULT_PREFERENCES, ...(get().preferences ?? {}), ...patch },
+      // Date.now() only has millisecond granularity. Two edits inside one tick
+      // would share a stamp, and flushPreferences' `> stamp` check would then
+      // clear the dirty flag for an edit it never pushed — a silently lost
+      // setting. Force the stamp strictly upward instead.
+      preferencesUpdatedAt: Math.max(Date.now(), (get().preferencesUpdatedAt ?? 0) + 1),
+      preferencesDirty: true,
+    });
+    // Settings fires this per keystroke (weekly target is a number input), so
+    // coalesce rather than issuing a write per character.
+    schedulePreferencesPush(() => {
+      void get().flushPreferences();
+    });
   },
 
-  setPreferences: (patch) => set({
-    preferences: {
-      defaultFocusDuration: 0,
-      weeklyTargetHours: 40,
-      whistleSoundEnabled: true,
-      autoBreakEnabled: false,
-      autoPauseOnIdleEnabled: true,
-      activeMascot: "kettle",
-      mascotAnimationFrequency: "normal",
-      mascotDefaultAnimation: "waiting",
-      petBreakRemindersEnabled: false,
-      petBreakIntervalMinutes: 45,
-      petCustomRemindersEnabled: false,
-      petCustomReminders: [],
-      petNotesIntegrationEnabled: false,
-      ...(get().preferences ?? {}),
-      ...patch,
+  flushPreferences: async () => {
+    cancelPreferencesPush();
+    if (!get().preferencesDirty) return;
+
+    const preferences = get().preferences;
+    if (!preferences) return;
+    const stamp = get().preferencesUpdatedAt ?? Date.now();
+
+    try {
+      const profile = await api.profile.upsert({
+        preferences,
+        preferencesUpdatedAt: stamp,
+      });
+      // Only clear the flag if no newer edit landed while the write was in
+      // flight — otherwise that edit would never be pushed.
+      set({
+        profile,
+        profileLoaded: true,
+        preferencesDirty: (get().preferencesUpdatedAt ?? 0) > stamp,
+      });
+    } catch (error) {
+      console.error("Failed to sync preferences:", error);
+      // Stays dirty. Retried on the next edit or the next loadProfile.
     }
-  }),
+  },
+
+  loadGoogleCalendarStatus: async () => {
+    try {
+      const connection = await api.googleCalendar.status();
+      // Revoked at Google still returns a status row — surface reconnect, not silence.
+      if (connection.revokedAt) {
+        set({
+          googleCalendar: connection,
+          googleCalendarLoaded: true,
+          googleCalendarError: "reconnect_required",
+          googleEvents: [],
+          googleEventsRange: undefined,
+        });
+      } else {
+        set({
+          googleCalendar: connection,
+          googleCalendarLoaded: true,
+          googleCalendarError: undefined,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to load Google Calendar status:", error);
+      // Always flip loaded so settings/calendar stop spinning on a dead endpoint.
+      if (error instanceof GoogleCalendarReconnectError) {
+        set({
+          googleCalendarLoaded: true,
+          googleCalendarError: "reconnect_required",
+          googleEvents: [],
+          googleEventsRange: undefined,
+        });
+      } else {
+        set({
+          googleCalendarLoaded: true,
+          googleCalendarError: "failed",
+        });
+      }
+    }
+  },
+
+  loadGoogleEvents: async (startMs, endMs) => {
+    const connection = get().googleCalendar;
+    // Calendar page mounts either way — never hit the API when not connected.
+    if (!connection?.connected) return;
+
+    const range = get().googleEventsRange;
+    // View changes re-render often; only fetch when the requested window is new
+    // or extends past what we already hold.
+    if (range && range.start <= startMs && range.end >= endMs) return;
+
+    set({ googleEventsLoading: true });
+    try {
+      const { events } = await api.googleCalendar.listEvents(startMs, endMs);
+      set({
+        googleEvents: events ?? [],
+        googleEventsRange: { start: startMs, end: endMs },
+        googleEventsLoading: false,
+        googleCalendarError: undefined,
+      });
+    } catch (error) {
+      console.error("Failed to load Google Calendar events:", error);
+      if (error instanceof GoogleCalendarReconnectError) {
+        set({
+          googleEvents: [],
+          googleEventsRange: undefined,
+          googleEventsLoading: false,
+          googleCalendarError: "reconnect_required",
+        });
+      } else {
+        set({
+          googleEventsLoading: false,
+          googleCalendarError: "failed",
+        });
+      }
+    }
+  },
+
+  connectGoogleCalendar: async () => {
+    try {
+      const { url } = await api.googleCalendar.authUrl(googleCalendarRedirectUri());
+      return url;
+    } catch (error) {
+      console.error("Failed to get Google Calendar auth URL:", error);
+      set({ googleCalendarError: "failed" });
+      // Empty string: caller must not redirect; outage must not throw into the app shell.
+      return "";
+    }
+  },
+
+  completeGoogleCalendarConnect: async (code, state) => {
+    try {
+      const connection = await api.googleCalendar.completeConnect(
+        code,
+        state,
+        googleCalendarRedirectUri()
+      );
+      set({
+        googleCalendar: connection,
+        googleCalendarLoaded: true,
+        googleCalendarError: undefined,
+        // Fresh link — any pre-connect event cache is meaningless.
+        googleEvents: [],
+        googleEventsRange: undefined,
+      });
+    } catch (error) {
+      console.error("Failed to complete Google Calendar connect:", error);
+      if (error instanceof GoogleCalendarReconnectError) {
+        set({ googleCalendarError: "reconnect_required" });
+      } else {
+        set({ googleCalendarError: "failed" });
+      }
+    }
+  },
+
+  setGoogleCalendars: async (ids) => {
+    try {
+      const connection = await api.googleCalendar.setSelectedCalendars(ids);
+      set({
+        googleCalendar: connection,
+        googleCalendarError: undefined,
+        // Selection changed — cached events may be from calendars no longer selected.
+        googleEvents: [],
+        googleEventsRange: undefined,
+      });
+    } catch (error) {
+      console.error("Failed to update Google Calendar selection:", error);
+      if (error instanceof GoogleCalendarReconnectError) {
+        set({
+          googleCalendarError: "reconnect_required",
+          googleEvents: [],
+          googleEventsRange: undefined,
+        });
+      } else {
+        set({ googleCalendarError: "failed" });
+      }
+    }
+  },
+
+  disconnectGoogleCalendar: async () => {
+    try {
+      await api.googleCalendar.disconnect();
+      set({
+        googleCalendar: { connected: false, selectedCalendarIds: [] },
+        googleCalendarLoaded: true,
+        googleEvents: [],
+        googleEventsRange: undefined,
+        googleEventsLoading: false,
+        googleCalendarError: undefined,
+      });
+    } catch (error) {
+      console.error("Failed to disconnect Google Calendar:", error);
+      // Still clear local state — the user asked to disconnect; a flaky DELETE
+      // must not leave the UI looking connected.
+      set({
+        googleCalendar: { connected: false, selectedCalendarIds: [] },
+        googleEvents: [],
+        googleEventsRange: undefined,
+        googleEventsLoading: false,
+        googleCalendarError: "failed",
+      });
+    }
+  },
 
   setUser: (user) => set({ user }),
 
@@ -1479,6 +1740,11 @@ persist((set, get) => ({
         console.warn("Sync flush before loadAll failed:", error);
       }
 
+      // Profile carries preferences, which must reconcile on every sign-in so
+      // settings follow the user across devices. Kept off the destructured
+      // results because loadProfile handles its own failure and returns null.
+      void get().loadProfile();
+
       const [clientsResult, projectsResult, tasksResult, sessionsResult] = await Promise.all([
         api.clients.list(),
         api.projects.list(),
@@ -1646,6 +1912,63 @@ persist((set, get) => ({
     await api.reportShares.delete(id);
     set({ reportShares: get().reportShares.filter((s) => s.id !== id) });
   },
+
+  loadProfile: async () => {
+    try {
+      const profile = await api.profile.get();
+      set({ profile, profileLoaded: true });
+
+      // Reconcile preferences. localStorage stays the synchronous source so the
+      // timer has a value on first paint; the server only overrides it when it
+      // is genuinely newer. Whole-object last-write-wins: an offline edit on one
+      // device loses to a later edit on another. Acceptable for alarm sounds and
+      // mascot settings; it would not be for time entries.
+      const remoteAt = profile?.preferencesUpdatedAt ?? 0;
+      const localAt = get().preferencesUpdatedAt ?? 0;
+
+      if (profile?.preferences && remoteAt > localAt) {
+        set({
+          preferences: { ...DEFAULT_PREFERENCES, ...profile.preferences },
+          preferencesUpdatedAt: remoteAt,
+          preferencesDirty: false,
+        });
+      } else if (get().preferencesDirty || localAt > remoteAt) {
+        // Local is ahead, or an earlier push failed. Retry now.
+        void get().flushPreferences();
+      }
+
+      return profile;
+    } catch (error) {
+      console.error("Failed to load profile:", error);
+      // profileLoaded stays false so callers can tell "no profile yet" (null)
+      // apart from "we could not find out" and avoid acting on a failed read.
+      return null;
+    }
+  },
+
+  saveProfile: async (patch) => {
+    // A caller that writes preferences directly (onboarding) satisfies any
+    // pending push. Cancel it *before* the await: a debounced flush firing
+    // mid-write is a second in-flight upsert, and whichever lands last wins on
+    // the server regardless of which carried the newer values.
+    const writesPreferences = patch.preferences !== undefined;
+    const stamp = patch.preferencesUpdatedAt ?? Date.now();
+    if (writesPreferences) cancelPreferencesPush();
+
+    const profile = await api.profile.upsert(patch);
+    set({ profile, profileLoaded: true });
+
+    if (writesPreferences) {
+      cancelPreferencesPush();
+      set({
+        preferencesUpdatedAt: Math.max(get().preferencesUpdatedAt ?? 0, stamp),
+        // Only clear the flag if no newer edit landed while this write was in
+        // flight — same guard as flushPreferences, or that edit never ships.
+        preferencesDirty: (get().preferencesUpdatedAt ?? 0) > stamp,
+      });
+    }
+    return profile;
+  },
 }), {
   name: "flowmate-supabase-session-store",
   partialize: (state) => ({
@@ -1655,6 +1978,13 @@ persist((set, get) => ({
     sessions: state.sessions,
     activeSessionId: state.activeSessionId,
     preferences: state.preferences,
+    // Both are needed to reconcile after a restart: without them an offline
+    // edit looks older than the server and gets silently overwritten on load.
+    preferencesUpdatedAt: state.preferencesUpdatedAt,
+    preferencesDirty: state.preferencesDirty,
+    // Cheap connection status only — avoids a flash of "not connected" on load.
+    // Events go stale per view window and are re-fetched, so they stay out.
+    googleCalendar: state.googleCalendar,
   }),
   onRehydrateStorage: () => (state) => {
     if (!state) return;

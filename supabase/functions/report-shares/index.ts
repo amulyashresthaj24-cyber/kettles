@@ -900,8 +900,8 @@ serve(async (req) => {
       let password_salt: string | null = null;
       let password_iters: number | null = null;
       if (typeof body.password === 'string' && body.password.length > 0) {
-        if (body.password.length < 4 || body.password.length > 128) {
-          return err(400, 'validation_error', 'Password must be 4–128 characters');
+        if (body.password.length < 8 || body.password.length > 128) {
+          return err(400, 'validation_error', 'Password must be 8–128 characters');
         }
         const hashed = await hashPassword(body.password);
         password_hash = hashed.hash;
@@ -1028,8 +1028,8 @@ serve(async (req) => {
         update.password_salt = null;
         update.password_iters = null;
       } else if (typeof body.password === 'string' && body.password.length > 0) {
-        if (body.password.length < 4 || body.password.length > 128) {
-          return err(400, 'validation_error', 'Password must be 4–128 characters');
+        if (body.password.length < 8 || body.password.length > 128) {
+          return err(400, 'validation_error', 'Password must be 8–128 characters');
         }
         const hashed = await hashPassword(body.password);
         update.password_hash = hashed.hash;

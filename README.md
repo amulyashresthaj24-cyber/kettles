@@ -27,7 +27,7 @@ Flowmate combines project management, task tracking, and time tracking into a un
 - **Backend:** Supabase (PostgreSQL, Edge Functions)
 - **State:** Zustand
 - **UI:** Custom components + shadcn patterns
-- **Icons:** Lucide React
+- **Icons:** Custom SVG components in `src/components/ui/icon.tsx` (no external icon library)
 
 ## Documentation
 
@@ -35,11 +35,12 @@ All documentation is organized in the [`Docs/`](./Docs/) folder:
 
 | Category | Documents |
 |----------|-----------|
-| **Getting Started** | [Overview](./Docs/CODEBASE_OVERVIEW.md), [Structure](./Docs/CODEBASE_STRUCTURE.md), [Guide](./Docs/CLAUDE.md) |
+| **Getting Started** | [Guide](./CLAUDE.md), [Doc map](./Docs/CODEBASE_OVERVIEW.md), [Folder Guide](./Docs/folder-guide.md) |
 | **Folder Direction** | [Folder Guide](./Docs/folder-guide.md) |
 | **Backend** | [Supabase Setup](./Docs/SUPABASE_QUICKSTART.md), [Migration](./Docs/SUPABASE_MIGRATION_GUIDE.md), [Deploy](./Docs/DEPLOYMENT_GUIDE.md) |
 | **Design** | [Visual System](./Docs/design.md), [Screens](./Docs/screens.md), [Database](./Docs/database.md) |
 | **Architecture** | [Layout v2](./Docs/LAYOUT_ARCHITECTURE_V2.md), [Redesigns](./Docs/REDESIGN_SUMMARY.md) |
+| **Chrome extension** | [Scope, limits, and how it differs from the app](./extension/README.md) |
 
 **→ [View Full Documentation Index](./Docs/INDEX.md)**
 

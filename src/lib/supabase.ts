@@ -1,5 +1,16 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Client, Project, Session, Task } from './types';
+import type {
+  Client,
+  GoogleCalendarConnection,
+  GoogleCalendarEvent,
+  GoogleCalendarListEntry,
+  Project,
+  Session,
+  Task,
+  UserPreferences,
+  UserProfile,
+  UserProfilePatch,
+} from './types';
 import type {
   CreateReportShareInput,
   CreateReportShareResult,
@@ -10,6 +21,18 @@ import type {
   UpdateReportShareInput,
 } from './report/share-types';
 import { SharedReportError } from './report/share-types';
+
+/**
+ * Google revoked access (edge returns 409 `{ error: 'reconnect_required' }`).
+ * Distinct from generic failures so the store/UI can offer "Reconnect" rather
+ * than a dead empty overlay.
+ */
+export class GoogleCalendarReconnectError extends Error {
+  constructor(message = 'reconnect_required') {
+    super(message);
+    this.name = 'GoogleCalendarReconnectError';
+  }
+}
 
 let supabase: SupabaseClient | null = null;
 
@@ -178,14 +201,125 @@ async function edgeFunction<T = unknown>(path: string, options: RequestInit = {}
     if (response.status === 401 || text.includes("Missing authorization") || text.includes("Unauthorized")) {
       throw new Error("Please sign in to continue");
     }
+    // Google Calendar: user revoked access at Google — typed so callers branch.
+    if (response.status === 409 && message === 'reconnect_required') {
+      throw new GoogleCalendarReconnectError();
+    }
     throw new Error(message);
   }
 
   return response.json() as Promise<T>;
 }
 
+type UserProfileRow = {
+  user_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  preferences: Partial<UserPreferences> | null;
+  preferences_updated_at: string | null;
+  onboarding_completed: boolean | null;
+  onboarding_completed_at: string | null;
+};
+
+/** Parse a timestamptz to epoch ms, or undefined when absent/unparseable. */
+function parseTimestamp(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const ms = Date.parse(value);
+  return Number.isNaN(ms) ? undefined : ms;
+}
+
+function mapUserProfile(row: UserProfileRow): UserProfile {
+  // Postgres defaults the column to '{}', so an untouched profile arrives as an
+  // empty object rather than null. Treat both as "nothing saved yet".
+  const preferences =
+    row.preferences && Object.keys(row.preferences).length > 0
+      ? row.preferences
+      : undefined;
+
+  return {
+    userId: row.user_id,
+    fullName: row.full_name ?? undefined,
+    avatarUrl: row.avatar_url ?? undefined,
+    preferences,
+    preferencesUpdatedAt: parseTimestamp(row.preferences_updated_at),
+    onboardingCompleted: row.onboarding_completed === true,
+    onboardingCompletedAt: parseTimestamp(row.onboarding_completed_at),
+  };
+}
+
+const USER_PROFILE_COLUMNS =
+  'user_id, full_name, avatar_url, preferences, preferences_updated_at, onboarding_completed, onboarding_completed_at';
+
+async function requireUserId() {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  if (!data.user) throw new Error('Please sign in to continue');
+  return data.user.id;
+}
+
 // API Clients for all entities
 export const api = {
+  /**
+   * Profiles go straight to the table under RLS ("Users can CRUD own profile")
+   * rather than through an edge function — there is no user-profiles function
+   * deployed, and a profile read/write never crosses a user boundary. Callers
+   * should still come via the store, not components.
+   */
+  profile: {
+    get: async (): Promise<UserProfile | null> => {
+      const supabase = getSupabaseClient();
+      const userId = await requireUserId();
+
+      // maybeSingle(): a user with no profile yet is a normal state, not an error.
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select(USER_PROFILE_COLUMNS)
+        .eq('user_id', userId)
+        .maybeSingle<UserProfileRow>();
+
+      if (error) throw error;
+      return data ? mapUserProfile(data) : null;
+    },
+
+    upsert: async (patch: UserProfilePatch): Promise<UserProfile> => {
+      const supabase = getSupabaseClient();
+      const userId = await requireUserId();
+
+      const row: Record<string, unknown> = {
+        user_id: userId,
+        updated_at: new Date().toISOString(),
+      };
+      if (patch.fullName !== undefined) row.full_name = patch.fullName;
+      if (patch.avatarUrl !== undefined) row.avatar_url = patch.avatarUrl;
+      if (patch.preferences !== undefined) {
+        row.preferences = patch.preferences;
+        // Always stamp the clock alongside the blob — an unstamped write would
+        // lose every cross-device comparison against a stamped one.
+        row.preferences_updated_at = new Date(
+          patch.preferencesUpdatedAt ?? Date.now()
+        ).toISOString();
+      }
+      if (patch.onboardingCompleted !== undefined) {
+        row.onboarding_completed = patch.onboardingCompleted;
+      }
+      if (patch.onboardingCompletedAt !== undefined) {
+        row.onboarding_completed_at = new Date(patch.onboardingCompletedAt).toISOString();
+      }
+
+      // onConflict: "user_id" is required — without it PostgREST targets the
+      // primary key, which is generated per insert and therefore never conflicts,
+      // so every call would append a duplicate row.
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .upsert(row, { onConflict: 'user_id' })
+        .select(USER_PROFILE_COLUMNS)
+        .single<UserProfileRow>();
+
+      if (error) throw error;
+      return mapUserProfile(data);
+    },
+  },
   clients: {
     list: () => edgeFunction<{ clients: Client[] }>('clients'),
     get: (id: string) => edgeFunction<Client>(`clients/${id}`),
@@ -253,6 +387,47 @@ export const api = {
       }),
     delete: (id: string) =>
       edgeFunction<{ success: boolean }>(`report-shares/${id}`, { method: 'DELETE' }),
+  },
+  /**
+   * Google Calendar OAuth + read-only overlay. Tokens never leave the edge
+   * function; the client only sees connection status, calendar list, and events.
+   */
+  googleCalendar: {
+    status: () => edgeFunction<GoogleCalendarConnection>('google-calendar/status'),
+    // redirectUri must be one of GOOGLE_OAUTH_REDIRECT_URIS on the function, and
+    // the same value must come back on completeConnect — Google compares them
+    // byte for byte on the token exchange. Derived from the live origin so
+    // localhost and production each get their own without a config swap.
+    authUrl: (redirectUri: string) => {
+      const params = new URLSearchParams({ redirectUri });
+      return edgeFunction<{ url: string }>(`google-calendar/auth-url?${params.toString()}`);
+    },
+    // `state` is not optional: /auth-url sets it to the user's id and the edge
+    // function rejects the callback with 400 unless it matches. That check is
+    // the CSRF defence for the connect flow — pass Google's state back verbatim.
+    completeConnect: (code: string, state: string, redirectUri: string) =>
+      edgeFunction<GoogleCalendarConnection>('google-calendar/callback', {
+        method: 'POST',
+        body: JSON.stringify({ code, state, redirectUri }),
+      }),
+    listCalendars: () =>
+      edgeFunction<{ calendars: GoogleCalendarListEntry[] }>('google-calendar/calendars'),
+    setSelectedCalendars: (ids: string[]) =>
+      edgeFunction<GoogleCalendarConnection>('google-calendar/calendars', {
+        method: 'PUT',
+        body: JSON.stringify({ selectedCalendarIds: ids }),
+      }),
+    listEvents: (timeMinMs: number, timeMaxMs: number) => {
+      const params = new URLSearchParams({
+        timeMin: new Date(timeMinMs).toISOString(),
+        timeMax: new Date(timeMaxMs).toISOString(),
+      });
+      return edgeFunction<{ events: GoogleCalendarEvent[] }>(
+        `google-calendar/events?${params.toString()}`
+      );
+    },
+    disconnect: () =>
+      edgeFunction<{ connected: false }>('google-calendar', { method: 'DELETE' }),
   },
 };
 

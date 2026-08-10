@@ -8,7 +8,8 @@ Complete guide to all documentation files organized by purpose.
 
 ### 🚀 Getting Started
 - **[README.md](../README.md)** — Project overview and quick setup
-- **[CODEBASE_OVERVIEW.md](CODEBASE_OVERVIEW.md)** — High-level architecture and tech stack
+- **[../CLAUDE.md](../CLAUDE.md)** — Stack, key files, routes, store API, conventions (canonical)
+- **[CODEBASE_OVERVIEW.md](CODEBASE_OVERVIEW.md)** — Map of which doc answers which question
 - **[CODEBASE_STRUCTURE.md](CODEBASE_STRUCTURE.md)** — Detailed folder structure and file organization
 - **[folder-guide.md](Docs/folder-guide.md)** — Current active folders, future app/package direction, and AI prompt guide
 
@@ -107,7 +108,7 @@ Docs/
 
 | File | Purpose | Audience | Last Updated |
 |------|---------|----------|--------------|
-| **CODEBASE_OVERVIEW.md** | Tech stack, cleanup notes, architecture | All | Latest |
+| **CODEBASE_OVERVIEW.md** | Doc map — points at the canonical source per topic | All | 2026-08-07 |
 | **CODEBASE_STRUCTURE.md** | Complete folder structure and navigation | Developers, AI | Latest |
 | **CLAUDE.md** | FlowMast system overview and development guide | Developers | Active |
 | **SUPABASE_QUICKSTART.md** | Quick Supabase reference | Backend Devs | Active |

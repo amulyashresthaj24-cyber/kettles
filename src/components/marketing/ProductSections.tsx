@@ -12,6 +12,7 @@
 
 import Image from "next/image";
 import { ContainerScroll } from "@/components/ui/container-scroll-animation";
+import { CalendarGridArt, ReportSparkArt } from "@/components/marketing/art";
 import {
   CaretRight,
   Export,
@@ -194,9 +195,9 @@ export function DeepDiveFeatures() {
             </span>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Chip>256-bit AES</Chip>
-            <Chip>GDPR</Chip>
-            <Chip>SOC 2 Type II</Chip>
+            <Chip>Encrypted in transit</Chip>
+            <Chip>You own your data</Chip>
+            <Chip>No screenshots</Chip>
           </div>
         </FeatureCard>
 
@@ -275,31 +276,35 @@ export function DeepDiveFeatures() {
    ========================================================================= */
 export function WorkflowPreview() {
   return (
-    <section className="relative -my-20 overflow-hidden md:-my-32">
-      <ContainerScroll
-        titleComponent={
-          <div className="mx-auto mb-2 max-w-[740px] px-6 text-center">
-            <h2 className="k-reveal text-[clamp(28px,3.4vw,42px)] font-semibold tracking-[-0.03em] text-[var(--k-ink)]">
-              The whole day, in one calm view.
-            </h2>
-            <p className="k-reveal mx-auto mt-5 max-w-[56ch] text-[18px] text-[var(--k-muted)]">
-              This is the actual dashboard — tasks, brews, and billing already agreeing with each other.
-            </p>
-          </div>
-        }
-      >
-        {/* the app — real screenshot, filled data, tilting up as you scroll */}
-        <Image
-          src="/images/dashboard-shot.png"
-          alt="Kettles dashboard — stats, today's tasks, work log, and project breakdown"
-          width={2507}
-          height={1343}
-          className="mx-auto h-full w-full object-cover object-left-top"
-          draggable={false}
-          loading="lazy"
-          sizes="(max-width: 768px) 100vw, 1424px"
-        />
-      </ContainerScroll>
+    <section className="relative isolate -my-20 overflow-hidden md:-my-32">
+      <ReportSparkArt className="k-workflow-art k-workflow-art--report" />
+      <CalendarGridArt className="k-workflow-art k-workflow-art--calendar" />
+      <div className="relative z-10">
+        <ContainerScroll
+          titleComponent={
+            <div className="mx-auto mb-2 max-w-[740px] px-6 text-center">
+              <h2 className="k-reveal text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">
+                The whole day, in one calm view.
+              </h2>
+              <p className="k-reveal mx-auto mt-5 max-w-[56ch] text-[17px] leading-relaxed text-[var(--k-muted)]">
+                This is the actual dashboard — tasks, brews, and billing already agreeing with each other.
+              </p>
+            </div>
+          }
+        >
+          {/* the app — real screenshot, filled data, tilting up as you scroll */}
+          <Image
+            src="/images/dashboard-shot.png"
+            alt="Kettles dashboard — stats, today's tasks, work log, and project breakdown"
+            width={2507}
+            height={1343}
+            className="mx-auto h-full w-full object-cover object-left-top"
+            draggable={false}
+            loading="lazy"
+            sizes="(max-width: 768px) 100vw, 1424px"
+          />
+        </ContainerScroll>
+      </div>
     </section>
   );
 }

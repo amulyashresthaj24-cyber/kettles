@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useApp } from "@/lib/store-supabase";
-import { getSupabaseClient } from "@/lib/supabase";
 import {
   CaretRight,
   CaretLeft,
@@ -28,8 +27,7 @@ interface OnboardingData {
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { addProject, addTask } = useApp();
-  const supabase = getSupabaseClient();
+  const { addProject, addTask, loadProfile, saveProfile, setPreferences } = useApp();
 
   const [step, setStep] = useState<Step>("profile");
   const [data, setData] = useState<OnboardingData>({
@@ -55,23 +53,16 @@ export default function OnboardingPage() {
   useEffect(() => {
     const checkOnboarding = async () => {
       if (!user) return;
-      try {
-        const { data: profile } = await supabase
-          .from("user_profiles")
-          .select("onboarding_completed")
-          .eq("user_id", user.id)
-          .single();
-
-        if (profile?.onboarding_completed) {
-          router.replace("/dashboard");
-        }
-      } catch {
-        // Profile might not exist yet; onboarding can continue normally.
+      // Returns null when there is no profile yet or the read failed — either
+      // way, fall through and let the user onboard rather than blocking them.
+      const profile = await loadProfile();
+      if (profile?.onboardingCompleted) {
+        router.replace("/dashboard");
       }
     };
 
     checkOnboarding();
-  }, [user, supabase, router]);
+  }, [user, router, loadProfile]);
 
   const validateStep = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -106,24 +97,16 @@ export default function OnboardingPage() {
 
     try {
       if (step === "profile") {
-        // Save profile data
-        const { error: profileError } = await supabase
-          .from("user_profiles")
-          .upsert({
-            user_id: user?.id,
-            full_name: data.fullName,
-            avatar_url: data.avatarUrl,
-            updated_at: new Date().toISOString(),
-          });
-
-        if (profileError) throw profileError;
+        await saveProfile({
+          fullName: data.fullName,
+          avatarUrl: data.avatarUrl,
+        });
         setStep("project");
       } else if (step === "project") {
         setStep("task");
       } else if (step === "task") {
         setStep("preference");
       } else if (step === "preference") {
-        // Save all data and mark onboarding as complete
         await saveOnboarding();
         setStep("complete");
       }
@@ -136,7 +119,6 @@ export default function OnboardingPage() {
 
   const saveOnboarding = async () => {
     try {
-      // Create project
       const project = await addProject({
         name: data.projectName,
         description: "",
@@ -145,7 +127,6 @@ export default function OnboardingPage() {
         billable: false,
       });
 
-      // Create task
       await addTask({
         title: data.taskTitle,
         projectId: project.id,
@@ -153,20 +134,20 @@ export default function OnboardingPage() {
         description: "",
       });
 
-      // Save preference and mark onboarding complete
-      const { error: profileError } = await supabase
-        .from("user_profiles")
-        .upsert({
-          user_id: user?.id,
-          full_name: data.fullName,
-          avatar_url: data.avatarUrl,
-          default_focus_duration: data.focusDuration,
-          onboarding_completed: true,
-          onboarding_completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
+      // Apply locally first so the timer picks the choice up immediately, then
+      // write the merged blob in the same request as the onboarding flags —
+      // going through setPreferences alone would leave it to the debounce.
+      setPreferences({ defaultFocusDuration: data.focusDuration });
+      const now = Date.now();
 
-      if (profileError) throw profileError;
+      await saveProfile({
+        fullName: data.fullName,
+        avatarUrl: data.avatarUrl,
+        preferences: useApp.getState().preferences,
+        preferencesUpdatedAt: now,
+        onboardingCompleted: true,
+        onboardingCompletedAt: now,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save onboarding");
       throw err;

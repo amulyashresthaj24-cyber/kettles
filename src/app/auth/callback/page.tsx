@@ -18,8 +18,14 @@ function AuthCallbackContent() {
         const code = searchParams.get("code");
 
         if (!code) {
+          // Already signed in (e.g. refresh) — still go to the app, not marketing home.
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            router.replace("/dashboard");
+            return;
+          }
           console.error("No auth code found in URL");
-          router.push("/auth?error=no_auth_code");
+          router.replace("/auth?error=no_auth_code");
           return;
         }
 
@@ -28,21 +34,21 @@ function AuthCallbackContent() {
 
         if (error) {
           console.error("Auth callback error:", error);
-          router.push("/auth?error=" + encodeURIComponent(error.message));
+          router.replace("/auth?error=" + encodeURIComponent(error.message));
           return;
         }
 
         if (data.session) {
-          // Session established successfully
-          router.push("/dashboard");
+          // App home is /dashboard — never the marketing landing at /
+          router.replace("/dashboard");
         } else {
           // No session despite successful exchange
           console.warn("Auth callback: No session returned from exchangeCodeForSession");
-          router.push("/auth");
+          router.replace("/auth?error=no_session");
         }
       } catch (err) {
         console.error("Auth callback exception:", err);
-        router.push("/auth?error=authentication_failed");
+        router.replace("/auth?error=authentication_failed");
       }
     };
 
@@ -51,7 +57,7 @@ function AuthCallbackContent() {
 
   return (
     <div className="flex h-screen items-center justify-center bg-base">
-      <KettleLoader message="Confirming your email..." />
+      <KettleLoader message="Signing you in..." />
     </div>
   );
 }
@@ -60,7 +66,7 @@ export default function AuthCallbackPage() {
   return (
     <Suspense fallback={
       <div className="flex h-screen items-center justify-center bg-base">
-        <KettleLoader message="Confirming your email..." />
+        <KettleLoader message="Signing you in..." />
       </div>
     }>
       <AuthCallbackContent />

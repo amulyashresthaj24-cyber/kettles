@@ -130,6 +130,15 @@ export function ShareReportDialog({
   const chips = filterSummary(filters, projects, clients);
 
   const handleCreate = async () => {
+    const trimmedPassword = password.trim();
+    if (trimmedPassword && (trimmedPassword.length < 8 || trimmedPassword.length > 128)) {
+      notify({
+        title: "Password too short",
+        description: "Share passwords must be 8–128 characters, or leave blank for link-only access.",
+        tone: "error",
+      });
+      return;
+    }
     setBusy(true);
     try {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -148,7 +157,7 @@ export function ShareReportDialog({
           defaultPeriodKey: periodKey,
         },
         timezone,
-        password: password.trim() || undefined,
+        password: trimmedPassword || undefined,
         expiresAt: expiryMs(expiry),
       });
       // Always build from the public web origin — never trust Origin from Tauri.
@@ -311,7 +320,8 @@ export function ShareReportDialog({
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="w-full rounded-md border border-border bg-surface-mid/40 pl-9 pr-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent"
-                      placeholder="Leave blank for link-only access"
+                      placeholder="Optional · min 8 characters"
+                      minLength={8}
                       maxLength={128}
                       autoComplete="new-password"
                     />

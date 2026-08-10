@@ -248,17 +248,27 @@ body {
 
 /* ===================== speech bubble ====================================== */
 
-/* Pet messages (reminders, "time to focus", break nudges). Sized by content —
- * width: max-content grows with short lines, max-width wraps long ones. While
- * visible the timer card fades back so the two never overlap in the small
- * overlay window (shell[data-speaking] drives the swap). */
-.speech {
+/* A short stack keeps separate chat, reminder, and break lifetimes intact.
+ * The newest item remains nearest to the mascot; only it owns the tail. */
+.speech-stack {
   position: absolute;
   bottom: calc(var(--mascot-height, 128px) + 16px);
   left: 50%;
+  width: min(225px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 8px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 6;
+}
+
+.speech {
+  position: relative;
   margin: 0;
   width: max-content;
-  max-width: 225px;
+  max-width: 100%;
   padding: 8px 13px;
   font-family: var(--font);
   font-size: 12.5px;
@@ -275,15 +285,14 @@ body {
   backdrop-filter: blur(16px) saturate(1.2);
   -webkit-backdrop-filter: blur(16px) saturate(1.2);
   pointer-events: none;
-  z-index: 6;
-  opacity: 0;
-  transform: translateX(-50%) translateY(5px) scale(0.92);
+  opacity: 1;
+  transform: translateY(0) scale(1);
   transform-origin: 50% 100%;
-  transition: opacity 0.22s ease, transform 0.3s var(--ease-spring);
+  animation: speech-in 0.3s var(--ease-spring) both;
 }
 
 /* Little tail pointing down at the mascot. */
-.speech::after {
+.speech-stack .speech:last-child::after {
   content: "";
   position: absolute;
   top: 100%;
@@ -294,9 +303,9 @@ body {
   border-bottom: none;
 }
 
-.shell[data-speaking="true"] .speech {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0) scale(1);
+@keyframes speech-in {
+  from { opacity: 0; transform: translateY(5px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* Reminder/break bubbles look distinct from ambient chatter: an icon prefix
@@ -304,13 +313,13 @@ body {
 .speech[data-kind="break"] {
   border-color: rgba(245, 177, 76, 0.5);
 }
-.speech[data-kind="break"] #speechText::before {
+.speech[data-kind="break"] .speech-text::before {
   content: "⏰ ";
 }
 .speech[data-kind="reminder"] {
   border-color: rgba(51, 133, 255, 0.5);
 }
-.speech[data-kind="reminder"] #speechText::before {
+.speech[data-kind="reminder"] .speech-text::before {
   content: "🔔 ";
 }
 
@@ -323,8 +332,6 @@ body {
   margin-top: 7px;
   pointer-events: auto;
 }
-
-.speech-actions[hidden] { display: none; }
 
 .speech-actions .speech-btn {
   flex: 0 0 auto;

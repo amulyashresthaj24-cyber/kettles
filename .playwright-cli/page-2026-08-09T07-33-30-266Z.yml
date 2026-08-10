@@ -1,0 +1,5 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - button "Hide timer" [ref=e4] [cursor=pointer]
+    - paragraph [ref=e6]: Ready to focus
+    - paragraph [ref=e7]: 00:00:00
