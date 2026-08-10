@@ -50,9 +50,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthPage = pathname ? pathname.startsWith("/auth") : false;
   const isOnboardingPage = pathname === "/onboarding";
   const isMiniTimerPage = pathname === "/mini-timer";
-  // Public marketing pages (landing, etc) render outside the app chrome and
-  // are not auth-guarded. Keep this list in sync with src/app/(marketing).
-  const isMarketingPage = pathname === "/";
+  // Public marketing pages (landing, legal, etc) render outside the app chrome
+  // and are not auth-guarded. Keep this list in sync with src/app/(marketing).
+  const isLandingPage = pathname === "/";
+  const isLegalPage = pathname ? pathname.startsWith("/legal") : false;
+  const isMarketingPage = isLandingPage || isLegalPage;
   const isSharePage = pathname ? pathname.startsWith("/share") : false;
   const isPublicPage = isMarketingPage || isSharePage;
   // The desktop app has no use for the public landing page — go straight to
@@ -113,17 +115,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router, isAuthPage, isOnboardingPage, isPublicPage]);
 
-  // Desktop app skips the landing page entirely → sign in (or dashboard).
+  // Desktop app skips the public landing page entirely → sign in (or dashboard).
+  // Legal pages stay reachable (e.g. from auth "Terms" links).
   useEffect(() => {
-    if (isDesktopApp && isMarketingPage && !loading) {
+    if (isDesktopApp && isLandingPage && !loading) {
       router.replace(user ? "/dashboard" : "/auth");
     }
-  }, [isDesktopApp, isMarketingPage, loading, user, router]);
+  }, [isDesktopApp, isLandingPage, loading, user, router]);
 
   // Public marketing / share pages bypass the app chrome and auth guard entirely —
   // except on desktop landing, where we show the loader while redirecting off it.
   if (isMarketingPage) {
-    if (isDesktopApp) {
+    if (isDesktopApp && isLandingPage) {
       return (
         <div className="flex h-screen flex-col items-center justify-center bg-base">
           <KettleLoader message="Loading your workspace..." />
