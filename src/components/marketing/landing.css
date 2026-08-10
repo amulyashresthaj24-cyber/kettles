@@ -39,6 +39,12 @@
   --k-hairline:     rgba(255,255,255,0.06); /* border-white/5 */
   --k-hairline2:    rgba(255,255,255,0.10); /* border-white/10 */
 
+  /* Standardized rhythm & surface scale tokens */
+  --k-section-py:   120px;
+  --k-strip-py:     64px;
+  --k-radius-card:  24px;
+  --k-radius-inner: 16px;
+
   background: linear-gradient(180deg, var(--card-gradient-start) 0%, var(--card-gradient-mid) 50%, var(--k-bg) 100%);
   color: var(--k-ink);
   font-family: "Urbanist", var(--font-urbanist), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -62,6 +68,73 @@
 .k-press { transition: transform .12s var(--k-ease), box-shadow .24s var(--k-ease), background .2s var(--k-ease), border-color .2s var(--k-ease); }
 .k-press:active { transform: translateY(0) scale(.97); }
 .k-magnet { transform: translate(calc(var(--mx,0) * 1px), calc(var(--my,0) * 1px)); transition: transform .25s var(--k-ease); }
+
+/* ---------- landing vector art integration ---------- */
+.k-hero-backdrop {
+  opacity: .46;
+}
+
+.k-hero-steam {
+  opacity: .34;
+}
+
+.k-step-art {
+  opacity: .18;
+  transition: opacity var(--motion-slow) var(--ease-out), transform var(--motion-slow) var(--ease-out);
+}
+
+.group:hover .k-step-art {
+  opacity: .26;
+  transform: translateY(-3px);
+}
+
+.k-workflow-art {
+  position: absolute;
+  z-index: 0;
+  width: clamp(11rem, 28vw, 23rem);
+  max-width: 72vw;
+  opacity: .22;
+  pointer-events: none;
+}
+
+.k-workflow-art--report {
+  inset-inline-start: clamp(-5rem, -4vw, -2rem);
+  top: 20%;
+}
+
+.k-workflow-art--calendar {
+  inset-inline-end: clamp(-5rem, -4vw, -2rem);
+  top: 34%;
+}
+
+@media (min-width: 1024px) {
+  .k-workflow-art {
+    opacity: .34;
+  }
+
+  .k-workflow-art--report {
+    inset-inline-start: max(1rem, calc(50% - 46rem));
+  }
+
+  .k-workflow-art--calendar {
+    inset-inline-end: max(1rem, calc(50% - 46rem));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .k-hero-steam .steam-motif__curl {
+    animation: k-landing-steam-drift 5s var(--ease-standard) infinite alternate;
+  }
+
+  .k-hero-steam .steam-motif__curl--right {
+    animation-delay: -2.5s;
+  }
+}
+
+@keyframes k-landing-steam-drift {
+  from { opacity: .58; transform: translateY(2px) scaleX(.99); }
+  to { opacity: .92; transform: translateY(-2px) scaleX(1.01); }
+}
 
 /* ---------- sheen sweep on primary CTAs ---------- */
 .k-sheen { position: relative; overflow: hidden; }

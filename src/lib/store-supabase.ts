@@ -2,9 +2,11 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { api } from "./supabase";
+import { api, getAppOrigin, GoogleCalendarReconnectError } from "./supabase";
 import type {
   Client,
+  GoogleCalendarConnection,
+  GoogleCalendarEvent,
   Project,
   Task,
   Session,
@@ -53,6 +55,20 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
 };
 
 /** Debounce window for preference writes (ms). */
+/**
+ * Where Google sends the user back after consent. Must appear verbatim in the
+ * edge function's GOOGLE_OAUTH_REDIRECT_URIS allowlist *and* in the Google
+ * Cloud console's authorised redirect URIs — Google compares it byte for byte.
+ *
+ * getAppOrigin() rather than window.location.origin: the Tauri desktop build
+ * runs on a tauri.localhost origin that Google will not accept as a redirect
+ * target, and getAppOrigin already resolves that to the public site URL for
+ * exactly this reason (see src/lib/supabase.ts).
+ */
+function googleCalendarRedirectUri(): string {
+  return `${getAppOrigin()}/settings/google-calendar/callback`;
+}
+
 const PREFERENCES_PUSH_DELAY = 800;
 
 let preferencesPushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -386,6 +402,26 @@ interface State {
   setPreferences: (patch: Partial<UserPreferences>) => void;
   /** Push pending preferences now, bypassing the debounce. */
   flushPreferences: () => Promise<void>;
+
+  /**
+   * Google Calendar overlay. Status is cheap and persisted to avoid a flash of
+   * "not connected"; events are view-window caches and stay in memory only.
+   */
+  googleCalendar?: GoogleCalendarConnection;
+  googleCalendarLoaded: boolean;
+  googleEvents: GoogleCalendarEvent[];
+  /** Window currently covered by `googleEvents` — skip refetch when the view is inside it. */
+  googleEventsRange?: { start: number; end: number };
+  googleEventsLoading: boolean;
+  googleCalendarError?: "reconnect_required" | "failed";
+
+  loadGoogleCalendarStatus: () => Promise<void>;
+  loadGoogleEvents: (startMs: number, endMs: number) => Promise<void>;
+  /** Returns the OAuth URL; the caller performs the redirect. */
+  connectGoogleCalendar: () => Promise<string>;
+  completeGoogleCalendarConnect: (code: string, state: string) => Promise<void>;
+  setGoogleCalendars: (ids: string[]) => Promise<void>;
+  disconnectGoogleCalendar: () => Promise<void>;
 }
 
 export const useApp = create<State>()(
@@ -412,6 +448,13 @@ persist((set, get) => ({
   preferences: { ...DEFAULT_PREFERENCES },
   preferencesUpdatedAt: undefined,
   preferencesDirty: false,
+
+  googleCalendar: undefined,
+  googleCalendarLoaded: false,
+  googleEvents: [],
+  googleEventsRange: undefined,
+  googleEventsLoading: false,
+  googleCalendarError: undefined,
 
   setPreferences: (patch) => {
     set({
@@ -453,6 +496,167 @@ persist((set, get) => ({
     } catch (error) {
       console.error("Failed to sync preferences:", error);
       // Stays dirty. Retried on the next edit or the next loadProfile.
+    }
+  },
+
+  loadGoogleCalendarStatus: async () => {
+    try {
+      const connection = await api.googleCalendar.status();
+      // Revoked at Google still returns a status row — surface reconnect, not silence.
+      if (connection.revokedAt) {
+        set({
+          googleCalendar: connection,
+          googleCalendarLoaded: true,
+          googleCalendarError: "reconnect_required",
+          googleEvents: [],
+          googleEventsRange: undefined,
+        });
+      } else {
+        set({
+          googleCalendar: connection,
+          googleCalendarLoaded: true,
+          googleCalendarError: undefined,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to load Google Calendar status:", error);
+      // Always flip loaded so settings/calendar stop spinning on a dead endpoint.
+      if (error instanceof GoogleCalendarReconnectError) {
+        set({
+          googleCalendarLoaded: true,
+          googleCalendarError: "reconnect_required",
+          googleEvents: [],
+          googleEventsRange: undefined,
+        });
+      } else {
+        set({
+          googleCalendarLoaded: true,
+          googleCalendarError: "failed",
+        });
+      }
+    }
+  },
+
+  loadGoogleEvents: async (startMs, endMs) => {
+    const connection = get().googleCalendar;
+    // Calendar page mounts either way — never hit the API when not connected.
+    if (!connection?.connected) return;
+
+    const range = get().googleEventsRange;
+    // View changes re-render often; only fetch when the requested window is new
+    // or extends past what we already hold.
+    if (range && range.start <= startMs && range.end >= endMs) return;
+
+    set({ googleEventsLoading: true });
+    try {
+      const { events } = await api.googleCalendar.listEvents(startMs, endMs);
+      set({
+        googleEvents: events ?? [],
+        googleEventsRange: { start: startMs, end: endMs },
+        googleEventsLoading: false,
+        googleCalendarError: undefined,
+      });
+    } catch (error) {
+      console.error("Failed to load Google Calendar events:", error);
+      if (error instanceof GoogleCalendarReconnectError) {
+        set({
+          googleEvents: [],
+          googleEventsRange: undefined,
+          googleEventsLoading: false,
+          googleCalendarError: "reconnect_required",
+        });
+      } else {
+        set({
+          googleEventsLoading: false,
+          googleCalendarError: "failed",
+        });
+      }
+    }
+  },
+
+  connectGoogleCalendar: async () => {
+    try {
+      const { url } = await api.googleCalendar.authUrl(googleCalendarRedirectUri());
+      return url;
+    } catch (error) {
+      console.error("Failed to get Google Calendar auth URL:", error);
+      set({ googleCalendarError: "failed" });
+      // Empty string: caller must not redirect; outage must not throw into the app shell.
+      return "";
+    }
+  },
+
+  completeGoogleCalendarConnect: async (code, state) => {
+    try {
+      const connection = await api.googleCalendar.completeConnect(
+        code,
+        state,
+        googleCalendarRedirectUri()
+      );
+      set({
+        googleCalendar: connection,
+        googleCalendarLoaded: true,
+        googleCalendarError: undefined,
+        // Fresh link — any pre-connect event cache is meaningless.
+        googleEvents: [],
+        googleEventsRange: undefined,
+      });
+    } catch (error) {
+      console.error("Failed to complete Google Calendar connect:", error);
+      if (error instanceof GoogleCalendarReconnectError) {
+        set({ googleCalendarError: "reconnect_required" });
+      } else {
+        set({ googleCalendarError: "failed" });
+      }
+    }
+  },
+
+  setGoogleCalendars: async (ids) => {
+    try {
+      const connection = await api.googleCalendar.setSelectedCalendars(ids);
+      set({
+        googleCalendar: connection,
+        googleCalendarError: undefined,
+        // Selection changed — cached events may be from calendars no longer selected.
+        googleEvents: [],
+        googleEventsRange: undefined,
+      });
+    } catch (error) {
+      console.error("Failed to update Google Calendar selection:", error);
+      if (error instanceof GoogleCalendarReconnectError) {
+        set({
+          googleCalendarError: "reconnect_required",
+          googleEvents: [],
+          googleEventsRange: undefined,
+        });
+      } else {
+        set({ googleCalendarError: "failed" });
+      }
+    }
+  },
+
+  disconnectGoogleCalendar: async () => {
+    try {
+      await api.googleCalendar.disconnect();
+      set({
+        googleCalendar: { connected: false, selectedCalendarIds: [] },
+        googleCalendarLoaded: true,
+        googleEvents: [],
+        googleEventsRange: undefined,
+        googleEventsLoading: false,
+        googleCalendarError: undefined,
+      });
+    } catch (error) {
+      console.error("Failed to disconnect Google Calendar:", error);
+      // Still clear local state — the user asked to disconnect; a flaky DELETE
+      // must not leave the UI looking connected.
+      set({
+        googleCalendar: { connected: false, selectedCalendarIds: [] },
+        googleEvents: [],
+        googleEventsRange: undefined,
+        googleEventsLoading: false,
+        googleCalendarError: "failed",
+      });
     }
   },
 
@@ -1778,6 +1982,9 @@ persist((set, get) => ({
     // edit looks older than the server and gets silently overwritten on load.
     preferencesUpdatedAt: state.preferencesUpdatedAt,
     preferencesDirty: state.preferencesDirty,
+    // Cheap connection status only — avoids a flash of "not connected" on load.
+    // Events go stale per view window and are re-fetched, so they stay out.
+    googleCalendar: state.googleCalendar,
   }),
   onRehydrateStorage: () => (state) => {
     if (!state) return;

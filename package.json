@@ -12,7 +12,7 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "set TAURI_ENV_PLATFORM=windows && tauri build",
-    "deploy:functions": "supabase functions deploy sessions tasks projects clients analytics report-shares",
+    "deploy:functions": "supabase functions deploy sessions tasks projects clients analytics report-shares google-calendar",
     "test": "vitest run"
   },
   "dependencies": {

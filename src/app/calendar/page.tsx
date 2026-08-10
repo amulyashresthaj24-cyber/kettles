@@ -16,7 +16,7 @@ import { taskDateTimestamp } from "@/lib/task-dates";
 import { AddTaskModal } from "@/components/AddTaskModal";
 import { TaskDetailSidebar } from "@/components/TaskDetailSidebar";
 import { Button } from "@/components/ui/button";
-import type { Task, ProjectColor } from "@/lib/types";
+import type { Task, ProjectColor, GoogleCalendarEvent } from "@/lib/types";
 import { PROJECT_COLOR_HEX } from "@/lib/constants";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -71,6 +71,40 @@ function isSameDay(a: Date, b: Date) {
   );
 }
 
+/** Local start for a Google event. All-day uses startDate (not startsAt / UTC midnight). */
+function googleLocalStart(ev: GoogleCalendarEvent): Date | null {
+  if (ev.allDay) {
+    if (!ev.startDate) return null;
+    const [y, m, d] = ev.startDate.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return new Date(ev.startsAt);
+}
+
+/** Local end. All-day endDate is exclusive (day after last day of the event). */
+function googleLocalEnd(ev: GoogleCalendarEvent): Date | null {
+  if (ev.allDay) {
+    if (!ev.endDate) {
+      const start = googleLocalStart(ev);
+      return start ? addDays(start, 1) : null;
+    }
+    const [y, m, d] = ev.endDate.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return new Date(ev.endsAt);
+}
+
+function googleEventOnDay(ev: GoogleCalendarEvent, day: Date): boolean {
+  if (ev.allDay) {
+    const start = googleLocalStart(ev);
+    const end = googleLocalEnd(ev);
+    if (!start || !end) return false;
+    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    return dayStart >= start && dayStart < end;
+  }
+  return isSameDay(new Date(ev.startsAt), day);
+}
+
 function formatTime(h: number) {
   const period = h >= 12 ? "PM" : "AM";
   const hour = h % 12 === 0 ? 12 : h % 12;
@@ -106,6 +140,13 @@ export default function CalendarPage() {
   const sessions = useApp((s) => s.sessions);
   const selectedTaskId = useApp((s) => s.selectedTaskId);
   const setSelectedTaskId = useApp((s) => s.setSelectedTaskId);
+  const googleEvents = useApp((s) => s.googleEvents);
+  const googleCalendarError = useApp((s) => s.googleCalendarError);
+  const loadGoogleEvents = useApp((s) => s.loadGoogleEvents);
+  const googleCalendarLoaded = useApp((s) => s.googleCalendarLoaded);
+  const googleConnected = useApp((s) => s.googleCalendar?.connected ?? false);
+  const loadGoogleCalendarStatus = useApp((s) => s.loadGoogleCalendarStatus);
+  const statusRequested = useRef(false);
   const activeTaskId = sessions.find((s) => s.id === activeSessionId)?.taskId ?? null;
 
   const handleOpenAddTask = (date?: Date) => {
@@ -156,6 +197,50 @@ export default function CalendarPage() {
   function eventsForDay(day: Date) {
     return events.filter((e) => isSameDay(e.date, day));
   }
+
+  function googleEventsForDay(day: Date) {
+    return googleEvents.filter((g) => googleEventOnDay(g, day));
+  }
+
+  // Fetch Google overlay for the visible window. Store skips redundant ranges.
+  const visibleRange = useMemo(() => {
+    if (view === "day") {
+      const start = new Date(cursor);
+      start.setHours(0, 0, 0, 0);
+      return { startMs: start.getTime(), endMs: addDays(start, 1).getTime() };
+    }
+    if (view === "week") {
+      const start = startOfWeek(cursor);
+      return { startMs: start.getTime(), endMs: addDays(start, 7).getTime() };
+    }
+    if (view === "month") {
+      const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+      const start = startOfWeek(first);
+      return { startMs: start.getTime(), endMs: addDays(start, 42).getTime() };
+    }
+    // list: today → +14 days
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    return { startMs: start.getTime(), endMs: addDays(start, 15).getTime() };
+  }, [view, cursor]);
+
+  // Settings also loads this, but /calendar is just as likely to be the first
+  // page a user lands on. Without it `googleCalendar` stays undefined and
+  // loadGoogleEvents returns early — a connected user would see an empty
+  // overlay with no indication anything was wrong.
+  useEffect(() => {
+    if (statusRequested.current || googleCalendarLoaded) return;
+    statusRequested.current = true;
+    void loadGoogleCalendarStatus();
+  }, [googleCalendarLoaded, loadGoogleCalendarStatus]);
+
+  // Depends on googleConnected too: the status call above resolves after mount,
+  // so without it the fetch would not re-run and events would only appear after
+  // the next view change.
+  useEffect(() => {
+    if (!googleConnected) return;
+    void loadGoogleEvents(visibleRange.startMs, visibleRange.endMs);
+  }, [visibleRange, loadGoogleEvents, googleConnected]);
 
   function navigate(dir: 1 | -1) {
     const d = new Date(cursor);
@@ -361,10 +446,19 @@ export default function CalendarPage() {
 
       {/* View content */}
       <div className="flex-1 overflow-hidden flex flex-col px-8 pb-6">
+        {googleCalendarError === "reconnect_required" && (
+          <p className="text-[12px] shrink-0 pt-2" style={{ color: "var(--text-muted)" }}>
+            Google Calendar needs reconnection.{" "}
+            <a href="/settings" className="underline underline-offset-2 hover:opacity-80" style={{ color: "var(--accent)" }}>
+              Open settings
+            </a>
+          </p>
+        )}
         {view === "week" && (
           <WeekView
             cursor={cursor}
             eventsForDay={eventsForDay}
+            googleEventsForDay={googleEventsForDay}
             onTaskClick={(id) => setSelectedTaskId(id)}
             onSlotClick={(day) => handleOpenAddTask(day)}
             activeTaskId={activeTaskId}
@@ -374,6 +468,7 @@ export default function CalendarPage() {
           <MonthView
             cursor={cursor}
             eventsForDay={eventsForDay}
+            googleEventsForDay={googleEventsForDay}
             onTaskClick={(id) => setSelectedTaskId(id)}
             onDayClick={(day) => handleOpenAddTask(day)}
             activeTaskId={activeTaskId}
@@ -383,6 +478,7 @@ export default function CalendarPage() {
           <DayView
             cursor={cursor}
             eventsForDay={eventsForDay}
+            googleEventsForDay={googleEventsForDay}
             onTaskClick={(id) => setSelectedTaskId(id)}
             activeTaskId={activeTaskId}
           />
@@ -391,6 +487,7 @@ export default function CalendarPage() {
           <ListView
             cursor={cursor}
             events={events}
+            googleEventsForDay={googleEventsForDay}
             onAddTask={(day) => handleOpenAddTask(day)}
             onTaskClick={(id) => setSelectedTaskId(id)}
             activeTaskId={activeTaskId}
@@ -423,15 +520,35 @@ export default function CalendarPage() {
 
 // ─── Week View ────────────────────────────────────────────────────────────────
 
+/**
+ * Week cells are one hour tall and their pills are `absolute inset-x-0.5`, so
+ * everything in the same hour lands on the same pixels — the last one painted
+ * hides the rest. Split the cell into equal-width lanes instead.
+ *
+ * `right: auto` is required: `inset-x-0.5` sets both left and right, and a left
+ * plus width with a stale right would resolve to the wrong box.
+ */
+function weekLaneStyle(index: number, total: number): React.CSSProperties {
+  if (total <= 1) return {};
+  const pct = 100 / total;
+  return {
+    left: `calc(${index * pct}% + 2px)`,
+    width: `calc(${pct}% - 4px)`,
+    right: "auto",
+  };
+}
+
 function WeekView({
   cursor,
   eventsForDay,
+  googleEventsForDay,
   onTaskClick,
   onSlotClick,
   activeTaskId,
 }: {
   cursor: Date;
   eventsForDay: (d: Date) => CalendarEvent[];
+  googleEventsForDay: (d: Date) => GoogleCalendarEvent[];
   onTaskClick: (taskId: string) => void;
   onSlotClick: (day: Date, hour: number) => void;
   activeTaskId: string | null;
@@ -441,6 +558,7 @@ function WeekView({
   const today = new Date();
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const hasAllDay = days.some((d) => googleEventsForDay(d).some((g) => g.allDay));
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -489,6 +607,36 @@ function WeekView({
         })}
       </div>
 
+      {/* All-day Google events strip */}
+      {hasAllDay && (
+        <div
+          className="grid shrink-0"
+          style={{
+            gridTemplateColumns: "56px repeat(7, 1fr)",
+            borderBottom: "1px solid var(--border-subtle)",
+            minHeight: 28,
+          }}
+        >
+          <div className="flex items-start justify-end pr-2 pt-1.5">
+            <span className="text-[10px]" style={{ color: "var(--text-faint)" }}>All day</span>
+          </div>
+          {days.map((day, di) => {
+            const allDay = googleEventsForDay(day).filter((g) => g.allDay);
+            return (
+              <div
+                key={`allday-${di}`}
+                className="flex flex-col gap-0.5 px-0.5 py-1 overflow-hidden"
+                style={{ borderLeft: "1px solid var(--border-subtle)" }}
+              >
+                {allDay.map((g) => (
+                  <GoogleEventPill key={g.id} g={g} />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Time grid */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="grid" style={{ gridTemplateColumns: "56px repeat(7, 1fr)" }}>
@@ -503,6 +651,9 @@ function WeekView({
               </div>
               {days.map((day, di) => {
                 const dayEvents = eventsForDay(day).filter((e) => e.date.getHours() === h);
+                const googleTimed = googleEventsForDay(day).filter(
+                  (g) => !g.allDay && new Date(g.startsAt).getHours() === h
+                );
                 return (
                   <div
                     key={`cell-${h}-${di}`}
@@ -511,7 +662,7 @@ function WeekView({
                       borderLeft: "1px solid var(--border-subtle)",
                       borderTop: "1px solid var(--border-subtle)",
                     }}
-                    onClick={() => dayEvents.length === 0 && onSlotClick(day, h)}
+                    onClick={() => dayEvents.length === 0 && googleTimed.length === 0 && onSlotClick(day, h)}
                   >
                     {dayEvents.map((ev) => (
                       <EventPill
@@ -520,6 +671,14 @@ function WeekView({
                         compact
                         activeTaskId={activeTaskId}
                         onClick={() => onTaskClick(ev.task.id)}
+                      />
+                    ))}
+                    {googleTimed.map((g, gi) => (
+                      <GoogleEventPill
+                        key={g.id}
+                        g={g}
+                        compact
+                        style={dayEvents.length > 0 ? { top: 18 + gi * 16 } : undefined}
                       />
                     ))}
                   </div>
@@ -538,12 +697,14 @@ function WeekView({
 function MonthView({
   cursor,
   eventsForDay,
+  googleEventsForDay,
   onTaskClick,
   onDayClick,
   activeTaskId,
 }: {
   cursor: Date;
   eventsForDay: (d: Date) => CalendarEvent[];
+  googleEventsForDay: (d: Date) => GoogleCalendarEvent[];
   onTaskClick: (taskId: string) => void;
   onDayClick: (day: Date) => void;
   activeTaskId: string | null;
@@ -593,6 +754,11 @@ function MonthView({
           const isToday = isSameDay(day, today);
           const isCurrentMonth = day.getMonth() === month;
           const dayEvents = eventsForDay(day);
+          const dayGoogle = googleEventsForDay(day);
+          const totalLines = dayEvents.length + dayGoogle.length;
+          // Prefer showing a mix: tasks first, then Google, capped at 2 lines.
+          const taskShow = dayEvents.slice(0, 2);
+          const googleShow = dayGoogle.slice(0, Math.max(0, 2 - taskShow.length));
           const col = i % 7;
           const row = Math.floor(i / 7);
           return (
@@ -603,7 +769,7 @@ function MonthView({
                 borderRight: col < 6 ? "1px solid var(--border-subtle)" : undefined,
                 borderBottom: row < weeks - 1 ? "1px solid var(--border-subtle)" : undefined,
               }}
-              onClick={() => dayEvents.length === 0 && onDayClick(day)}
+              onClick={() => dayEvents.length === 0 && dayGoogle.length === 0 && onDayClick(day)}
             >
               <span
                 className={cn(
@@ -614,7 +780,7 @@ function MonthView({
               >
                 {day.getDate()}
               </span>
-              {dayEvents.slice(0, 2).map((ev) => (
+              {taskShow.map((ev) => (
                 <EventPill
                   key={ev.task.id}
                   ev={ev}
@@ -622,8 +788,11 @@ function MonthView({
                   onClick={() => onTaskClick(ev.task.id)}
                 />
               ))}
-              {dayEvents.length > 2 && (
-                <span className="text-[10px] px-1" style={{ color: "var(--text-faint)" }}>+{dayEvents.length - 2}</span>
+              {googleShow.map((g) => (
+                <GoogleEventPill key={g.id} g={g} />
+              ))}
+              {totalLines > 2 && (
+                <span className="text-[10px] px-1" style={{ color: "var(--text-faint)" }}>+{totalLines - 2}</span>
               )}
             </div>
           );
@@ -638,30 +807,63 @@ function MonthView({
 const DAY_HOUR_PX = 64;
 const DAY_GUTTER_PX = 72;
 
-type LaidOutEvent = CalendarEvent & {
+type LaidOutTask = CalendarEvent & {
+  kind: "task";
   startMin: number;
   endMin: number;
   lane: number;
   laneCount: number;
 };
 
-function layoutDayEvents(evs: CalendarEvent[]): LaidOutEvent[] {
-  const items = evs
-    .map((e) => {
+type LaidOutGoogle = {
+  kind: "google";
+  g: GoogleCalendarEvent;
+  startMin: number;
+  endMin: number;
+  lane: number;
+  laneCount: number;
+};
+
+type LaidOutEvent = LaidOutTask | LaidOutGoogle;
+
+function layoutDayEvents(
+  evs: CalendarEvent[],
+  googleTimed: GoogleCalendarEvent[] = []
+): LaidOutEvent[] {
+  type Seed =
+    | { kind: "task"; cal: CalendarEvent; startMin: number; endMin: number }
+    | { kind: "google"; g: GoogleCalendarEvent; startMin: number; endMin: number };
+
+  const items: Seed[] = [
+    ...evs.map((e) => {
       const startMin = e.date.getHours() * 60 + e.date.getMinutes();
       const dur = Math.max(30, e.task.estimateMinutes ?? 60);
-      return { ...e, startMin, endMin: Math.min(24 * 60, startMin + dur) };
-    })
-    .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+      return { kind: "task" as const, cal: e, startMin, endMin: Math.min(24 * 60, startMin + dur) };
+    }),
+    ...googleTimed.map((g) => {
+      const s = new Date(g.startsAt);
+      const e = new Date(g.endsAt);
+      const startMin = s.getHours() * 60 + s.getMinutes();
+      let endMin = e.getHours() * 60 + e.getMinutes();
+      if (!isSameDay(s, e)) endMin = 24 * 60;
+      else if (endMin <= startMin) endMin = startMin + 30;
+      return {
+        kind: "google" as const,
+        g,
+        startMin,
+        endMin: Math.min(24 * 60, endMin),
+      };
+    }),
+  ].sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
 
   const out: LaidOutEvent[] = [];
-  let cluster: (typeof items[number])[] = [];
+  let cluster: Seed[] = [];
   let clusterEnd = -1;
 
   const flush = () => {
     if (!cluster.length) return;
     const lanes: number[] = [];
-    const placed: { item: typeof cluster[number]; lane: number }[] = [];
+    const placed: { item: Seed; lane: number }[] = [];
     for (const it of cluster) {
       let lane = lanes.findIndex((end) => end <= it.startMin);
       if (lane === -1) {
@@ -673,7 +875,13 @@ function layoutDayEvents(evs: CalendarEvent[]): LaidOutEvent[] {
       placed.push({ item: it, lane });
     }
     const laneCount = lanes.length;
-    placed.forEach(({ item, lane }) => out.push({ ...item, lane, laneCount }));
+    placed.forEach(({ item, lane }) => {
+      if (item.kind === "task") {
+        out.push({ ...item.cal, kind: "task", startMin: item.startMin, endMin: item.endMin, lane, laneCount });
+      } else {
+        out.push({ kind: "google", g: item.g, startMin: item.startMin, endMin: item.endMin, lane, laneCount });
+      }
+    });
     cluster = [];
     clusterEnd = -1;
   };
@@ -695,23 +903,35 @@ function layoutDayEvents(evs: CalendarEvent[]): LaidOutEvent[] {
 function DayView({
   cursor,
   eventsForDay,
+  googleEventsForDay,
   onTaskClick,
   activeTaskId,
 }: {
   cursor: Date;
   eventsForDay: (d: Date) => CalendarEvent[];
+  googleEventsForDay: (d: Date) => GoogleCalendarEvent[];
   onTaskClick: (taskId: string) => void;
   activeTaskId: string | null;
 }) {
   const today = new Date();
   const isToday = isSameDay(cursor, today);
-  const laid = useMemo(() => layoutDayEvents(eventsForDay(cursor)), [cursor, eventsForDay]);
+  const dayGoogle = googleEventsForDay(cursor);
+  const allDayGoogle = dayGoogle.filter((g) => g.allDay);
+  const laid = useMemo(
+    () =>
+      layoutDayEvents(
+        eventsForDay(cursor),
+        googleEventsForDay(cursor).filter((g) => !g.allDay)
+      ),
+    [cursor, eventsForDay, googleEventsForDay]
+  );
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const scrollRef = useRef<HTMLDivElement>(null);
   const setTaskStatus = useApp((s) => s.setTaskStatus);
 
   const nowMin = today.getHours() * 60 + today.getMinutes();
   const nowTop = (nowMin / 60) * DAY_HOUR_PX;
+  const totalCount = laid.length + allDayGoogle.length;
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -745,11 +965,28 @@ function DayView({
               {MONTHS[cursor.getMonth()]} {cursor.getFullYear()}
             </span>
             <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>
-              {laid.length} {laid.length === 1 ? "event" : "events"}
+              {totalCount} {totalCount === 1 ? "event" : "events"}
             </span>
           </div>
         </div>
       </div>
+
+      {/* All-day Google events strip */}
+      {allDayGoogle.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-1.5 px-8 py-2 shrink-0"
+          style={{ borderBottom: "1px solid var(--border-subtle)" }}
+        >
+          <span className="text-[10px] uppercase tracking-wider mr-1" style={{ color: "var(--text-faint)" }}>
+            All day
+          </span>
+          {allDayGoogle.map((g) => (
+            <div key={g.id} className="max-w-[240px]">
+              <GoogleEventPill g={g} />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Time grid */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
@@ -791,11 +1028,84 @@ function DayView({
           )}
 
           <div className="absolute inset-0 z-10" style={{ paddingLeft: 8, paddingRight: 16 }}>
-            {laid.map((ev) => {
-              const top = (ev.startMin / 60) * DAY_HOUR_PX;
-              const height = Math.max(28, ((ev.endMin - ev.startMin) / 60) * DAY_HOUR_PX - 4);
-              const widthPct = 100 / ev.laneCount;
-              const leftPct = widthPct * ev.lane;
+            {laid.map((item) => {
+              const top = (item.startMin / 60) * DAY_HOUR_PX;
+              const height = Math.max(28, ((item.endMin - item.startMin) / 60) * DAY_HOUR_PX - 4);
+              const widthPct = 100 / item.laneCount;
+              const leftPct = widthPct * item.lane;
+              const posStyle: React.CSSProperties = {
+                top,
+                height,
+                left: `calc(${leftPct}% + ${item.lane === 0 ? 0 : 2}px)`,
+                width: `calc(${widthPct}% - 4px)`,
+              };
+
+              if (item.kind === "google") {
+                const declined = item.g.responseStatus === "declined";
+                const timeStr = new Date(item.g.startsAt).toLocaleTimeString([], {
+                  hour: "numeric",
+                  minute: "2-digit",
+                });
+                const title = item.g.title || "(No title)";
+                const googleBlock = (
+                  <>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span
+                        className="shrink-0 text-[9px] font-bold leading-none"
+                        style={{ color: "var(--accent)" }}
+                        aria-hidden
+                      >
+                        G
+                      </span>
+                      <div
+                        className="text-[12px] font-semibold leading-tight truncate"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {title}
+                      </div>
+                    </div>
+                    {height > 32 && (
+                      <div className="text-[11px] mt-0.5 tabular-nums" style={{ color: "var(--text-muted)" }}>
+                        {timeStr}
+                      </div>
+                    )}
+                  </>
+                );
+                const googleStyle: React.CSSProperties = {
+                  ...posStyle,
+                  background: "var(--accent-dim)",
+                  border: "1px solid var(--accent-border)",
+                  opacity: declined ? 0.4 : 1,
+                };
+                if (item.g.url) {
+                  return (
+                    <a
+                      key={item.g.id}
+                      href={item.g.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute rounded-md px-2 py-1.5 overflow-hidden block"
+                      style={googleStyle}
+                      title={title}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {googleBlock}
+                    </a>
+                  );
+                }
+                return (
+                  <div
+                    key={item.g.id}
+                    className="absolute rounded-md px-2 py-1.5 overflow-hidden"
+                    style={googleStyle}
+                    title={title}
+                  >
+                    {googleBlock}
+                  </div>
+                );
+              }
+
+              const ev = item;
               const isDone = ev.task.status === "done";
               const isActive = ev.task.id === activeTaskId;
               const timeStr = ev.date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -804,10 +1114,7 @@ function DayView({
                   key={ev.task.id}
                   className="absolute rounded-md px-2 py-1.5 cursor-pointer transition-all hover:brightness-110 overflow-hidden group"
                   style={{
-                    top,
-                    height,
-                    left: `calc(${leftPct}% + ${ev.lane === 0 ? 0 : 2}px)`,
-                    width: `calc(${widthPct}% - 4px)`,
+                    ...posStyle,
                     background: ev.color + "1F",
                     borderLeft: `3px solid ${ev.color}`,
                     opacity: isDone ? 0.5 : 1,
@@ -861,12 +1168,14 @@ function DayView({
 function ListView({
   cursor,
   events,
+  googleEventsForDay,
   onAddTask,
   onTaskClick,
   activeTaskId,
 }: {
   cursor: Date;
   events: CalendarEvent[];
+  googleEventsForDay: (d: Date) => GoogleCalendarEvent[];
   onAddTask: (day: Date) => void;
   onTaskClick: (taskId: string) => void;
   activeTaskId: string | null;
@@ -884,6 +1193,7 @@ function ListView({
   const grouped = futureDays.map((day) => ({
     day,
     events: events.filter((e) => isSameDay(e.date, day)),
+    google: googleEventsForDay(day),
   }));
 
   const ws = startOfWeek(cursor);
@@ -957,7 +1267,7 @@ function ListView({
           />
         )}
 
-        {grouped.map(({ day, events: dayEvents }) => {
+        {grouped.map(({ day, events: dayEvents, google: dayGoogle }) => {
           const isToday = isSameDay(day, today);
           const isTomorrow = isSameDay(day, addDays(today, 1));
           const label = dayLabel(day);
@@ -974,6 +1284,7 @@ function ListView({
               label={fullLabel}
               labelColor={isToday ? "var(--text-primary)" : "var(--text-muted)"}
               events={dayEvents}
+              googleEvents={dayGoogle}
               showTime
               showAddTask
               onAddTask={() => onAddTask(day)}
@@ -992,6 +1303,7 @@ function UpcomingSection({
   labelColor,
   action,
   events: sectionEvents,
+  googleEvents = [],
   showTime,
   showAddTask,
   onAddTask,
@@ -1002,12 +1314,27 @@ function UpcomingSection({
   labelColor: string;
   action?: { label: string; color: string };
   events: CalendarEvent[];
+  googleEvents?: GoogleCalendarEvent[];
   showTime?: boolean;
   showAddTask?: boolean;
   onAddTask?: () => void;
   onTaskClick: (taskId: string) => void;
   activeTaskId: string | null;
 }) {
+  type Row =
+    | { kind: "task"; sort: number; ev: CalendarEvent }
+    | { kind: "google"; sort: number; g: GoogleCalendarEvent };
+
+  const rows: Row[] = [
+    ...sectionEvents.map((ev) => ({ kind: "task" as const, sort: ev.date.getTime(), ev })),
+    ...googleEvents.map((g) => {
+      const start = googleLocalStart(g);
+      // All-day sorts first (local midnight); timed use startsAt.
+      const sort = start ? start.getTime() : g.startsAt;
+      return { kind: "google" as const, sort, g };
+    }),
+  ].sort((a, b) => a.sort - b.sort);
+
   return (
     <div className="mb-2">
       <div
@@ -1020,15 +1347,19 @@ function UpcomingSection({
         )}
       </div>
 
-      {sectionEvents.map((ev) => (
-        <UpcomingTaskRow
-          key={ev.task.id}
-          ev={ev}
-          showTime={showTime}
-          onTaskClick={onTaskClick}
-          activeTaskId={activeTaskId}
-        />
-      ))}
+      {rows.map((row) =>
+        row.kind === "task" ? (
+          <UpcomingTaskRow
+            key={row.ev.task.id}
+            ev={row.ev}
+            showTime={showTime}
+            onTaskClick={onTaskClick}
+            activeTaskId={activeTaskId}
+          />
+        ) : (
+          <UpcomingGoogleRow key={row.g.id} g={row.g} showTime={showTime} />
+        )
+      )}
 
       {showAddTask && (
         <button
@@ -1042,6 +1373,78 @@ function UpcomingSection({
       )}
     </div>
   );
+}
+
+function UpcomingGoogleRow({
+  g,
+  showTime,
+}: {
+  g: GoogleCalendarEvent;
+  showTime?: boolean;
+}) {
+  const declined = g.responseStatus === "declined";
+  const title = g.title || "(No title)";
+  const timeStr = g.allDay
+    ? "All day"
+    : new Date(g.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  const inner = (
+    <div
+      className="flex items-start gap-3 py-2.5 rounded-[6px] px-1 -mx-1"
+      style={{
+        borderBottom: "1px solid var(--border-subtle)",
+        borderLeft: "2px solid var(--accent-border)",
+        opacity: declined ? 0.4 : 1,
+      }}
+    >
+      {/* Marker — not a status toggle (Google events are read-only) */}
+      <span
+        className="mt-0.5 w-[18px] h-[18px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold"
+        style={{
+          border: "1.5px solid var(--accent-border)",
+          color: "var(--accent)",
+          background: "var(--accent-dim)",
+        }}
+        aria-hidden
+      >
+        G
+      </span>
+
+      <div className="flex-1 min-w-0">
+        <span className="text-[14px] block" style={{ color: "var(--text-primary)" }}>
+          {title}
+        </span>
+        {showTime && (
+          <div className="flex items-center gap-1 mt-0.5">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: "var(--text-muted)" }}>
+              <rect x="1" y="2" width="10" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M4 1v2M8 1v2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              <path d="M1 5h10" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
+            <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>{timeStr}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1.5 shrink-0">
+        <span className="text-[12px]" style={{ color: "var(--text-faint)" }}>Google</span>
+      </div>
+    </div>
+  );
+
+  if (g.url) {
+    return (
+      <a
+        href={g.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block no-underline hover:bg-[var(--surface-raised)] transition-colors rounded-[6px]"
+      >
+        {inner}
+      </a>
+    );
+  }
+  return inner;
 }
 
 function UpcomingTaskRow({
@@ -1124,6 +1527,66 @@ function UpcomingTaskRow({
           <span className="text-[12px]" style={{ color: "var(--text-faint)" }}>{ev.projectName}</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── GoogleEventPill ──────────────────────────────────────────────────────────
+// Outlined/tint + leading "G" so Google items never read as Kettles tasks.
+
+function GoogleEventPill({
+  g,
+  compact,
+  style,
+}: {
+  g: GoogleCalendarEvent;
+  compact?: boolean;
+  style?: React.CSSProperties;
+}) {
+  const declined = g.responseStatus === "declined";
+  const title = g.title || "(No title)";
+  const className = cn(
+    "flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium truncate no-underline",
+    compact ? "absolute inset-x-0.5 top-0.5" : "w-full",
+    declined && "opacity-40"
+  );
+  const pillStyle: React.CSSProperties = {
+    background: "var(--accent-dim)",
+    color: "var(--text-secondary)",
+    border: "1px solid var(--accent-border)",
+    ...style,
+  };
+  const body = (
+    <>
+      <span
+        className="shrink-0 text-[9px] font-bold leading-none"
+        style={{ color: "var(--accent)" }}
+        aria-hidden
+      >
+        G
+      </span>
+      <span className="truncate">{title}</span>
+    </>
+  );
+
+  if (g.url) {
+    return (
+      <a
+        href={g.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+        style={pillStyle}
+        title={title}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {body}
+      </a>
+    );
+  }
+  return (
+    <div className={className} style={pillStyle} title={title}>
+      {body}
     </div>
   );
 }

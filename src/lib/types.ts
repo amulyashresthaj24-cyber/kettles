@@ -63,6 +63,62 @@ export interface UserProfile {
 /** Fields an onboarding/settings write may set. `userId` is taken from the session. */
 export type UserProfilePatch = Partial<Omit<UserProfile, "userId">>;
 
+/**
+ * Google Calendar connection status as the client is allowed to see it.
+ * Deliberately carries no tokens — `google_calendar_connections` denies all
+ * access to `authenticated`, and only the edge function reads the real row.
+ */
+export interface GoogleCalendarConnection {
+  connected: boolean;
+  googleAccountEmail?: string;
+  connectedAt?: number;
+  /** Set when Google reported invalid_grant — the user revoked access. */
+  revokedAt?: number;
+  lastSyncedAt?: number;
+  /** Empty = primary calendar only. */
+  selectedCalendarIds: string[];
+}
+
+/** One entry from the user's Google calendar list, for the picker in Settings. */
+export interface GoogleCalendarListEntry {
+  id: string;
+  summary: string;
+  primary?: boolean;
+  /** Google's per-calendar colour. Advisory — the overlay uses its own token. */
+  backgroundColor?: string;
+}
+
+/**
+ * A Google event normalized for the calendar views. Read-only: nothing in
+ * Kettles ever writes these back.
+ */
+export interface GoogleCalendarEvent {
+  id: string;
+  calendarId: string;
+  title: string;
+  /**
+   * ms epoch. For timed events this is exact.
+   *
+   * For all-day events it is UTC midnight, which is NOT the same instant as
+   * the viewer's midnight — resolve `startDate` instead. The server cannot do
+   * this conversion: it has no idea what timezone the browser is in, and
+   * picking its own would put an all-day event on the wrong day for anyone
+   * west of UTC.
+   */
+  startsAt: number;
+  endsAt: number;
+  allDay: boolean;
+  /** `YYYY-MM-DD`, all-day events only. Authoritative — build local midnight from this. */
+  startDate?: string;
+  /** `YYYY-MM-DD`, all-day events only. Exclusive, per Google: it is the day *after* the event. */
+  endDate?: string;
+  location?: string;
+  /** Google's `htmlLink` — opens the event in Google Calendar. */
+  url?: string;
+  /** "accepted" | "declined" | "tentative" | "needsAction", when known. */
+  responseStatus?: string;
+}
+
 export interface Client {
   id: string;
   name: string;

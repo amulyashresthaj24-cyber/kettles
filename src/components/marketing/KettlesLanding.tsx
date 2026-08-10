@@ -6,6 +6,15 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { HeroVisuals } from "@/components/marketing/MockComponents";
 import { WorkflowPreview } from "@/components/marketing/ProductSections";
+import { LandingPet } from "@/components/marketing/LandingPet";
+import { PetShowcase } from "@/components/marketing/PetShowcase";
+import {
+  FocusRingArt,
+  HeroBackdrop,
+  SectionDivider,
+  SteamMotif,
+  TaskStackArt,
+} from "@/components/marketing/art";
 import { BeamsBackground } from "@/components/ui/beams-background";
 import DisplayCards from "@/components/ui/display-cards";
 import {
@@ -637,9 +646,10 @@ export function KettlesLanding() {
 
       <main id="top">
         {/* ===================== HERO (Centered layout + flanking visual cards) ===================== */}
-        <section className="relative z-10 mx-auto flex min-h-[100dvh] flex-col items-center justify-between px-6 pb-0 pt-[120px] text-center w-full max-w-[1240px]">
+        <section className="relative isolate z-10 mx-auto flex min-h-[100dvh] flex-col items-center justify-between px-6 pb-0 pt-[120px] text-center w-full max-w-[1240px] overflow-x-clip">
+          <HeroBackdrop className="k-hero-backdrop pointer-events-none absolute inset-y-0 left-1/2 z-0 h-full w-screen max-w-[100vw] -translate-x-1/2" />
           {/* Text + CTA group (pinned toward the top, vertically centered in the remaining space) */}
-          <div className="flex flex-1 flex-col items-center justify-center">
+          <div className="relative z-10 flex flex-1 flex-col items-center justify-center">
             <h1 className="k-reveal text-[clamp(44px,6.5vw,76px)] font-bold leading-[1.01] tracking-[-0.04em] max-w-[20ch]">
               Time tracking that does <br className="hidden sm:inline" />
               the remembering for you.
@@ -658,8 +668,12 @@ export function KettlesLanding() {
 
           {/* Visual flanking cards — anchored to the hero bottom so the next
               section's overlap stays consistent across viewport heights. */}
-          <div className="k-reveal w-full flex justify-center mt-12">
+          <div className="k-reveal relative z-10 mt-12 flex w-full justify-center">
             <HeroVisuals />
+            <div className="pointer-events-none absolute bottom-4 right-[clamp(0rem,4vw,3.5rem)] z-20">
+              <SteamMotif className="k-hero-steam pointer-events-none absolute -right-5 bottom-12 z-0 h-24 w-auto" />
+              <LandingPet scale={0.58} className="pointer-events-auto relative z-10" />
+            </div>
           </div>
         </section>
 
@@ -671,7 +685,7 @@ export function KettlesLanding() {
           <div className="mx-auto max-w-[1180px] px-6">
             <div className="k-reveal text-left mb-12">
               <h2 className="text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">Three steps. One honest record.</h2>
-              <p className="mt-4 text-[17px] text-[var(--k-muted)] max-w-[500px]">
+              <p className="mt-4 text-[17px] leading-relaxed text-[var(--k-muted)] max-w-[56ch]">
                 No stopwatch guesswork. Pick the task, let the kettle boil, and the time locks itself to the work.
               </p>
             </div>
@@ -681,8 +695,8 @@ export function KettlesLanding() {
               <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1">
                 <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-gradient-to-br from-[#3385ff]/20 via-[#0066ff]/10 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
                 <div className="relative h-full flex flex-col justify-between bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] min-h-[340px]">
-                  
-                  <div className="relative h-40 w-full flex items-center justify-center">
+                  <TaskStackArt className="k-step-art pointer-events-none absolute -right-10 -top-7 z-0 w-[min(16rem,78%)]" />
+                  <div className="relative z-10 h-40 w-full flex items-center justify-center">
                     {/* Floating Cards Graphic */}
                     <div className="relative w-40 h-32">
                       <div className="absolute top-4 left-0 w-24 h-28 rounded-xl border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] transform -rotate-6 shadow-2xl transition-transform duration-500 group-hover:-rotate-12 group-hover:-translate-x-2 flex flex-col gap-2 p-3">
@@ -717,8 +731,8 @@ export function KettlesLanding() {
               <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1">
                 <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-gradient-to-br from-[#3385ff]/20 via-[#0066ff]/10 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
                 <div className="relative h-full flex flex-col justify-between bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] min-h-[340px]">
-                  
-                  <div className="relative h-40 w-full flex items-center justify-center">
+                  <FocusRingArt className="k-step-art pointer-events-none absolute -right-8 -top-7 z-0 w-[min(15rem,76%)]" />
+                  <div className="relative z-10 h-40 w-full flex items-center justify-center">
                     {/* Clock Graphic */}
                     <div className="relative w-28 h-28 rounded-full border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
                       {/* Inner ring */}
@@ -779,13 +793,13 @@ export function KettlesLanding() {
         </section>
 
         {/* ===================== PROBLEM (editorial, all cards legible) ===================== */}
-        <section className="mx-auto max-w-[1180px] px-6 py-[clamp(80px,12vh,140px)]">
+        <section className="mx-auto max-w-[1180px] px-6 py-[120px]">
           <div className="grid w-full grid-cols-1 items-center gap-14 lg:grid-cols-12 lg:gap-16">
             <div className="k-reveal lg:col-span-5">
-              <h2 className="text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.05] tracking-[-0.03em]">
+              <h2 className="text-[clamp(32px,3.8vw,48px)] font-bold leading-[1.05] tracking-[-0.03em]">
                 Your logged hours don&apos;t match your real work.
               </h2>
-              <p className="mt-5 max-w-[46ch] text-[18px] leading-relaxed text-[var(--k-muted)]">
+              <p className="mt-5 max-w-[56ch] text-[17px] leading-relaxed text-[var(--k-muted)]">
                 Guessed timesheets quietly cost you money and trust. Kettles fixes the leak at the source. No boxes, just an honest record.
               </p>
             </div>
@@ -818,7 +832,8 @@ export function KettlesLanding() {
         </section>
 
         {/* ===================== FEATURES (4-levels Analytics Style) ===================== */}
-        <section id="features" className="k-texture relative overflow-hidden border-y border-[var(--k-line)] bg-[var(--k-bg)] py-[140px]">
+        <section id="features" className="k-texture relative overflow-hidden border-y border-[var(--k-line)] bg-[var(--k-bg)] py-[120px]">
+          <SectionDivider className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[clamp(3.5rem,8vw,7rem)] w-full opacity-60" />
           {/* concentric-ring backdrop */}
           <Image
             src="/images/bg-circle.png"
@@ -839,8 +854,8 @@ export function KettlesLanding() {
           <div className="mx-auto max-w-[1180px] px-6">
             <div className="k-reveal mx-auto max-w-[740px] text-center">
               <Eyebrow>The companion</Eyebrow>
-              <h2 className="mt-5 text-[clamp(28px,3.4vw,42px)] font-semibold tracking-[-0.03em]">You&apos;re not focusing alone.</h2>
-              <p className="mx-auto mt-5 max-w-[58ch] text-[18px] text-[var(--k-muted)]">
+              <h2 className="mt-5 text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.03em]">You&apos;re not focusing alone.</h2>
+              <p className="mx-auto mt-5 max-w-[56ch] text-[17px] leading-relaxed text-[var(--k-muted)]">
                 Your kettle stays warm while you work, whistles when a brew is done, and wanders off when you go cold. Keep your streak. Keep the kettle on.
               </p>
             </div>
@@ -863,8 +878,11 @@ export function KettlesLanding() {
           </div>
         </section>
 
+        {/* ===================== DESKTOP PET OVERLAY SHOWCASE ===================== */}
+        <PetShowcase />
+
         {/* ===================== TRUST BADGE STRIP (slim) ===================== */}
-        <section id="security" className="relative z-10 border-y border-[var(--k-line)] bg-[var(--k-bg2)] py-12">
+        <section id="security" className="relative z-10 border-y border-[var(--k-line)] bg-[var(--k-bg2)] py-16">
           <div className="mx-auto max-w-[1180px] px-6 text-center">
             <p className="k-reveal text-[15px] text-[var(--k-muted)]">
               <span className="font-semibold text-[var(--k-ink)]">No screenshots. No keystroke spying. No productivity scores.</span> Just an accurate record you own.
@@ -888,7 +906,7 @@ export function KettlesLanding() {
           <div className="relative z-10 mx-auto max-w-[1180px] px-6 flex flex-col gap-6">
             <div className="k-reveal mx-auto max-w-[740px] text-center mb-10">
               <h2 className="text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.035em] text-[var(--k-ink)]">People love using Kettles.</h2>
-              <p className="mt-4 text-[17px] text-[var(--k-muted)] mx-auto leading-relaxed max-w-none">
+              <p className="mt-4 text-[17px] text-[var(--k-muted)] mx-auto leading-relaxed max-w-[56ch]">
                 Thousands before you have successfully tracked their time and loved it.
               </p>
             </div>
@@ -1015,10 +1033,10 @@ export function KettlesLanding() {
         <section id="download" className="border-t border-[var(--k-line)] bg-[var(--k-bg)] px-6 py-[120px] text-center overflow-hidden">
           <div className="mx-auto max-w-[1180px] flex flex-col items-center relative z-10">
             
-            <h2 className="k-reveal text-[clamp(34px,4.6vw,56px)] font-bold tracking-[-0.035em] text-[var(--k-ink)]">
+            <h2 className="k-reveal text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">
               The kettle&apos;s ready when you are.
             </h2>
-            <p className="k-reveal mx-auto mt-4 max-w-[48ch] text-[18px] text-[var(--k-muted)]">
+            <p className="k-reveal mx-auto mt-4 max-w-[56ch] text-[17px] leading-relaxed text-[var(--k-muted)]">
               Drop your email and pick up in the app. Every minute from here brews into a record you can bill.
             </p>
 

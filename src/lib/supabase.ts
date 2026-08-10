@@ -1,6 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type {
   Client,
+  GoogleCalendarConnection,
+  GoogleCalendarEvent,
+  GoogleCalendarListEntry,
   Project,
   Session,
   Task,
@@ -18,6 +21,18 @@ import type {
   UpdateReportShareInput,
 } from './report/share-types';
 import { SharedReportError } from './report/share-types';
+
+/**
+ * Google revoked access (edge returns 409 `{ error: 'reconnect_required' }`).
+ * Distinct from generic failures so the store/UI can offer "Reconnect" rather
+ * than a dead empty overlay.
+ */
+export class GoogleCalendarReconnectError extends Error {
+  constructor(message = 'reconnect_required') {
+    super(message);
+    this.name = 'GoogleCalendarReconnectError';
+  }
+}
 
 let supabase: SupabaseClient | null = null;
 
@@ -185,6 +200,10 @@ async function edgeFunction<T = unknown>(path: string, options: RequestInit = {}
     // Special handling for auth errors
     if (response.status === 401 || text.includes("Missing authorization") || text.includes("Unauthorized")) {
       throw new Error("Please sign in to continue");
+    }
+    // Google Calendar: user revoked access at Google — typed so callers branch.
+    if (response.status === 409 && message === 'reconnect_required') {
+      throw new GoogleCalendarReconnectError();
     }
     throw new Error(message);
   }
@@ -368,6 +387,47 @@ export const api = {
       }),
     delete: (id: string) =>
       edgeFunction<{ success: boolean }>(`report-shares/${id}`, { method: 'DELETE' }),
+  },
+  /**
+   * Google Calendar OAuth + read-only overlay. Tokens never leave the edge
+   * function; the client only sees connection status, calendar list, and events.
+   */
+  googleCalendar: {
+    status: () => edgeFunction<GoogleCalendarConnection>('google-calendar/status'),
+    // redirectUri must be one of GOOGLE_OAUTH_REDIRECT_URIS on the function, and
+    // the same value must come back on completeConnect — Google compares them
+    // byte for byte on the token exchange. Derived from the live origin so
+    // localhost and production each get their own without a config swap.
+    authUrl: (redirectUri: string) => {
+      const params = new URLSearchParams({ redirectUri });
+      return edgeFunction<{ url: string }>(`google-calendar/auth-url?${params.toString()}`);
+    },
+    // `state` is not optional: /auth-url sets it to the user's id and the edge
+    // function rejects the callback with 400 unless it matches. That check is
+    // the CSRF defence for the connect flow — pass Google's state back verbatim.
+    completeConnect: (code: string, state: string, redirectUri: string) =>
+      edgeFunction<GoogleCalendarConnection>('google-calendar/callback', {
+        method: 'POST',
+        body: JSON.stringify({ code, state, redirectUri }),
+      }),
+    listCalendars: () =>
+      edgeFunction<{ calendars: GoogleCalendarListEntry[] }>('google-calendar/calendars'),
+    setSelectedCalendars: (ids: string[]) =>
+      edgeFunction<GoogleCalendarConnection>('google-calendar/calendars', {
+        method: 'PUT',
+        body: JSON.stringify({ selectedCalendarIds: ids }),
+      }),
+    listEvents: (timeMinMs: number, timeMaxMs: number) => {
+      const params = new URLSearchParams({
+        timeMin: new Date(timeMinMs).toISOString(),
+        timeMax: new Date(timeMaxMs).toISOString(),
+      });
+      return edgeFunction<{ events: GoogleCalendarEvent[] }>(
+        `google-calendar/events?${params.toString()}`
+      );
+    },
+    disconnect: () =>
+      edgeFunction<{ connected: false }>('google-calendar', { method: 'DELETE' }),
   },
 };
 

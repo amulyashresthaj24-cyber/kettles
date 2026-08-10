@@ -75,12 +75,9 @@
         </footer>
       </section>
 
-      <!-- Speech bubble — reminders & timer messages. Swaps in over the timer
-           card while visible (pet.js sets data-speaking on the shell). -->
-      <div id="speech" class="speech" role="status" aria-live="polite">
-        <span id="speechText"></span>
-        <div id="speechActions" class="speech-actions" hidden></div>
-      </div>
+      <!-- Speech queue — short chats can coexist with actionable reminders.
+           The newest message stays nearest to the mascot and owns the tail. -->
+      <section id="speechStack" class="speech-stack" aria-live="polite" aria-atomic="false"></section>
 
       <!-- Thought-bubble trail connecting the mascot to the timer card. -->
       <div class="trail" aria-hidden="true"><span></span><span></span></div>
@@ -93,6 +90,6 @@
         <span class="chev down" aria-hidden="true"></span>
       </button>
     </main>
-    <script src="./pet.js?v=3.4"></script>
+    <script src="./pet.js?v=3.5"></script>
   </body>
 </html>

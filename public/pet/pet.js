@@ -23,9 +23,7 @@ const el = {
   shell: document.getElementById("shell"),
   mascot: document.getElementById("mascot"),
   bubble: document.getElementById("bubble"),
-  speech: document.getElementById("speech"),
-  speechText: document.getElementById("speechText"),
-  speechActions: document.getElementById("speechActions"),
+  speechStack: document.getElementById("speechStack"),
   dot: document.getElementById("dot"),
   label: document.getElementById("label"),
   timer: document.getElementById("timer"),
@@ -396,16 +394,15 @@ function onCursor(gx, gy) {
   const relX = (gx - winPos.x) / dpr;
   const relY = (gy - winPos.y) / dpr;
 
-  // Hit-test the mascot + bubble + chevron + open notepad (+ speech bubble
-  // while it has actions showing); capture the mouse only over them.
+  // Hit-test the mascot + bubble + chevron + open notepad (+ queue actions);
+  // capture the mouse only over interactive parts.
   const over =
     hitTest(el.mascot, relX, relY) ||
     hitTest(el.bubble, relX, relY) ||
     hitTest(el.hideToggle, relX, relY) ||
     (el.notepad && !el.notepad.hidden && hitTest(el.notepad, relX, relY)) ||
-    (el.shell.dataset.speaking === "true" &&
-      el.speechActions && !el.speechActions.hidden &&
-      hitTest(el.speech, relX, relY));
+    Array.from(el.speechStack?.querySelectorAll(".speech-actions") || [])
+      .some((actions) => hitTest(actions, relX, relY));
   interactive = over;
   if (!dragging) setClickThrough(!over);
 
@@ -434,10 +431,13 @@ function eventTarget(name) {
   return typeof v === "string" ? { play: v } : v;
 }
 
-// Show a message in the speech bubble. The bubble sizes to its text (CSS
-// max-content) and fades/springs in and out; the timer card steps aside while
-// the pet is talking (shell[data-speaking]).
-let speechTimer = null;
+// Speech is a bounded notification stack: incoming chat no longer replaces an
+// actionable reminder. Priority keeps break/reminder items nearest to the
+// mascot, while bursts of chat collapse into one readable update.
+const MAX_SPEECH_ITEMS = 3;
+const speechItems = new Map();
+const SPEECH_PRIORITY = { chat: 1, reminder: 2, break: 3 };
+const CHAT_GROUP_WINDOW = 5000;
 
 // Reminders stay up much longer than ambient chatter — they carry actions.
 const SPEECH_DURATIONS = { chat: 6000, reminder: 15000, break: 25000 };
@@ -448,41 +448,129 @@ const BREAK_ACTIONS = [
   { label: "OK" },
 ];
 
+function syncSpeechVisibility() {
+  el.shell.dataset.speaking = speechItems.size > 0 ? "true" : "false";
+}
+
+function dismissSpeech(item) {
+  const timeout = speechItems.get(item);
+  if (timeout) clearTimeout(timeout);
+  speechItems.delete(item);
+  item.remove();
+  syncSpeechVisibility();
+}
+
 function hideSpeech() {
-  el.shell.dataset.speaking = "false";
-  if (el.speechActions) {
-    el.speechActions.hidden = true;
-    el.speechActions.innerHTML = "";
+  for (const item of Array.from(speechItems.keys())) dismissSpeech(item);
+}
+
+function priorityFor(kind) {
+  return SPEECH_PRIORITY[kind] || SPEECH_PRIORITY.chat;
+}
+
+function arrangeSpeechQueue() {
+  if (!el.speechStack) return;
+  const ordered = Array.from(speechItems.keys()).sort((a, b) => {
+    const priorityDelta = Number(a.dataset.priority) - Number(b.dataset.priority);
+    if (priorityDelta !== 0) return priorityDelta;
+    return Number(a.dataset.createdAt) - Number(b.dataset.createdAt);
+  });
+  for (const item of ordered) el.speechStack.appendChild(item);
+}
+
+function resetSpeechTimer(item, duration) {
+  const timeout = speechItems.get(item);
+  if (timeout) clearTimeout(timeout);
+  speechItems.set(item, setTimeout(() => dismissSpeech(item), duration));
+}
+
+function findRecentChatGroup(now) {
+  return Array.from(speechItems.keys()).find(
+    (item) =>
+      item.dataset.kind === "chat" &&
+      now - Number(item.dataset.lastAt || 0) <= CHAT_GROUP_WINDOW
+  );
+}
+
+function addToChatGroup(item, text, now) {
+  const count = Number(item.dataset.count || 1) + 1;
+  const message = item.querySelector(".speech-text");
+  item.dataset.count = String(count);
+  item.dataset.lastAt = String(now);
+  item.dataset.key = `chat-group:${now}`;
+  if (message) message.textContent = `${count} updates · Latest: ${text}`;
+  resetSpeechTimer(item, SPEECH_DURATIONS.chat);
+  arrangeSpeechQueue();
+  return item;
+}
+
+function trimSpeechQueue(nextPriority) {
+  while (speechItems.size >= MAX_SPEECH_ITEMS) {
+    const candidates = Array.from(speechItems.keys());
+    const removable = candidates
+      .filter((item) => Number(item.dataset.priority) <= nextPriority)
+      .sort((a, b) => Number(a.dataset.priority) - Number(b.dataset.priority) || Number(a.dataset.createdAt) - Number(b.dataset.createdAt))[0];
+    // Never push a lower-priority chat in front of a full set of reminders.
+    if (!removable) return false;
+    dismissSpeech(removable);
   }
+  return true;
 }
 
 function say(text, opts = {}) {
-  if (!el.speech || !text) return;
+  if (!el.speechStack || typeof text !== "string" || !text.trim()) return;
   const kind = opts.kind || "chat";
-  el.speechText.textContent = text;
-  el.speech.dataset.kind = kind;
+  const normalizedText = text.trim();
+  const now = Date.now();
+  const priority = priorityFor(kind);
+  const actions = Array.isArray(opts.actions) ? opts.actions : [];
+  const key = `${kind}:${normalizedText}`;
+  const existing = Array.from(speechItems.keys()).find((item) => item.dataset.key === key);
+  if (existing) dismissSpeech(existing);
 
-  if (el.speechActions) {
-    el.speechActions.innerHTML = "";
-    const actions = opts.actions || [];
-    for (const a of actions) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "btn speech-btn";
-      btn.textContent = a.label;
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (a.action) emit("pet://control", { action: a.action, at: Date.now() });
-        hideSpeech();
-      });
-      el.speechActions.appendChild(btn);
-    }
-    el.speechActions.hidden = actions.length === 0;
+  if (kind === "chat") {
+    const chatGroup = findRecentChatGroup(now);
+    if (chatGroup) return addToChatGroup(chatGroup, normalizedText, now);
   }
 
-  el.shell.dataset.speaking = "true";
-  clearTimeout(speechTimer);
-  speechTimer = setTimeout(hideSpeech, opts.ms || SPEECH_DURATIONS[kind] || 6000);
+  if (!trimSpeechQueue(priority)) return;
+  const item = document.createElement("article");
+  item.className = "speech";
+  item.dataset.kind = kind;
+  item.dataset.key = key;
+  item.dataset.priority = String(priority);
+  item.dataset.createdAt = String(now);
+  item.dataset.lastAt = String(now);
+  item.dataset.count = "1";
+  item.dataset.actionable = actions.length > 0 ? "true" : "false";
+
+  const message = document.createElement("span");
+  message.className = "speech-text";
+  message.textContent = normalizedText;
+  item.appendChild(message);
+
+  if (actions.length > 0) {
+    const actionBar = document.createElement("div");
+    actionBar.className = "speech-actions";
+    for (const action of actions) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn speech-btn";
+      button.textContent = action.label;
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (action.action) emit("pet://control", { action: action.action, at: Date.now() });
+        dismissSpeech(item);
+      });
+      actionBar.appendChild(button);
+    }
+    item.appendChild(actionBar);
+  }
+
+  el.speechStack.appendChild(item);
+  resetSpeechTimer(item, opts.ms || SPEECH_DURATIONS[kind] || 6000);
+  arrangeSpeechQueue();
+  syncSpeechVisibility();
 }
 
 function onSignal(sig) {
@@ -504,7 +592,6 @@ function onSignal(sig) {
   const quoteActions = quoteKind === "break" ? BREAK_ACTIONS : null;
   if (sig.event === "timerFinish" && sig.showExtend === true) {
     hideSpeech();
-    clearTimeout(speechTimer);
   } else if (typeof sig.quote === "string" && sig.quote) {
     say(sig.quote, { kind: quoteKind, actions: quoteActions });
   } else if (line) {
