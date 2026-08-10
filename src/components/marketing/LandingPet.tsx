@@ -227,8 +227,11 @@ export function LandingPet({
   };
 
   const style = {
-    width: FALLBACK_CONFIG.cell.width * safeScale,
-    height: FALLBACK_CONFIG.cell.height * safeScale,
+    width: config.cell.width * safeScale,
+    height: config.cell.height * safeScale,
+    // Percentage background-position only lands on the right frame when the
+    // atlas is scaled to cols x rows — keep both driven by the same config.
+    backgroundSize: `${config.sheet.cols * 100}% ${config.sheet.rows * 100}%`,
     backgroundPosition,
   };
 

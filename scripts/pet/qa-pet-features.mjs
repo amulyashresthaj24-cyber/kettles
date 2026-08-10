@@ -29,7 +29,7 @@ ok(
   })
 );
 ok("breakEnd present in pet.config events", "breakEnd" in cfg.events);
-const moments = JSON.parse(read("public/pet/kit/moments.flowmate.json"));
+const moments = JSON.parse(read("Docs/pet-kit/moments.flowmate.json"));
 ok(
   "moments.flowmate.json missing breakEnd (doc drift)",
   !("breakEnd" in (moments.events || {})),
@@ -128,10 +128,18 @@ ok("gesture intervals", petJs.includes("GESTURE_INTERVALS"));
 ok("prefs applyPreferences", petJs.includes("applyPreferences"));
 ok("right-click notepad", petJs.includes("contextmenu") || petJs.includes("button === 2") || petJs.includes("openNotepad"));
 
-// 12) pet-moment-instructions vs live config alignment
-const momentsTs = read("src/lib/pet-moment-instructions.ts");
-ok("moment instructions has breakEnd", momentsTs.includes("breakEnd"));
-ok("moment instructions has timerFinish celebration", momentsTs.includes("leaping_celebration") || momentsTs.includes("timerFinish"));
+// 12) Landing pet (marketing surface) — sprite styles + assets it renders from
+const landingCss = read("src/components/marketing/landing.css");
+const landingPet = read("src/components/marketing/LandingPet.tsx");
+const showcase = read("src/components/marketing/PetShowcase.tsx");
+ok(
+  ".landing-pet has sprite styles",
+  landingCss.includes(".landing-pet") && landingCss.includes("spritesheet.webp")
+);
+ok("LandingPet sizes the atlas from config", landingPet.includes("backgroundSize"));
+for (const m of showcase.matchAll(/src="(\/[^"]+)"/g)) {
+  ok(`showcase asset ${m[1]} is served`, exists(path.join("public", m[1])));
+}
 
 // Report
 const passed = results.filter((r) => r.pass).length;

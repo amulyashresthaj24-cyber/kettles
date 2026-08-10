@@ -258,7 +258,7 @@ export function PetShowcase() {
               <div className="flex items-center gap-4">
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-[var(--k-line2)] bg-[var(--k-bg2)]">
                   <Image
-                    src="/pet/kit/examples/user-sprite/poses/you-can-do-it-pose.webp"
+                    src="/pet/poses/you-can-do-it-pose.webp"
                     alt="Pet encouraging pose"
                     width={80}
                     height={80}
