@@ -603,6 +603,7 @@ export function KettlesLanding() {
               ["How it works", "#how"],
               ["Reviews", "#reviews"],
               ["Pricing", "#pricing"],
+              ["FAQ", "#faq"],
             ].map(([l, h]) => (
               <Link 
                 key={h} 
@@ -888,7 +889,7 @@ export function KettlesLanding() {
               <span className="font-semibold text-[var(--k-ink)]">No screenshots. No keystroke spying. No productivity scores.</span> Just an accurate record you own.
             </p>
             <div className="k-reveal mt-6 flex flex-wrap justify-center gap-3">
-              {[[SealCheck, "SOC 2 Type II"], [ShieldCheck, "GDPR compliant"], [LockKey, "256-bit encryption"], [EyeSlash, "Zero surveillance"]].map(([Ic, t]) => {
+              {[[EyeSlash, "No screenshots"], [LockKey, "Encrypted in transit"], [ShieldCheck, "You own your data"], [SealCheck, "No productivity scores"]].map(([Ic, t]) => {
                 const Icon = Ic as typeof SealCheck;
                 return (
                   <span key={t as string} className="inline-flex items-center gap-2.5 rounded-full border border-[var(--k-line2)] bg-[var(--k-card)] px-4 py-2.5 text-[13.5px] font-medium text-[var(--k-ink2)]">
@@ -907,34 +908,31 @@ export function KettlesLanding() {
             <div className="k-reveal mx-auto max-w-[740px] text-center mb-10">
               <h2 className="text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.035em] text-[var(--k-ink)]">People love using Kettles.</h2>
               <p className="mt-4 text-[17px] text-[var(--k-muted)] mx-auto leading-relaxed max-w-[56ch]">
-                Thousands before you have successfully tracked their time and loved it.
+                Built for freelancers and small teams who bill real hours, not guessed ones.
               </p>
             </div>
 
             <div className="k-reveal grid grid-cols-1 md:grid-cols-12 gap-6 w-full items-stretch">
-              {/* Left Card: X/Twitter Quote (stands out with large metallic dark gradient) */}
+              {/* Left Card: Quote */}
               <div className="md:col-span-7 group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1 min-h-[440px]">
                 <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-gradient-to-br from-[#3385ff]/10 via-[#0066ff]/5 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                 <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-gradient-to-tl from-[#3385ff]/10 via-[#0066ff]/5 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                 
                 <div className="relative h-full flex flex-col justify-between bg-[var(--k-surface)]/60 rounded-[22px] p-8 md:p-12 backdrop-blur-md border border-[var(--k-hairline)] shadow-2xl">
-                  {/* X logo at top center */}
                   <div className="flex justify-center w-full relative z-10">
                     <div className="relative w-16 h-16 rounded-2xl border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" aria-hidden>
                         <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                       </svg>
                     </div>
                   </div>
 
-                  {/* Big Quote in center */}
                   <div className="my-8 text-center relative z-10">
                     <p className="text-[22px] md:text-[26px] lg:text-[30px] font-semibold leading-snug tracking-tight text-[var(--k-ink)] max-w-[20ch] mx-auto">
                       &ldquo;Once you experience using Kettles to track your work, there is no going back.&rdquo;
                     </p>
                   </div>
 
-                  {/* Author avatar and name at bottom center */}
                   <div className="flex justify-center relative z-10">
                     <div className="flex items-center gap-3 bg-[var(--k-surface-soft)] border border-[var(--k-hairline2)] px-4 py-2 rounded-full backdrop-blur-md transition-transform duration-300 group-hover:scale-105 group-hover:bg-[var(--k-tint)] group-hover:border-[var(--k-line3)]">
                       <div className="h-8 w-8 rounded-full bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] border border-white/10 flex items-center justify-center text-[10px] font-bold text-white uppercase shadow-sm">
@@ -949,54 +947,37 @@ export function KettlesLanding() {
                 </div>
               </div>
 
-              {/* Right Column: Stacked Product Hunt and G2 cards */}
+              {/* Right column — honest product highlights (no unbacked ratings) */}
               <div className="md:col-span-5 flex flex-col gap-6 justify-between">
-                
-                {/* Top Right Card: Product Hunt */}
                 <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1 flex-1 min-h-[208px]">
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-gradient-to-br from-[#3385ff]/20 via-[#0066ff]/10 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                  
-                  <div className="relative h-full flex flex-col items-center justify-center bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] overflow-hidden">
-
-
-                    {/* Floating Product Hunt review card */}
-                    <div className="relative z-10 rounded-2xl border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-2xl p-5 w-full max-w-[230px] text-center flex flex-col items-center gap-3 transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
-                      <div className="flex items-center gap-2 text-[11px] font-bold tracking-wider text-white uppercase drop-shadow-md">
-                        <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-white text-[11px] font-black font-sans leading-none border border-white/10 shadow-inner">P</span>
-                        <span>Product Hunt</span>
-                      </div>
-                      <div className="flex gap-0.5 text-[#3385ff] drop-shadow-[0_0_8px_rgba(51,133,255,0.6)]">
-                        {[...Array(5)].map((_, i) => (
-                          <svg key={i} viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-                            <path d="M12 2l3 7h7l-5.5 4 2 7L12 17l-6.5 4 2-7L2 9h7z" />
-                          </svg>
-                        ))}
-                      </div>
-                      <div className="text-[11px] text-white/60 font-medium">
-                        (4.8) based on 620 reviews
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom Right Card: Productivity Retention */}
-                <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1 flex-1 min-h-[208px]">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-gradient-to-br from-[#3385ff]/10 via-[#0066ff]/5 to-transparent blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                  
-                  <div className="relative h-full flex flex-col items-center justify-center bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] overflow-hidden text-center gap-4">
+                  <div className="relative h-full flex flex-col items-center justify-center bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] overflow-hidden text-center gap-3">
                     <div className="relative flex items-center justify-center w-14 h-14 rounded-full border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-xl transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-6 h-6 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
-                        <polyline points="16 7 22 7 22 13"></polyline>
-                      </svg>
+                      <Fire size={22} className="text-white" weight="fill" />
                     </div>
                     <div>
-                      <h4 className="text-[14px] font-semibold text-[var(--k-ink)] tracking-tight">Highest Productivity Retention</h4>
-                      <p className="text-[12px] text-[var(--k-muted)] mt-1.5 leading-relaxed max-w-[200px]">Users stay focused 3x longer than with traditional stopwatches.</p>
+                      <h4 className="text-[14px] font-semibold text-[var(--k-ink)] tracking-tight">Task-linked by default</h4>
+                      <p className="text-[12px] text-[var(--k-muted)] mt-1.5 leading-relaxed max-w-[200px]">
+                        Every brew attaches to a task, so the weekly report is ready to bill without reconstruction.
+                      </p>
                     </div>
                   </div>
                 </div>
-                
+
+                <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1 flex-1 min-h-[208px]">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-gradient-to-br from-[#3385ff]/10 via-[#0066ff]/5 to-transparent blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                  <div className="relative h-full flex flex-col items-center justify-center bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] overflow-hidden text-center gap-4">
+                    <div className="relative flex items-center justify-center w-14 h-14 rounded-full border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-xl transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
+                      <ArrowsClockwise size={22} className="text-white" weight="bold" />
+                    </div>
+                    <div>
+                      <h4 className="text-[14px] font-semibold text-[var(--k-ink)] tracking-tight">Survives tab closes</h4>
+                      <p className="text-[12px] text-[var(--k-muted)] mt-1.5 leading-relaxed max-w-[200px]">
+                        Sessions sync to the cloud. Close the browser, switch devices — the brew keeps ticking.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1026,6 +1007,52 @@ export function KettlesLanding() {
               </div>
             </div>
 
+          </div>
+        </section>
+
+        {/* ===================== FAQ ===================== */}
+        <section id="faq" className="relative z-10 border-t border-[var(--k-line)] bg-[var(--k-bg2)] py-[120px]">
+          <div className="mx-auto max-w-[720px] px-6">
+            <div className="k-reveal text-center">
+              <Eyebrow>FAQ</Eyebrow>
+              <h2 className="mt-5 text-[clamp(28px,3.4vw,40px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">
+                Questions, answered.
+              </h2>
+              <p className="mx-auto mt-4 max-w-[48ch] text-[16px] leading-relaxed text-[var(--k-muted)]">
+                Straight answers about task-linked time, sync, and privacy.
+              </p>
+            </div>
+            <div className="k-reveal mt-12 flex flex-col gap-3">
+              {faqs.map(([q, a], i) => {
+                const open = faqOpen === i;
+                return (
+                  <div
+                    key={q}
+                    className="overflow-hidden rounded-2xl border border-[var(--k-line)] bg-[var(--k-card)] transition-colors hover:border-[var(--k-line2)]"
+                  >
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      onClick={() => setFaqOpen(open ? null : i)}
+                      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+                    >
+                      <span className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--k-ink)]">{q}</span>
+                      <span
+                        className={`grid h-7 w-7 flex-none place-items-center rounded-full border border-[var(--k-line2)] text-[var(--k-muted)] transition-transform duration-200 ${open ? "rotate-45 bg-[var(--k-tint)] text-[var(--k-accent2)]" : ""}`}
+                        aria-hidden
+                      >
+                        <Plus size={14} weight="bold" />
+                      </span>
+                    </button>
+                    {open && (
+                      <div className="border-t border-[var(--k-line)] px-5 pb-5 pt-3">
+                        <p className="text-[14.5px] leading-relaxed text-[var(--k-muted)]">{a}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
 
@@ -1068,18 +1095,17 @@ export function KettlesLanding() {
                   Task-linked time tracking, made for focused work.
                 </p>
               </div>
-              
-              {/* Social icons omitted until real profile URLs exist (no dead # links). */}
+              <div className="relative z-10">
+                <PrimaryBtn href="/auth">Start free</PrimaryBtn>
+              </div>
             </div>
 
-            {/* Navigation Link Columns */}
-            <div className="lg:col-span-8 grid grid-cols-2 md:grid-cols-4 gap-8">
+            {/* Navigation Link Columns — only real in-page / app destinations */}
+            <div className="lg:col-span-8 grid grid-cols-2 md:grid-cols-3 gap-8">
               {[
                 ["Product", [["Features", "#features"], ["How it works", "#how"], ["Pricing", "#pricing"], ["Download", "#download"]]],
-                // Placeholder labels only — no live destinations yet (avoid dead # links)
-                ["Resources", [["FAQ", "#faq"]]],
-                ["Company", [] as [string, string][]],
-                ["Legal", [["Security", "#security"]]],
+                ["Explore", [["Reviews", "#reviews"], ["FAQ", "#faq"], ["Security", "#security"], ["Companion", "#desktop-pet"]]],
+                ["Account", [["Sign in", "/auth"], ["Start free", "/auth"]]],
               ].map(([h, links]) => (
                 <div key={h as string}>
                   <h5 className="mb-4 text-[11px] font-bold tracking-[0.1em] uppercase text-[var(--k-muted)]">{h as string}</h5>
@@ -1097,9 +1123,11 @@ export function KettlesLanding() {
           {/* Bottom Copyright Area */}
           <div className="mt-16 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[var(--k-hairline)] pt-8">
             <p className="text-[13px] text-[var(--k-faint)] font-medium">© 2026 Kettles. Made for focused work.</p>
-            <p className="text-[12.5px] text-[var(--k-faint)] font-medium">
-              Privacy Policy and Terms of Service coming soon.
-            </p>
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[12.5px] text-[var(--k-faint)] font-medium">
+              <Link href="#security" className="hover:text-[var(--k-ink)] transition">Privacy principles</Link>
+              <span className="opacity-30" aria-hidden>•</span>
+              <Link href="#faq" className="hover:text-[var(--k-ink)] transition">FAQ</Link>
+            </div>
           </div>
 
         </div>

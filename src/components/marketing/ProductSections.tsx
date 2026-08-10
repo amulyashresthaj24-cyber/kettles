@@ -195,9 +195,9 @@ export function DeepDiveFeatures() {
             </span>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Chip>256-bit AES</Chip>
-            <Chip>GDPR</Chip>
-            <Chip>SOC 2 Type II</Chip>
+            <Chip>Encrypted in transit</Chip>
+            <Chip>You own your data</Chip>
+            <Chip>No screenshots</Chip>
           </div>
         </FeatureCard>
 
