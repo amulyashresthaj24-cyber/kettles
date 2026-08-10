@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flowmate Pet</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./pet.css?v=4.6" />
+  </head>
+  <body>
+    <main
+      id="shell"
+      class="shell"
+      data-phase="idle"
+      data-collapsed="false"
+      data-pet-panel="clock"
+      data-speaking="false"
+    >
+      <!-- Timer card ΓÇö task name on top, completion message, time below. -->
+      <section id="bubble" class="bubble">
+        <!-- Chevron lives in the card's top-right; stays put when collapsed. -->
+        <button type="button" id="hideToggle" class="bubble-toggle" aria-label="Hide timer">
+          <span class="chev" aria-hidden="true"></span>
+        </button>
+        <p id="task" class="task">Ready to focus</p>
+        <!-- Sync state. Hidden while everything is saved; pet mode hides the
+             main window, so this is the only sync signal during focus time. -->
+        <span id="syncDot" class="sync-dot" data-sync="ok" hidden aria-hidden="true"></span>
+        <!-- Transient event flash (~3s) ΓÇö never a permanent finished label. -->
+        <p id="msg" class="msg" hidden></p>
+        <p id="timer" class="timer" aria-live="polite">00:00:00</p>
+
+        <!-- Timer-complete actions: extend the session or wrap it up. -->
+        <div id="completeActions" class="complete-actions" hidden>
+          <button type="button" class="btn chip" data-extend="5">+5m</button>
+          <button type="button" class="btn chip" data-extend="10">+10m</button>
+          <button type="button" class="btn chip" data-extend="25">+25m</button>
+          <button type="button" id="finishNow" class="btn btn-primary chip">Finish</button>
+        </div>
+
+        <!-- Kept in the DOM (hidden) so pet.js listeners don't crash. -->
+        <header class="bubble-head" hidden>
+          <span id="dot" class="dot" aria-hidden="true"></span>
+          <span id="label" class="label">Focus</span>
+          <button type="button" id="collapse" class="collapse" aria-label="Collapse">
+            <span class="chev" aria-hidden="true"></span>
+          </button>
+        </header>
+        <div id="controls" class="controls" hidden>
+          <button type="button" id="toggle" class="btn btn-primary" data-act="play">
+            <span class="ico" aria-hidden="true"></span>
+            <span id="toggleLabel">Play</span>
+          </button>
+          <button type="button" id="complete" class="btn">Done</button>
+          <button type="button" id="confirm" class="btn btn-primary">Save</button>
+          <button type="button" id="discard" class="btn">Discard</button>
+          <button type="button" id="open" class="btn">Open</button>
+        </div>
+      </section>
+
+      <!-- Notepad ΓÇö opened by right-clicking the mascot. A full note pad that
+           replaces the timer card while open (shell[data-noting] hides it).
+           Notes go to the active session, or become a task when idle. -->
+      <section id="notepad" class="notepad" hidden>
+        <header class="notepad-head">
+          <span class="notepad-dot" aria-hidden="true"></span>
+          <span id="notepadTitle" class="notepad-title">Quick note</span>
+          <button type="button" id="closeNote" class="notepad-close" aria-label="Close notepad">├ù</button>
+        </header>
+        <textarea
+          id="noteInput"
+          class="notepad-input"
+          placeholder="Jot it down before it slips away..."
+        ></textarea>
+        <footer class="notepad-foot">
+          <span class="notepad-hint">Enter saves ┬╖ Esc closes</span>
+          <div class="notepad-actions">
+            <button type="button" id="cancelNote" class="btn">Cancel</button>
+            <button type="button" id="saveNote" class="btn btn-primary">Save</button>
+          </div>
+        </footer>
+      </section>
+
+      <!-- Speech bubble ΓÇö AI replies, reminders & timer messages.
+           Clock/AI panel is driven by data-pet-panel; speaking still uses
+           data-speaking for the bubble visibility transition. -->
+      <div id="speech" class="speech" role="status" aria-live="polite">
+        <button
+          type="button"
+          id="dismissSpeech"
+          class="speech-dismiss"
+          aria-label="Dismiss message and show timer"
+          hidden
+        >
+          ├ù
+        </button>
+        <span id="speechText"></span>
+        <div id="speechActions" class="speech-actions" hidden></div>
+      </div>
+
+      <!-- Thought-bubble trail connecting the mascot to the timer card. -->
+      <div class="trail" aria-hidden="true"><span></span><span></span></div>
+
+      <!-- Animated mascot sprite. -->
+      <div
+        id="mascot"
+        class="mascot"
+        role="button"
+        tabindex="0"
+        aria-label="Open pet chat"
+      ></div>
+
+      <!-- Clock | AI tabs ΓÇö always under the mascot feet. -->
+      <div id="panelSwitch" class="panel-switch" role="group" aria-label="Pet view">
+        <button
+          type="button"
+          id="modeClock"
+          class="panel-switch-btn"
+          aria-pressed="true"
+          aria-label="Show timer"
+        >
+          Clock
+        </button>
+        <button
+          type="button"
+          id="modeAi"
+          class="panel-switch-btn"
+          aria-pressed="false"
+          aria-label="Show AI message"
+        >
+          AI
+        </button>
+      </div>
+
+      <!-- Legacy reopen handle, kept hidden. -->
+      <button type="button" id="reopen" class="reopen" aria-label="Show timer" hidden>
+        <span class="chev down" aria-hidden="true"></span>
+      </button>
+    </main>
+    <script src="./pet.js?v=4.5"></script>
+  </body>
+</html>
