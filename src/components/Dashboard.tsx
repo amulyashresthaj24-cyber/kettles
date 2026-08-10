@@ -27,6 +27,9 @@ import { PageLayout, PageHeader, PageContent } from "@/components/layout";
 import type { Task, Urgency, ProjectColor } from "@/lib/types";
 import { getProjectColor } from "@/lib/constants";
 import { getWeekRange } from "@/lib/report-dates";
+import { SkeletonRows } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useNotification } from "@/components/ui/notification";
 
 const URGENCY_ORDER: Record<Urgency, number> = {
   urgent: 0,
@@ -72,6 +75,8 @@ export default function Dashboard() {
   const tasks = useApp((s) => s.tasks);
   const sessions = useApp((s) => s.sessions);
   const projects = useApp((s) => s.projects);
+  const initialLoadComplete = useApp((s) => s.initialLoadComplete);
+  const { notify } = useNotification();
   const clients = useApp((s) => s.clients);
   const activeSessionId = useApp((s) => s.activeSessionId);
   const setTaskStatus = useApp((s) => s.setTaskStatus);
@@ -93,19 +98,44 @@ export default function Dashboard() {
         : preferences?.defaultFocusDuration && preferences.defaultFocusDuration > 0
           ? preferences.defaultFocusDuration
           : undefined;
-    await startSession(task.id, undefined, planned);
+    // startSession resolves to null on failure. Navigating regardless dropped
+    // the user on an empty timer with no idea why.
+    const session = await startSession(task.id, undefined, planned);
+    if (!session) {
+      notify({
+        title: "Couldn't start the timer",
+        description: `"${task.title}" was not started. Check your connection and try again.`,
+        tone: "error",
+      });
+      return;
+    }
     router.push("/timer");
   };
 
   const handleCompleteTask = (taskId: string) => {
     setCompletingTasks((prev) => ({ ...prev, [taskId]: true }));
-    setTimeout(() => {
-      setTaskStatus(taskId, "done");
-      setCompletingTasks((prev) => {
-        const next = { ...prev };
-        delete next[taskId];
-        return next;
-      });
+    // The 350ms wait is the strike-through animation; the network call only
+    // starts after it. On failure the checkbox silently sprang back, so say so.
+    setTimeout(async () => {
+      try {
+        await setTaskStatus(taskId, "done");
+      } catch (err) {
+        const task = tasks.find((t) => t.id === taskId);
+        notify({
+          title: "Couldn't complete task",
+          description:
+            err instanceof Error && err.message
+              ? err.message
+              : `"${task?.title ?? "This task"}" is still open.`,
+          tone: "error",
+        });
+      } finally {
+        setCompletingTasks((prev) => {
+          const next = { ...prev };
+          delete next[taskId];
+          return next;
+        });
+      }
     }, 350);
   };
 
@@ -315,16 +345,20 @@ export default function Dashboard() {
             </div>
 
             <div className="flex flex-col">
-              {todayTasks.length === 0 && doneTasks.length === 0 && (
-                <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "var(--border-subtle)" }}>
-                    <CheckCircle size={18} className="text-text-faint" />
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-medium text-text-secondary">No tasks for today</p>
-                    <p className="text-[12px] text-text-faint mt-1">Add a task to start tracking your work.</p>
-                  </div>
-                </div>
+              {/* Tasks are not persisted locally, so before the first load
+                  lands this list is empty and would flash "No tasks for today"
+                  at every user on every cold start. */}
+              {!initialLoadComplete && (
+                <SkeletonRows rows={3} className="px-5 py-4" rowClassName="h-12" />
+              )}
+
+              {initialLoadComplete && todayTasks.length === 0 && doneTasks.length === 0 && (
+                <EmptyState
+                  icon={<CheckCircle size={18} />}
+                  title="No tasks for today"
+                  description="Add a task to start tracking your work."
+                  action={{ label: "Add task", onClick: () => setOpenAdd(true) }}
+                />
               )}
 
               {todayTasks.map((task, i) => {
@@ -561,7 +595,8 @@ export default function Dashboard() {
                     </div>
                   );
                 })}
-                {projects.length === 0 && (
+                {!initialLoadComplete && <SkeletonRows rows={3} rowClassName="h-9" />}
+                {initialLoadComplete && projects.length === 0 && (
                   <div className="flex flex-col items-center gap-2 py-4 text-center">
                     <p className="text-[12px] text-text-faint">No projects yet.</p>
                     <Link href="/projects" className="text-[12px] text-accent hover:text-accent-hover transition-colors">

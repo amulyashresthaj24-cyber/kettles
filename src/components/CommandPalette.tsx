@@ -58,7 +58,6 @@ export function CommandPalette({
       group: "Actions",
       label: "Create new task...",
       icon: <Plus size={15} />,
-      shortcut: ["C"],
       action: () => { onClose(); onNewTask(); },
     },
     {
@@ -66,7 +65,6 @@ export function CommandPalette({
       group: "Actions",
       label: "Create new project...",
       icon: <Plus size={15} />,
-      shortcut: ["N", "P"],
       action: () => { onClose(); onNewProject(); },
     },
     {
@@ -81,7 +79,7 @@ export function CommandPalette({
       group: "Navigate",
       label: "Go to Tasks",
       icon: <CheckSquare size={15} />,
-      action: () => { onClose(); router.push("/"); },
+      action: () => { onClose(); router.push("/tasks"); },
     },
     {
       id: "nav-timer",
@@ -107,7 +105,7 @@ export function CommandPalette({
         group: "Tasks",
         label: t.title,
         icon: <CheckSquare size={15} />,
-        action: () => { onClose(); router.push("/"); },
+        action: () => { onClose(); router.push("/tasks"); },
       })),
     [tasks, onClose, router]
   );
@@ -118,7 +116,7 @@ export function CommandPalette({
       group: "Projects",
       label: p.name,
       icon: <FolderOpen size={15} />,
-      action: () => { onClose(); router.push("/"); },
+      action: () => { onClose(); router.push(`/projects/view?id=${p.id}`); },
     })),
     [projects, onClose, router]
   );
@@ -177,7 +175,7 @@ export function CommandPalette({
   let flatIdx = 0;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[18vh]">
+    <div className="fixed inset-0 z-modal flex items-start justify-center pt-[18vh]">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-base/50 backdrop-blur-sm animate-fade-in"
@@ -185,7 +183,12 @@ export function CommandPalette({
       />
 
       {/* Palette */}
-      <div className="animate-modal-in relative w-full max-w-[580px] mx-lg bg-surface-raised border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
+        className="animate-modal-in relative w-full max-w-[580px] mx-lg bg-surface-raised border border-border rounded-xl shadow-elevation-3 overflow-hidden flex flex-col"
+      >
 
         {/* Search input */}
         <div className="flex items-center gap-md px-lg py-md border-b border-border-subtle">

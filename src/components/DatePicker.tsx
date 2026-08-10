@@ -96,7 +96,7 @@ export function DatePicker({ value, onChange, placeholder = "Due date" }: DatePi
     : "";
 
   return (
-    <div className="relative z-40" ref={ref}>
+    <div className="relative z-dropdown" ref={ref}>
       <button
         type="button"
         onClick={(e) => {
@@ -111,7 +111,7 @@ export function DatePicker({ value, onChange, placeholder = "Due date" }: DatePi
 
       {open && (
         <div
-          className="absolute bottom-full mb-2 left-0 bg-surface-raised border border-border rounded-lg shadow-2xl z-[9999] p-4 w-80 pointer-events-auto"
+          className="absolute bottom-full mb-2 left-0 bg-surface-raised border border-border rounded-lg shadow-elevation-2 z-10 p-4 w-80 pointer-events-auto"
           style={{
             background: "var(--surface-raised)",
             borderColor: "var(--border-subtle)",

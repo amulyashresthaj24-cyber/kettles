@@ -209,7 +209,7 @@ function FilterDropdown({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-48 max-h-64 overflow-y-auto bg-surface-raised border border-border rounded-lg shadow-xl z-[100] py-1">
+        <div className="absolute top-full left-0 mt-1 w-48 max-h-64 overflow-y-auto bg-surface-raised border border-border rounded-lg shadow-elevation-2 z-dropdown py-1">
           <button
             className={cn(
               "w-full text-left px-3 py-2 text-[12px] hover:bg-surface-mid transition-colors",

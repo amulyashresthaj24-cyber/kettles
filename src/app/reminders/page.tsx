@@ -409,11 +409,19 @@ function RemindersContent() {
                           className="text-error"
                           title="Delete reminder"
                           onClick={() => {
+                            // Undo instead of a confirm dialog: deleting a
+                            // reminder is cheap to reverse and confirming every
+                            // one would be noise.
+                            const snapshot = reminders;
                             saveReminders(reminders.filter((r) => r.id !== rem.id));
                             notify({
                               title: "Reminder removed",
-                              description: "The scheduled reminder was deleted.",
+                              description: rem.text || "The scheduled reminder was deleted.",
                               tone: "info",
+                              action: {
+                                label: "Undo",
+                                onClick: () => saveReminders(snapshot),
+                              },
                             });
                           }}
                         >

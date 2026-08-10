@@ -88,6 +88,18 @@ pub struct NotifyOpts {
     pub body: String,
 }
 
+/// One speech-bubble action. `payload` remains schemaless so later idle
+/// recovery and closeout actions can add identifiers without another transport
+/// rewrite.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PetAction {
+    pub label: String,
+    #[serde(default)]
+    pub action: Option<String>,
+    #[serde(default)]
+    pub payload: Option<serde_json::Value>,
+}
+
 /// A single instruction for the pet. Every field is optional so callers send
 /// only what they have.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -117,9 +129,33 @@ pub struct PetSignal {
     /// Kind of quote for bubble styling: chat | break | reminder.
     #[serde(default, rename = "quoteKind")]
     pub quote_kind: Option<String>,
+    /// Explicit speech-bubble actions. Omission preserves break defaults in JS.
+    #[serde(default)]
+    pub actions: Option<Vec<PetAction>>,
+    /// Correlates a pet chat reply to the request that opened the bubble.
+    #[serde(default, rename = "chatRequestId")]
+    pub chat_request_id: Option<String>,
     /// Show the timer-complete extend chips (+5/+10/+25/Finish) on the card.
     #[serde(default, rename = "showExtend")]
     pub show_extend: Option<bool>,
+    /// True while an external AI agent is working — glows the AI tab.
+    #[serde(default, rename = "agentActive")]
+    pub agent_active: Option<bool>,
+    /// Live one-line agent status for the AI tab.
+    #[serde(default, rename = "agentSummary")]
+    pub agent_summary: Option<String>,
+    /// Auto-dismiss speech after this many ms (pet.js); omit for kind defaults.
+    #[serde(default, rename = "speechMs")]
+    pub speech_ms: Option<u64>,
+    /// Offline / queued-writes state for the pet card.
+    #[serde(default, rename = "syncState")]
+    pub sync_state: Option<String>,
+    /// Count behind syncState.
+    #[serde(default, rename = "syncPending")]
+    pub sync_pending: Option<u32>,
+    /// Short audio cue played by the overlay: `cheer` | `alert`. Omit for silence.
+    #[serde(default)]
+    pub sound: Option<String>,
 }
 
 /// Build the pet overlay window (hidden). MUST run on the main thread — call
@@ -137,8 +173,15 @@ pub fn pet_init(app: &AppHandle) -> Result<(), String> {
     // OS owns its position from here on, so it can be dragged to any monitor.
     let (_, _, pw, ph) = primary_screen();
 
+    // The default page loads the live v2 config. `FLOWMATE_PET_V2_TEST=1`
+    // selects the isolated staged config for regression checks.
+    let pet_page = if std::env::var("FLOWMATE_PET_V2_TEST").ok().as_deref() == Some("1") {
+        "pet/pet.html?petConfig=v2"
+    } else {
+        "pet/pet.html"
+    };
     let builder =
-        WebviewWindowBuilder::new(app, PET_LABEL, WebviewUrl::App("pet/pet.html".into()))
+        WebviewWindowBuilder::new(app, PET_LABEL, WebviewUrl::App(pet_page.into()))
             .title("Agent Pet")
             .inner_size(PET_W, PET_H)
             .decorations(false)
@@ -200,9 +243,29 @@ pub fn pet_close(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// The one call you need: animate the pet and (on finish events) notify.
+/// Whether the overlay is on screen right now.
+///
+/// The host needs this before it spends a proactive message. `pet_signal` emits
+/// into the webview whether or not it is visible, so without this check the app
+/// can "deliver" a warning to a hidden window and then suppress it for the rest
+/// of the day. Returns false when the window has never been created.
 #[tauri::command]
-pub fn pet_signal(app: AppHandle, signal: PetSignal) -> Result<(), String> {
+pub fn pet_is_open(app: AppHandle) -> bool {
+    app.get_webview_window(PET_LABEL)
+        .and_then(|win| win.is_visible().ok())
+        .unwrap_or(false)
+}
+
+/// The one call you need: animate the pet and (on finish events) notify.
+///
+/// Returns whether the overlay was actually on screen for this signal. Callers
+/// that spend a limited budget — the proactive ledger warnings in
+/// `pet-context.ts` — must only mark a message as delivered when this is true.
+/// Emitting into a hidden webview otherwise consumes the message silently.
+#[tauri::command]
+pub fn pet_signal(app: AppHandle, signal: PetSignal) -> Result<bool, String> {
+    let delivered = pet_is_open(app.clone());
+
     // 1. Drive the animation + bubble inside the pet window. The window may be
     //    hidden (user exited mini mode mid-session) — don't let a failed emit
     //    swallow the notification below.
@@ -245,7 +308,7 @@ pub fn pet_signal(app: AppHandle, signal: PetSignal) -> Result<(), String> {
         }
     }
 
-    Ok(())
+    Ok(delivered)
 }
 
 /// Move the pet window (physical px). Used to park / snap it programmatically;
@@ -320,4 +383,3 @@ pub fn pet_tracking(app: AppHandle, enabled: bool) -> Result<(), String> {
     });
     Ok(())
 }
-

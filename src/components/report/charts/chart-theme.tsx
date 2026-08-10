@@ -33,7 +33,7 @@ export function DurationTooltip({ active, payload, label }: DurationTooltipProps
   if (entries.length === 0) return null;
   const total = entries.reduce((a, p) => a + (p.value as number), 0);
   return (
-    <div className="rounded-md border border-border bg-surface-raised px-3 py-2 shadow-xl">
+    <div className="rounded-md border border-border bg-surface-raised px-3 py-2 shadow-elevation-2">
       {label !== undefined && (
         <div className="text-[11px] font-medium text-text-muted mb-1">{label}</div>
       )}

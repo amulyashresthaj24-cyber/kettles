@@ -4,9 +4,12 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api, getAppOrigin, GoogleCalendarReconnectError } from "./supabase";
 import type {
+  AgentSegment,
   Client,
   GoogleCalendarConnection,
   GoogleCalendarEvent,
+  IdleRecovery,
+  IdleRecoveryAction,
   Project,
   Task,
   Session,
@@ -30,6 +33,23 @@ import {
   findClientByNormalizedName,
   planProjectClientLink,
 } from "./clients";
+import {
+  durationAtIdleStart,
+  elapsedSecondsFor,
+  idleStartedAt,
+} from "./session-timeline";
+import {
+  describeIdleResolution,
+  isResolvable,
+  resolveIdleRecovery as resolveIdleRecoveryPatch,
+} from "./idle-recovery";
+import {
+  appendSegment,
+  closeSegment,
+  draftFromRun,
+  openSegment,
+  type AgentRunStart,
+} from "./agent-runs";
 
 /**
  * Single source of defaults. Previously the initial state and setPreferences
@@ -52,6 +72,9 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   petCustomRemindersEnabled: false,
   petCustomReminders: [],
   petNotesIntegrationEnabled: false,
+  petIntelligenceEnabled: true,
+  agentFinishCelebrationEnabled: true,
+  idleThresholdMinutes: 5,
 };
 
 /** Debounce window for preference writes (ms). */
@@ -149,10 +172,7 @@ function handleSessionApiError(
 }
 
 function elapsedFor(session: Session) {
-  const normalized = normalizeSession(session);
-  return normalized.durationSeconds + (normalized.state === "running"
-    ? Math.floor((Date.now() - normalized.startedAt) / 1000)
-    : 0);
+  return elapsedSecondsFor(normalizeSession(session));
 }
 
 // If a "running" session's startedAt is older than this, treat it as stale
@@ -327,6 +347,32 @@ interface State {
   startSession: (taskId: string, billable?: boolean, estimateMinutes?: number) => Promise<Session | null>;
   startDraftSession: (projectId?: string, billable?: boolean, estimateMinutes?: number) => Promise<Session | null>;
   pauseSession: () => Promise<void>;
+  /** Auto-pause at the moment input stopped, leaving a gap to resolve. */
+  pauseSessionForIdle: (idleSeconds: number) => Promise<void>;
+  /** Stamp the return so the gap has a real end. */
+  markIdleReturn: (awaySeconds: number) => void;
+  /**
+   * Apply the user's decision about an idle gap. Idempotent per recovery id.
+   * Resolves to a short confirmation of what changed, or `null` when there was
+   * nothing left to resolve.
+   */
+  resolveIdleRecovery: (action: IdleRecoveryAction) => Promise<string | null>;
+  /** The session holding an unresolved idle gap, if any. */
+  pendingIdleRecoverySessionId: string | null;
+  /**
+   * Live agent runs (in-memory only — not persisted, not synced).
+   * Keyed by runId. Opened by the desktop bridge; closed into a session
+   * segment or a draft when the run ends.
+   */
+  agentRuns: Record<string, AgentSegment>;
+  /** Open a live agent segment. Does not start a timer. */
+  beginAgentRun: (run: AgentRunStart) => void;
+  /**
+   * Close a live agent run. With an active session, appends to agentSegments
+   * (full array). With no session, may create an unclassified draft. Never
+   * auto-starts a timer.
+   */
+  endAgentRun: (runId: string, status: AgentSegment["status"]) => void;
   resumeSession: () => Promise<void>;
   finishSession: () => Promise<void>;
   resumeFromFinishing: () => Promise<void>;
@@ -432,6 +478,8 @@ persist((set, get) => ({
   tasks: [],
   sessions: [],
   activeSessionId: null,
+  pendingIdleRecoverySessionId: null,
+  agentRuns: {},
   completionAlarmSessionId: null,
   selectedProjectId: null,
   selectedTaskId: null,
@@ -1085,6 +1133,226 @@ persist((set, get) => ({
       activeSessionId: session.id,
     });
     return session;
+  },
+
+  beginAgentRun: (run) => {
+    if (!run.runId || !run.agent) return;
+    const now = Date.now();
+    // Duplicate start with same runId renews the open segment, no second row.
+    const existing = get().agentRuns[run.runId];
+    const opened = existing
+      ? {
+          ...existing,
+          agent: run.agent || existing.agent,
+          label: run.label ?? existing.label,
+          status: "running" as const,
+        }
+      : openSegment(run, now);
+    set({
+      agentRuns: { ...get().agentRuns, [run.runId]: opened },
+    });
+  },
+
+  endAgentRun: (runId, status) => {
+    if (!runId) return;
+    const live = get().agentRuns[runId];
+    if (!live) return;
+
+    const now = Date.now();
+    const closed = closeSegment(live, status, now);
+
+    const { [runId]: _removed, ...rest } = get().agentRuns;
+    set({ agentRuns: rest });
+
+    const activeId = get().activeSessionId;
+    const active = activeId
+      ? get().sessions.find((s) => s.id === activeId)
+      : undefined;
+    const activeState = active ? normalizeSession(active).state : null;
+    const attachToSession =
+      !!active &&
+      !!activeId &&
+      (activeState === "running" ||
+        activeState === "paused" ||
+        activeState === "finishing");
+
+    if (attachToSession && active && activeId) {
+      const agentSegments = appendSegment(active.agentSegments, closed);
+      const patch: Partial<Session> = {
+        agentSegments,
+        updatedAt: now,
+      };
+      set({
+        sessions: get().sessions.map((s) =>
+          s.id === activeId ? { ...s, ...patch } : s
+        ),
+      });
+      void (async () => {
+        try {
+          if (isRemoteId(activeId) && isOnline()) {
+            await api.sessions.update(activeId, { agentSegments });
+          } else {
+            queueMutation("sessions", "update", activeId, {
+              agentSegments,
+            } as Record<string, unknown>);
+          }
+        } catch (error) {
+          handleSessionApiError(
+            activeId,
+            error,
+            "Failed to save agent segment",
+            set,
+            get
+          );
+        }
+      })();
+      return;
+    }
+
+    const draftBody = draftFromRun(closed, now);
+    if (!draftBody) return;
+
+    const draft: Session = { ...draftBody, id: uid() };
+    set({ sessions: [...get().sessions, draft] });
+
+    void (async () => {
+      try {
+        if (isOnline()) {
+          const created = await api.sessions.create({ ...draft, id: undefined });
+          set({
+            sessions: get().sessions.map((s) =>
+              s.id === draft.id ? { ...draft, ...created } : s
+            ),
+          });
+        } else {
+          queueMutation(
+            "sessions",
+            "create",
+            draft.id,
+            draft as unknown as Record<string, unknown>
+          );
+        }
+      } catch (error) {
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to save agent draft",
+        });
+      }
+    })();
+  },
+
+  pauseSessionForIdle: async (idleSeconds) => {
+    const id = get().activeSessionId;
+    if (!id) return;
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) return;
+    const normalized = normalizeSession(session);
+    if (normalized.state !== "running") return;
+    if (normalized.pendingIdleRecovery?.status === "pending") return;
+
+    const now = Date.now();
+    const startedIdleAt = idleStartedAt(now, idleSeconds);
+    const durationSeconds = durationAtIdleStart(normalized, now, idleSeconds);
+    const recovery: IdleRecovery = {
+      id: uid(),
+      detectedAt: now,
+      idleStartedAt: startedIdleAt,
+      idleSeconds,
+      status: "pending",
+    };
+    const patch: Partial<Session> = {
+      paused: true,
+      state: "paused",
+      durationSeconds,
+      frozenAt: startedIdleAt,
+      pendingIdleRecovery: recovery,
+    };
+
+    set({
+      sessions: get().sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+      pendingIdleRecoverySessionId: id,
+    });
+    try {
+      if (isRemoteId(id) && isOnline()) await api.sessions.update(id, patch);
+      else queueMutation("sessions", "update", id, patch as Record<string, unknown>);
+    } catch (error) {
+      handleSessionApiError(id, error, "Failed to pause for idle", set, get);
+    }
+  },
+
+  markIdleReturn: (awaySeconds) => {
+    const id = get().pendingIdleRecoverySessionId ?? get().activeSessionId;
+    if (!id) return;
+    const session = get().sessions.find((s) => s.id === id);
+    const recovery = session?.pendingIdleRecovery;
+    if (!isResolvable(recovery) || recovery.returnedAt) return;
+
+    const now = Date.now();
+    const byReading = recovery.idleStartedAt + Math.max(0, awaySeconds) * 1000;
+    const returnedAt = Math.max(now, byReading);
+    const pendingIdleRecovery = { ...recovery, returnedAt };
+
+    set({
+      sessions: get().sessions.map((s) =>
+        s.id === id ? { ...s, pendingIdleRecovery } : s
+      ),
+      pendingIdleRecoverySessionId: id,
+    });
+    queueMutation("sessions", "update", id, { pendingIdleRecovery } as Record<string, unknown>);
+  },
+
+  resolveIdleRecovery: async (action: IdleRecoveryAction) => {
+    const id = get().pendingIdleRecoverySessionId;
+    if (!id) return null;
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) {
+      set({ pendingIdleRecoverySessionId: null });
+      return null;
+    }
+    const normalized = normalizeSession(session);
+    const recovery = normalized.pendingIdleRecovery;
+    if (!isResolvable(recovery)) {
+      set({ pendingIdleRecoverySessionId: null });
+      return null;
+    }
+
+    const now = Date.now();
+    const resolution = resolveIdleRecoveryPatch(normalized, recovery, action, now);
+    const { patch, clearsActiveSession: clearActive } = resolution;
+    const draft: Session | null = resolution.draft
+      ? { ...resolution.draft, id: uid() }
+      : null;
+
+    set({
+      sessions: [
+        ...get().sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+        ...(draft ? [draft] : []),
+      ],
+      pendingIdleRecoverySessionId: null,
+      ...(clearActive ? { activeSessionId: null } : {}),
+    });
+
+    try {
+      if (isRemoteId(id) && isOnline()) await api.sessions.update(id, patch);
+      else queueMutation("sessions", "update", id, patch as Record<string, unknown>);
+
+      if (draft) {
+        if (isOnline()) {
+          const created = await api.sessions.create({ ...draft, id: undefined });
+          set({
+            sessions: get().sessions.map((s) => (s.id === draft.id ? { ...draft, ...created } : s)),
+          });
+        } else {
+          queueMutation("sessions", "create", draft.id, draft as unknown as Record<string, unknown>);
+        }
+      }
+    } catch (error) {
+      handleSessionApiError(id, error, "Failed to resolve idle time", set, get);
+    }
+
+    return describeIdleResolution(resolution, normalized, recovery, now);
   },
 
   pauseSession: async () => {
@@ -1850,6 +2118,8 @@ persist((set, get) => ({
     tasks: [],
     sessions: [],
     activeSessionId: null,
+    pendingIdleRecoverySessionId: null,
+    agentRuns: {},
     completionAlarmSessionId: null,
     user: null,
     error: null,
@@ -1994,6 +2264,11 @@ persist((set, get) => ({
     if (!active || normalizeSession(active).state === "confirmed") {
       state.activeSessionId = null;
     }
+    // Derived rather than persisted: an unresolved gap must survive a restart.
+    state.pendingIdleRecoverySessionId =
+      sessions.find((s) => s.pendingIdleRecovery?.status === "pending")?.id ?? null;
+    // Live agent runs are in-memory only.
+    state.agentRuns = state.agentRuns ?? {};
   },
 })
 );

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/icon";
 import type { Task } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
+import { useTaskArchive } from "@/lib/use-task-archive";
 import { ProjectTag } from "./ProjectTag";
 import { ClientBadge } from "./ClientBadge";
 import { Button } from "./ui/button";
@@ -51,7 +52,7 @@ export function TaskCard({
     project?.clientId ? s.clients.find((c) => c.id === project.clientId) : undefined
   );
   const setTaskStatus = useApp((s) => s.setTaskStatus);
-  const archiveTask = useApp((s) => s.archiveTask);
+  const runArchive = useTaskArchive();
   const deleteTask = useApp((s) => s.deleteTask);
   const startSession = useApp((s) => s.startSession);
   const activeSessionId = useApp((s) => s.activeSessionId);
@@ -228,7 +229,7 @@ export function TaskCard({
             variant="ghost"
             onClick={(e) => {
               e.stopPropagation();
-              archiveTask(task.id);
+              runArchive(task, "archive");
             }}
             aria-label="Archive task"
             className="text-text-faint hover:text-text-muted"

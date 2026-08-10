@@ -127,25 +127,25 @@ function ToastItem({
       borderLeft: "4px solid var(--success)",
       iconClass: "text-success",
       iconColor: "var(--success)",
-      glowColor: "rgba(16, 185, 129, 0.12)",
+      glowColor: "color-mix(in srgb, var(--success) 12%, transparent)",
     },
     warning: {
       borderLeft: "4px solid var(--warning)",
       iconClass: "text-warning",
       iconColor: "var(--warning)",
-      glowColor: "rgba(59, 130, 246, 0.12)", // Warning maps to blue family accent in this codebase
+      glowColor: "color-mix(in srgb, var(--warning) 12%, transparent)",
     },
     info: {
       borderLeft: "4px solid var(--info)",
       iconClass: "text-text-muted",
       iconColor: "var(--info)",
-      glowColor: "rgba(59, 130, 246, 0.08)",
+      glowColor: "color-mix(in srgb, var(--info) 10%, transparent)",
     },
     error: {
       borderLeft: "4px solid var(--error)",
       iconClass: "text-error",
       iconColor: "var(--error)",
-      glowColor: "rgba(239, 68, 68, 0.12)",
+      glowColor: "color-mix(in srgb, var(--error) 12%, transparent)",
     },
   }[notification.tone];
 
@@ -153,7 +153,7 @@ function ToastItem({
     <div
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`toast-item pointer-events-auto rounded-xl p-3.5 shadow-2xl relative overflow-hidden transition-all duration-200 ${
+      className={`toast-item pointer-events-auto rounded-xl p-3.5 relative overflow-hidden transition-[opacity,transform] duration-base ${
         isExiting ? "animate-slide-out-right" : "animate-slide-in-right"
       }`}
       style={{
@@ -162,7 +162,9 @@ function ToastItem({
         WebkitBackdropFilter: "blur(16px)",
         border: "1px solid var(--border-subtle)",
         borderLeft: toneStyles.borderLeft,
-        boxShadow: `0 12px 30px -10px ${toneStyles.glowColor}, 0 4px 12px -2px rgba(0, 0, 0, 0.05)`,
+        // Tone glow on top of the shared elevation, so toasts sit at one
+        // consistent height with every other overlay.
+        boxShadow: `0 12px 30px -10px ${toneStyles.glowColor}, var(--elevation-4)`,
       }}
     >
       <div className="flex items-start gap-3">
@@ -185,14 +187,14 @@ function ToastItem({
                 notification.action?.onClick();
                 triggerDismiss();
               }}
-              className="mt-2 text-[11px] font-semibold text-accent hover:text-accent-hover transition-colors px-2 py-0.5 rounded bg-accent/8 hover:bg-accent/15 w-fit block"
+              className="mt-2 text-[11px] font-semibold text-accent hover:text-accent-hover transition-colors px-2 py-0.5 rounded bg-accent/8 hover:bg-accent/15 w-fit block focus-ring"
             >
               {notification.action.label}
             </button>
           )}
         </div>
         <button
-          className="text-text-muted hover:text-text-primary hover:bg-text-primary/5 p-1 rounded-full transition-all duration-150 shrink-0"
+          className="text-text-muted hover:text-text-primary hover:bg-text-primary/5 p-1 rounded-full transition-colors duration-fast shrink-0 focus-ring"
           onClick={triggerDismiss}
           aria-label="Dismiss notification"
         >
@@ -235,7 +237,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   return (
     <NotificationContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed right-6 top-6 z-[200] flex w-[360px] max-w-[calc(100vw-48px)] flex-col gap-2.5">
+      {/* polite, not assertive: toasts are confirmations and recoverable
+          errors, so they should not interrupt what is being read. */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-relevant="additions"
+        className="pointer-events-none fixed right-6 top-6 z-toast flex w-[360px] max-w-[calc(100vw-48px)] flex-col gap-2.5"
+      >
         {notifications.map((notification) => (
           <ToastItem
             key={notification.id}

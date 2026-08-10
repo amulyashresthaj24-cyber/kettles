@@ -10,6 +10,42 @@ export interface SessionNote {
   text: string;
 }
 
+/** How a session's time got into the ledger. */
+export type SessionSource = "timer" | "manual" | "idle_recovery" | "agent_run";
+
+/** A stretch of a session an AI agent was demonstrably working through. */
+export interface AgentSegment {
+  runId: string;
+  agent: string; // "claude-code" | "codex" | "cursor" | "grok" | ...
+  label?: string; // "refactor sync-engine"
+  startedAt: number;
+  endedAt?: number;
+  status: "running" | "ok" | "error" | "cancelled" | "stale";
+}
+
+/**
+ * An unresolved gap between the moment the OS stopped seeing input and the
+ * moment the user came back.
+ */
+export interface IdleRecovery {
+  id: string;
+  /** When the idle threshold was crossed. */
+  detectedAt: number;
+  /** When input actually stopped — `detectedAt` minus the idle duration. */
+  idleStartedAt: number;
+  /** When input resumed. Absent while the user is still away. */
+  returnedAt?: number;
+  /** Idle seconds observed at detection. */
+  idleSeconds: number;
+  status: "pending" | "trimmed" | "counted" | "drafted" | "finished";
+}
+
+export type IdleRecoveryAction =
+  | "resume_trimmed"
+  | "count_as_work"
+  | "save_as_draft"
+  | "finish_at_idle";
+
 export interface PetCustomReminder {
   id: string;
   text: string;
@@ -31,8 +67,12 @@ export interface UserPreferences {
   alarmSound?: string;
   autoBreakEnabled: boolean;
   autoPauseOnIdleEnabled: boolean;
-  /** "kettle" = default male mascot. "sprite2" is a legacy persisted alias for "female". */
-  activeMascot?: "kettle" | "sprite2" | "female";
+  /**
+   * "kettle" = default male mascot. "sprite2" is a legacy persisted alias for
+   * "female". "custom" renders a user-uploaded v1 atlas — the image itself
+   * lives under its own localStorage key, never here (see mascot-custom.ts).
+   */
+  activeMascot?: "kettle" | "sprite2" | "female" | "custom";
   /** How often the mascot plays a spontaneous idle gesture. */
   mascotAnimationFrequency?: "off" | "calm" | "normal" | "lively";
   /** Looping animation the mascot rests in (state name from pet.config.json). */
@@ -42,6 +82,12 @@ export interface UserPreferences {
   petCustomRemindersEnabled?: boolean;
   petCustomReminders?: PetCustomReminder[];
   petNotesIntegrationEnabled?: boolean;
+  /** Proactive pet interventions (estimate overrun, missing rate). Defaults on. */
+  petIntelligenceEnabled?: boolean;
+  /** Pet jump + cue when a tracked AI agent run finishes. Defaults on. */
+  agentFinishCelebrationEnabled?: boolean;
+  /** Minutes without input before the timer auto-pauses. Floored at 30s. */
+  idleThresholdMinutes?: number;
 }
 
 /** Per-user profile + onboarding state (`user_profiles` table). One row per user. */
@@ -178,7 +224,19 @@ export interface Session {
   taskId: string;
   projectId: string;
   billable: boolean;
+  /** First start of the session. Immutable from timelineVersion 2 onward. */
   startedAt: number;
+  /**
+   * Start of the current running stretch, set on resume. Absent until the
+   * session is resumed at least once. Legacy rows (no `timelineVersion`)
+   * overwrote `startedAt` instead and never set this.
+   */
+  resumedAt?: number;
+  /**
+   * Bounds contract version. `2`+ means `startedAt`/`endedAt` are truthful and
+   * the report layer must not reconcile them against `durationSeconds`.
+   */
+  timelineVersion?: number;
   endedAt?: number;
   durationSeconds: number;
   paused: boolean;
@@ -191,4 +249,13 @@ export interface Session {
   completionAckMinutes?: number;
   /** Client/server edit timestamp (ms) — used to keep local edits over stale remote rows. */
   updatedAt?: number;
+  /** How this time was recorded. Absent on rows predating the field. */
+  source?: SessionSource;
+  /** Unresolved idle gap awaiting a decision. Rides the sessions JSONB payload. */
+  pendingIdleRecovery?: IdleRecovery;
+  /**
+   * Stretches an AI agent was demonstrably working through.
+   * Rides the sessions JSONB payload (same as pendingIdleRecovery) — not a column.
+   */
+  agentSegments?: AgentSegment[];
 }

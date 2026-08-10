@@ -1,0 +1,13 @@
+{
+  "id": "flowmate-v2-staged",
+  "displayName": "Flowmate v2 (staged)",
+  "description": "Directional-look upgrade staged from the current Flowmate pet.",
+  "spriteVersionNumber": 2,
+  "spritesheetPath": "final/spritesheet.webp",
+  "status": "assembled-awaiting-review",
+  "sheet": {
+    "cols": 8,
+    "rows": 11
+  },
+  "testConfig": "pet-v2.test.config.json"
+}

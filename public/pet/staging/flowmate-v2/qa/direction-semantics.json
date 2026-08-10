@@ -1,0 +1,34 @@
+{
+  "convention": "Clockwise degrees from up. pet.js uses atan2(dx, -dy).",
+  "rows": [
+    {
+      "row": 9,
+      "directions": [
+        "000",
+        "022.5",
+        "045",
+        "067.5",
+        "090",
+        "112.5",
+        "135",
+        "157.5"
+      ],
+      "note": "000 through 157.5 from source strip"
+    },
+    {
+      "row": 10,
+      "directions": [
+        "180",
+        "202.5",
+        "225",
+        "247.5",
+        "270",
+        "292.5",
+        "315",
+        "337.5"
+      ],
+      "note": "180 through 337.5 from the corrected coherent source strip"
+    }
+  ],
+  "blindCheck": "000 must look up, 090 right, 180 down, and 270 left. Sweep must read as one clockwise gaze loop."
+}

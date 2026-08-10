@@ -1,0 +1,279 @@
+{
+  "status": "assembled-awaiting-review",
+  "source": {
+    "path": "source\\sprite-2-v1-reference.webp",
+    "sha256": "58095B42C07226C583CD83287B98263BFB29D6DD8AD5B2B9A89831D1A95D7C29",
+    "size": [
+      944,
+      1773
+    ]
+  },
+  "lookSources": [
+    {
+      "path": "decoded\\look-row-9-source.png",
+      "sha256": "EF60B01F876105D3EBC1EC748EE70B9BEAB835CE8B487FFABA6A7AEE5CB0D515",
+      "size": [
+        1774,
+        887
+      ]
+    },
+    {
+      "path": "decoded\\look-row-10-source.png",
+      "sha256": "9240C82BD4ED2387A3C76442F5683638E690E97FBC32AFC27D994D5358DA285E",
+      "size": [
+        1774,
+        887
+      ]
+    }
+  ],
+  "target": {
+    "width": 1536,
+    "height": 2288,
+    "cell": [
+      192,
+      208
+    ],
+    "sheet": [
+      8,
+      11
+    ]
+  },
+  "directionRegistration": {
+    "sharedScale": 0.373585,
+    "maxSource": [
+      202,
+      530
+    ],
+    "frames": [
+      {
+        "sourceBbox": [
+          0,
+          189,
+          170,
+          717
+        ],
+        "placed": [
+          64,
+          5,
+          64,
+          197
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          188,
+          188,
+          717
+        ],
+        "placed": [
+          61,
+          4,
+          70,
+          198
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          187,
+          202,
+          717
+        ],
+        "placed": [
+          58,
+          4,
+          75,
+          198
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          188,
+          202,
+          715
+        ],
+        "placed": [
+          58,
+          5,
+          75,
+          197
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          189,
+          176,
+          717
+        ],
+        "placed": [
+          63,
+          5,
+          66,
+          197
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          195,
+          180,
+          717
+        ],
+        "placed": [
+          62,
+          7,
+          67,
+          195
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          205,
+          187,
+          717
+        ],
+        "placed": [
+          61,
+          11,
+          70,
+          191
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          210,
+          191,
+          714
+        ],
+        "placed": [
+          60,
+          14,
+          71,
+          188
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          194,
+          171,
+          690
+        ],
+        "placed": [
+          64,
+          17,
+          64,
+          185
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          196,
+          187,
+          694
+        ],
+        "placed": [
+          61,
+          16,
+          70,
+          186
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          194,
+          185,
+          694
+        ],
+        "placed": [
+          61,
+          15,
+          69,
+          187
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          196,
+          181,
+          694
+        ],
+        "placed": [
+          62,
+          16,
+          68,
+          186
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          198,
+          175,
+          694
+        ],
+        "placed": [
+          63,
+          17,
+          65,
+          185
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          203,
+          183,
+          694
+        ],
+        "placed": [
+          62,
+          19,
+          68,
+          183
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          196,
+          183,
+          694
+        ],
+        "placed": [
+          62,
+          16,
+          68,
+          186
+        ]
+      },
+      {
+        "sourceBbox": [
+          0,
+          188,
+          162,
+          699
+        ],
+        "placed": [
+          65,
+          11,
+          61,
+          191
+        ]
+      }
+    ]
+  },
+  "output": {
+    "webp": "final/spritesheet.webp",
+    "sha256": "A4458BE7A45A3566EBCFAC88EACD388A5DED0C4A3B5A37DE280A0C4E122C8575",
+    "contactSheet": "qa/contact-sheet.png"
+  }
+}

@@ -1,6 +1,9 @@
 {
+  "tier": "v1",
+  "_comment": "v1 is the user-generated mascot tier: 9 art rows, no look grid. Stock Kettles mascots ship v2 (8x11, 16 look cells) and are authored in-house. The 14 state NAMES in stateMap are the contract shared by both tiers — see Docs/pet-design-system.md.",
   "cell": { "width": 192, "height": 208 },
   "sheet": { "cols": 8, "rows": 9 },
+  "lookGrid": false,
   "rows": [
     {
       "id": "idle",
@@ -84,9 +87,27 @@
       "avoid": ["literal foot-running", "travel motion", "speed lines", "dust"]
     }
   ],
-  "derivedStates": {
-    "working_still": { "from": "working", "row": 1, "col": 0, "frames": 1, "fps": 1, "loop": true },
-    "sitting": { "from": "failed", "row": 5, "col": 6, "frames": 2, "fps": 2, "loop": true, "scale": 0.75 }
+  "stateMap": {
+    "_comment": "Every name in PetAnimationState (src/lib/pet.ts) mapped onto the 9 v1 art rows. All 14 must resolve or the state silently falls back to idle at runtime. Aliasing is expected: v1 has fewer art rows than names.",
+    "idle": { "row": 0, "frames": 6, "fps": 5, "loop": true },
+    "sitting": { "row": 0, "col": 0, "frames": 1, "fps": 2, "loop": true },
+    "working": { "row": 1, "frames": 8, "fps": 8, "loop": true },
+    "drag_left": { "row": 2, "frames": 8, "fps": 11, "loop": true },
+    "drag_right": { "row": 2, "frames": 8, "fps": 11, "loop": true },
+    "running_left": { "row": 2, "frames": 8, "fps": 10, "loop": true },
+    "running_right": { "row": 2, "frames": 8, "fps": 10, "loop": true },
+    "waving": { "row": 3, "frames": 4, "fps": 6, "loop": false },
+    "jumping": { "row": 4, "frames": 5, "fps": 10, "loop": false },
+    "failed": { "row": 5, "frames": 8, "fps": 6, "loop": false },
+    "waiting": { "row": 6, "frames": 6, "fps": 4, "loop": true },
+    "review": { "row": 7, "frames": 6, "fps": 5, "loop": true },
+    "reading": { "row": 7, "frames": 6, "fps": 5, "loop": true },
+    "running": { "row": 8, "frames": 6, "fps": 9, "loop": true }
+  },
+  "aliasNotes": {
+    "drag_left/drag_right": "Both map to row 2. v1 carries no mirrored drag art, so dragging is directionless. Acceptable; v2 splits them across rows 1 and 2.",
+    "running_left/running_right": "Reserved vocabulary. Nothing requests them today; mapped to row 2 so they resolve rather than fall back to idle.",
+    "reading": "Alias of review. Reserved so a future mascot can split them without a host change.",
+    "sitting": "First idle frame, held. Do not derive it from the failed row — no row prompt guarantees the mascot ends that animation seated."
   }
 }
-

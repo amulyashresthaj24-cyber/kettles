@@ -26,6 +26,7 @@ import { DEFAULT_WEEKLY_TARGET_HOURS } from "@/lib/report/constants";
 import type { ReportFilterState } from "@/components/report/ReportFilterBar";
 import { ReportFilterBar } from "@/components/report/ReportFilterBar";
 import { KpiCard } from "@/components/report/KpiCard";
+import { Skeleton, SkeletonRows } from "@/components/ui/skeleton";
 import { ReportCard, ReportEmptyState } from "@/components/report/ReportCard";
 import { ProjectsTable } from "@/components/report/ProjectsTable";
 import { TimeLogTable } from "@/components/report/TimeLogTable";
@@ -54,6 +55,7 @@ export default function ReportPage() {
   const projects = useApp((s) => s.projects);
   const clients = useApp((s) => s.clients);
   const tasks = useApp((s) => s.tasks);
+  const initialLoadComplete = useApp((s) => s.initialLoadComplete);
   const weeklyTargetHours = useApp(
     (s) => s.preferences?.weeklyTargetHours ?? DEFAULT_WEEKLY_TARGET_HOURS
   );
@@ -222,6 +224,19 @@ export default function ReportPage() {
         />
       </div>
 
+      {/* Until the first load lands, every aggregate is zero — and a report of
+          0h / $0 reads as real data rather than as "not loaded yet". */}
+      {!initialLoadComplete ? (
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-5 gap-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-[88px] rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-[280px] rounded-xl" />
+          <SkeletonRows rows={5} rowClassName="h-12" />
+        </div>
+      ) : (
       <div className="flex flex-col gap-4">
         {/* ── OVERVIEW ─────────────────────────────────────────────────────── */}
         {activeTab === "overview" && (
@@ -551,6 +566,7 @@ export default function ReportPage() {
           </>
         )}
       </div>
+      )}
 
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} getData={getExportData} />
       <ShareReportDialog

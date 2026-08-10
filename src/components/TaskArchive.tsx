@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowClockwise, Trash, MagnifyingGlass, CalendarBlank, CheckCircle, Clock, Warning } from "@/components/ui/icon";
 import type { Task } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
+import { useTaskArchive } from "@/lib/use-task-archive";
 import { UrgencyDot } from "./UrgencyDot";
 import { ProjectTag } from "./ProjectTag";
 import { ClientBadge } from "./ClientBadge";
@@ -28,7 +29,7 @@ const STATUS_LABEL = {
 export function TaskArchive({ tasks }: { tasks: Task[] }) {
   const projects = useApp((s) => s.projects);
   const clients = useApp((s) => s.clients);
-  const restoreTask = useApp((s) => s.restoreTask);
+  const runArchive = useTaskArchive();
   const deleteTask = useApp((s) => s.deleteTask);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -214,7 +215,7 @@ export function TaskArchive({ tasks }: { tasks: Task[] }) {
                     <Button
                       size="xs"
                       variant="ghost"
-                      onClick={() => restoreTask(task.id)}
+                      onClick={() => runArchive(task, "restore")}
                       className="gap-1 text-text-faint hover:text-success"
                       title="Restore to board"
                       aria-label={`Restore ${task.title} to board`}

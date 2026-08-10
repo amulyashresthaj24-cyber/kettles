@@ -12,6 +12,7 @@ import { ProjectBillingSection } from "./ProjectBillingSection";
 import { ClientNameField } from "./ClientSelector";
 import { parseRateInput } from "@/lib/rates";
 import { findClientByNormalizedName } from "@/lib/clients";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 
 const PROJECT_STATUSES: { label: string; value: ProjectStatus }[] = [
   { label: "Active",     value: "active" },
@@ -60,7 +61,7 @@ function PillSelect<T extends string>({
       </button>
 
       {open && (
-        <div className="absolute bottom-full mb-2 left-0 min-w-[160px] bg-surface-raised border border-border rounded-lg shadow-2xl z-[60] py-1 overflow-hidden">
+        <div className="absolute bottom-full mb-2 left-0 min-w-[160px] bg-surface-raised border border-border rounded-lg shadow-elevation-2 z-dropdown py-1 overflow-hidden">
           {options.map((o) => (
             <button
               key={o.value}
@@ -93,6 +94,7 @@ export function AddProjectModal({
   const addProject = useApp((s) => s.addProject);
   const resolveProjectClientLink = useApp((s) => s.resolveProjectClientLink);
   const clients = useApp((s) => s.clients);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -159,26 +161,29 @@ export function AddProjectModal({
     }
   }, [name, description, color, icon, billable, status, budget, hourlyRate, clientName, addProject, resolveProjectClientLink, onClose]);
 
+  // Escape and the focus trap come from useFocusTrap; this only adds the
+  // Cmd/Ctrl+Enter submit shortcut.
+  useFocusTrap({ active: open, containerRef: panelRef, onEscape: onClose });
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void handleSubmit();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, handleSubmit]);
+  }, [open, handleSubmit]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-lg">
+    <div className="fixed inset-0 z-modal flex items-center justify-center p-lg">
       <div
         className="absolute inset-0 bg-base/60 backdrop-blur-sm animate-fade-in"
         onClick={onClose}
       />
 
-      <div className="animate-modal-in relative w-full max-w-[560px] bg-surface-raised rounded-xl shadow-2xl flex flex-col overflow-visible border border-border-subtle">
+      <div ref={panelRef} role="dialog" aria-modal="true" className="animate-modal-in relative w-full max-w-[560px] bg-surface-raised rounded-xl shadow-elevation-3 flex flex-col overflow-visible border border-border-subtle">
         <div className="flex items-center justify-between px-xl py-md border-b border-border-subtle">
           <h2 className="text-[13px] text-text-secondary font-medium">
             New project

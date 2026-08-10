@@ -156,7 +156,7 @@ export default function Sidebar({
               }}
               className="flex-1 flex h-9 items-center justify-between rounded-[8px] px-2 text-[12px] font-medium text-text-muted transition-colors hover:bg-surface-raised hover:text-text-primary focus-ring"
               aria-label="Toggle pet mini-mode"
-              title="Shrink to mini-timer + pet overlay (Alt+Shift+T)"
+              title="Hide the window and keep the pet overlay on top (Alt+Shift+T)"
             >
               <span className="flex items-center gap-2.5">
                 <Lightning size={15} weight="regular" aria-hidden />

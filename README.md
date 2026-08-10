@@ -2,24 +2,23 @@
 
 Task-linked time tracking, project management, and analytics for solo workers and small teams.
 
-## 🚀 Quick Links
+## ≡ƒÜÇ Quick Links
 
-- **[📚 Complete Documentation](./Docs/INDEX.md)** — Start here for guides, architecture, and references
-- **[🏗️ Codebase Structure](./Docs/CODEBASE_STRUCTURE.md)** — Folder organization and quick navigation
-- **[📁 Folder Guide](./Docs/folder-guide.md)** — Current active folders, future app/package direction, and AI prompt guide
-- **[⚙️ Setup Guide](./Docs/SUPABASE_QUICKSTART.md)** — Get started in 5 minutes
-- **[🚢 Deployment](./Docs/DEPLOYMENT_GUIDE.md)** — Production deployment checklist
+- **[≡ƒôû Development Guide](./CLAUDE.md)** ΓÇö Stack, key files, routes, store API, conventions
+- **[≡ƒº¡ Product Summary](./Docs/system.md)** ΓÇö Problem, wedge, locked decisions
+- **[≡ƒÄ¿ Design System](./Docs/design.md)** ΓÇö Tokens, typography, components
+- **[≡ƒÜó Releasing](./Docs/release.md)** ΓÇö Web + desktop release channels
 
 ## What is Flowmate?
 
 Flowmate combines project management, task tracking, and time tracking into a unified workflow:
 
-- **Projects** — Organize work by client and initiative
-- **Tasks** — Break projects into actionable items
-- **Kanban Board** — Visualize workflow (Todo → Doing → Done)
-- **Timer** — Track time with Pomodoro-based sessions
-- **Calendar** — View tasks across dates4
-- **Reports** — Weekly analytics and productivity insights
+- **Projects** ΓÇö Organize work by client and initiative
+- **Tasks** ΓÇö Break projects into actionable items
+- **Kanban Board** ΓÇö Visualize workflow (Todo ΓåÆ Doing ΓåÆ Done)
+- **Timer** ΓÇö Track time with Pomodoro-based sessions
+- **Calendar** ΓÇö View tasks across dates
+- **Reports** ΓÇö Weekly analytics and productivity insights
 
 ## Tech Stack
 
@@ -27,22 +26,23 @@ Flowmate combines project management, task tracking, and time tracking into a un
 - **Backend:** Supabase (PostgreSQL, Edge Functions)
 - **State:** Zustand
 - **UI:** Custom components + shadcn patterns
-- **Icons:** Custom SVG components in `src/components/ui/icon.tsx` (no external icon library)
+- **Icons:** Custom SVG components (`src/components/ui/icon.tsx`)
+- **Desktop:** Tauri (Windows)
 
 ## Documentation
 
-All documentation is organized in the [`Docs/`](./Docs/) folder:
-
-| Category | Documents |
-|----------|-----------|
-| **Getting Started** | [Guide](./CLAUDE.md), [Doc map](./Docs/CODEBASE_OVERVIEW.md), [Folder Guide](./Docs/folder-guide.md) |
-| **Folder Direction** | [Folder Guide](./Docs/folder-guide.md) |
-| **Backend** | [Supabase Setup](./Docs/SUPABASE_QUICKSTART.md), [Migration](./Docs/SUPABASE_MIGRATION_GUIDE.md), [Deploy](./Docs/DEPLOYMENT_GUIDE.md) |
-| **Design** | [Visual System](./Docs/design.md), [Screens](./Docs/screens.md), [Database](./Docs/database.md) |
-| **Architecture** | [Layout v2](./Docs/LAYOUT_ARCHITECTURE_V2.md), [Redesigns](./Docs/REDESIGN_SUMMARY.md) |
-| **Chrome extension** | [Scope, limits, and how it differs from the app](./extension/README.md) |
-
-**→ [View Full Documentation Index](./Docs/INDEX.md)**
+| Document | What it covers |
+|----------|----------------|
+| [CLAUDE.md](./CLAUDE.md) | Stack, key files, routes, store API, conventions |
+| [Docs/system.md](./Docs/system.md) | Product summary and locked product decisions |
+| [Docs/design.md](./Docs/design.md) | Design system ΓÇö tokens, type scale, motion |
+| [Docs/LAYOUT_TOKEN_REFERENCE.md](./Docs/LAYOUT_TOKEN_REFERENCE.md) | Layout components and spacing tokens |
+| [Docs/agent-tracking-plan.md](./Docs/agent-tracking-plan.md) | AI agent tracking spec ΓÇö idle detection, agent bridge |
+| [Docs/agent-hooks.md](./Docs/agent-hooks.md) | Agent bridge hook wiring |
+| [Docs/release.md](./Docs/release.md) | Web + desktop release channels |
+| [Docs/pet-mascot-kit.md](./Docs/pet-mascot-kit.md) | Pet sprite contract and asset pipeline |
+| [Docs/marketing/](./Docs/marketing/) | Landing page PRD, brand assets, build brief |
+| [supabase/functions/CLAUDE.md](./supabase/functions/CLAUDE.md) | Edge function patterns |
 
 ## Quick Start
 
@@ -61,11 +61,8 @@ Open [http://localhost:3000](http://localhost:3000) to begin.
 
 ## Contributing
 
-See [CODEBASE_STRUCTURE.md](./Docs/CODEBASE_STRUCTURE.md) for guidelines on:
-- Where to add new features
-- Component conventions
-- State management patterns
-- Code organization
+See [CLAUDE.md](./CLAUDE.md) for conventions: where features go, component patterns,
+state access via `useApp()`, token and icon rules.
 
 ## License
 

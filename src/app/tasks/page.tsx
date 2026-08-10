@@ -10,6 +10,7 @@ import { AddTaskModal } from "@/components/AddTaskModal";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { PageLayout, PageHeader, PageToolbar, PageContent } from "@/components/layout";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import type { Task, TaskStatus, Urgency } from "@/lib/types";
 
 const NO_PROJECT = "__none__";
@@ -21,6 +22,7 @@ export default function TasksPage() {
   const setSelectedProject = useApp((s) => s.setSelectedProject);
   const selectedUrgency = useApp((s) => s.selectedUrgency);
   const setSelectedUrgency = useApp((s) => s.setSelectedUrgency);
+  const initialLoadComplete = useApp((s) => s.initialLoadComplete);
 
   const [openAdd, setOpenAdd] = useState(false);
   const [defaultStatus, setDefaultStatus] = useState<TaskStatus>("todo");
@@ -184,7 +186,15 @@ export default function TasksPage() {
       />
 
       <PageContent>
-        {showArchived ? (
+        {/* Tasks are not persisted locally — without this gate every cold load
+            flashes "No tasks match this filter" before data arrives. */}
+        {!initialLoadComplete ? (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SkeletonRows key={i} rows={3} rowClassName="h-24 rounded-xl" />
+            ))}
+          </div>
+        ) : showArchived ? (
           <TaskArchive tasks={filteredTasks} />
         ) : view === "kanban" ? (
           <KanbanBoard tasks={filteredTasks} onAddTask={openAddTask} onEditTask={openEditTask} />

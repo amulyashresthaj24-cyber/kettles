@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Play, Pause, ArrowUpRight, CheckCircle } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { formatHMS } from "@/lib/format";
+import { elapsedSecondsFor } from "@/lib/session-timeline";
 import { Button } from "./ui/button";
 
 export function ActiveSessionBanner() {
@@ -31,11 +32,7 @@ export function ActiveSessionBanner() {
 
   if (!session) return null;
 
-  const elapsed =
-    session.durationSeconds +
-    (session.state !== "running"
-      ? 0
-      : Math.floor((Date.now() - session.startedAt) / 1000));
+  const elapsed = elapsedSecondsFor(session);
   const isDraft = session.isDraft || !task;
   const isPaused = session.state === "paused" || session.state === "finishing";
   const label = isDraft

@@ -70,6 +70,7 @@ export function ProjectWorkspace({ project, tasks, onBack }: ProjectWorkspacePro
   const { updateProject, clients, user } = useApp();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [addTaskOpen, setAddTaskOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editProjectOpen, setEditProjectOpen] = useState(false);
   const [newTag, setNewTag] = useState("");
 
@@ -212,13 +213,25 @@ export function ProjectWorkspace({ project, tasks, onBack }: ProjectWorkspacePro
           onNewTagChange={setNewTag}
           onAddTag={handleAddTag}
           onAddTask={() => setAddTaskOpen(true)}
+          onEditTask={(task) => {
+            setEditingTask(task);
+            setAddTaskOpen(true);
+          }}
           onEditProject={() => setEditProjectOpen(true)}
           onPrivacyChange={handlePrivacyChange}
           onUpdateProject={updateProject}
         />
       </main>
 
-      <AddTaskModal open={addTaskOpen} onClose={() => setAddTaskOpen(false)} defaultProjectId={project.id} />
+      <AddTaskModal
+        open={addTaskOpen}
+        onClose={() => {
+          setAddTaskOpen(false);
+          setEditingTask(null);
+        }}
+        defaultProjectId={project.id}
+        editingTask={editingTask}
+      />
       <EditProjectModal open={editProjectOpen} onClose={() => setEditProjectOpen(false)} project={project} />
     </div>
   );
@@ -235,6 +248,7 @@ interface TabContentProps {
   onNewTagChange: (tag: string) => void;
   onAddTag: () => void;
   onAddTask: () => void;
+  onEditTask: (task: Task) => void;
   onEditProject: () => void;
   onPrivacyChange: (isPrivate: boolean) => void;
   onUpdateProject: (id: string, patch: Partial<Omit<Project, "id">>) => Promise<void>;
@@ -255,7 +269,7 @@ function TabContent(props: TabContentProps) {
             Add Task
           </Button>
         </div>
-        <TaskList tasks={props.tasks} onAddTask={() => props.onAddTask()} onEditTask={() => {}} />
+        <TaskList tasks={props.tasks} onAddTask={() => props.onAddTask()} onEditTask={props.onEditTask} />
       </div>
     );
   }
@@ -270,7 +284,7 @@ function TabContent(props: TabContentProps) {
             Add Task
           </Button>
         </div>
-        <KanbanBoard tasks={props.tasks} onAddTask={props.onAddTask} />
+        <KanbanBoard tasks={props.tasks} onAddTask={props.onAddTask} onEditTask={props.onEditTask} />
       </div>
     );
   }

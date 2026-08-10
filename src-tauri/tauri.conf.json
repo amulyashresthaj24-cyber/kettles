@@ -30,7 +30,6 @@
     },
     "trayIcon": {
       "iconPath": "icons/icon.png",
-      "iconAsTemplate": true,
       "tooltip": "Flowmate – Task Timer"
     }
   },

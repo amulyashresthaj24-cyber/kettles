@@ -1,0 +1,330 @@
+{
+  "status": "assembled",
+  "target": {
+    "width": 1536,
+    "height": 2288,
+    "cols": 8,
+    "rows": 11
+  },
+  "inputs": {
+    "sourceAtlas": {
+      "path": "source/flowmate-v1-reference.webp",
+      "sha256": "F29B5CD74803A7AAD4AA844369ACD5707B3F81A9A1598673D4CF96DE920B4436",
+      "size": [
+        1536,
+        1872
+      ]
+    },
+    "lookRow9": {
+      "path": "decoded/look-row-9-source.png",
+      "sha256": "A53C9911C39F36273FAE08CF6CC2B7CBB2F9BD6A95F2A8578AF0652C514941E7",
+      "size": [
+        2172,
+        724
+      ]
+    },
+    "lookRow10": {
+      "path": "decoded/look-row-10-source.png",
+      "sha256": "96C88AC34B8F0EEFC839D01506185472CD5FA3562ED97520C68804908DEC7475",
+      "size": [
+        2172,
+        724
+      ]
+    }
+  },
+  "lookRows": [
+    {
+      "row": 9,
+      "directions": [
+        "000",
+        "022.5",
+        "045",
+        "067.5",
+        "090",
+        "112.5",
+        "135",
+        "157.5"
+      ],
+      "source": "decoded/look-row-9-source.png",
+      "sharedScale": 0.445946,
+      "maxSource": {
+        "w": 196,
+        "h": 444
+      },
+      "frames": [
+        {
+          "sourceBbox": [
+            77,
+            156,
+            252,
+            600
+          ],
+          "placed": {
+            "x": 57,
+            "y": 5,
+            "w": 78,
+            "h": 198
+          },
+          "scale": 0.445946
+        },
+        {
+          "sourceBbox": [
+            76,
+            161,
+            247,
+            599
+          ],
+          "placed": {
+            "x": 58,
+            "y": 6,
+            "w": 76,
+            "h": 195
+          },
+          "scale": 0.445946
+        },
+        {
+          "sourceBbox": [
+            71,
+            162,
+            242,
+            599
+          ],
+          "placed": {
+            "x": 58,
+            "y": 6,
+            "w": 76,
+            "h": 195
+          },
+          "scale": 0.445946
+        },
+        {
+          "sourceBbox": [
+            70,
+            163,
+            241,
+            599
+          ],
+          "placed": {
+            "x": 58,
+            "y": 7,
+            "w": 76,
+            "h": 194
+          },
+          "scale": 0.445946
+        },
+        {
+          "sourceBbox": [
+            66,
+            164,
+            219,
+            598
+          ],
+          "placed": {
+            "x": 62,
+            "y": 7,
+            "w": 68,
+            "h": 194
+          },
+          "scale": 0.445946
+        },
+        {
+          "sourceBbox": [
+            39,
+            164,
+            225,
+            600
+          ],
+          "placed": {
+            "x": 54,
+            "y": 7,
+            "w": 83,
+            "h": 194
+          },
+          "scale": 0.445946
+        },
+        {
+          "sourceBbox": [
+            20,
+            171,
+            216,
+            600
+          ],
+          "placed": {
+            "x": 52,
+            "y": 8,
+            "w": 87,
+            "h": 191
+          },
+          "scale": 0.445946
+        },
+        {
+          "sourceBbox": [
+            9,
+            179,
+            200,
+            600
+          ],
+          "placed": {
+            "x": 53,
+            "y": 10,
+            "w": 85,
+            "h": 188
+          },
+          "scale": 0.445946
+        }
+      ]
+    },
+    {
+      "row": 10,
+      "directions": [
+        "180",
+        "202.5",
+        "225",
+        "247.5",
+        "270",
+        "292.5",
+        "315",
+        "337.5"
+      ],
+      "source": "decoded/look-row-10-source.png",
+      "sharedScale": 0.464789,
+      "maxSource": {
+        "w": 182,
+        "h": 426
+      },
+      "frames": [
+        {
+          "sourceBbox": [
+            62,
+            186,
+            244,
+            603
+          ],
+          "placed": {
+            "x": 53,
+            "y": 7,
+            "w": 85,
+            "h": 194
+          },
+          "scale": 0.464789
+        },
+        {
+          "sourceBbox": [
+            68,
+            182,
+            242,
+            605
+          ],
+          "placed": {
+            "x": 55,
+            "y": 5,
+            "w": 81,
+            "h": 197
+          },
+          "scale": 0.464789
+        },
+        {
+          "sourceBbox": [
+            68,
+            180,
+            238,
+            605
+          ],
+          "placed": {
+            "x": 56,
+            "y": 5,
+            "w": 79,
+            "h": 198
+          },
+          "scale": 0.464789
+        },
+        {
+          "sourceBbox": [
+            61,
+            181,
+            231,
+            605
+          ],
+          "placed": {
+            "x": 56,
+            "y": 5,
+            "w": 79,
+            "h": 197
+          },
+          "scale": 0.464789
+        },
+        {
+          "sourceBbox": [
+            70,
+            180,
+            220,
+            605
+          ],
+          "placed": {
+            "x": 61,
+            "y": 5,
+            "w": 70,
+            "h": 198
+          },
+          "scale": 0.464789
+        },
+        {
+          "sourceBbox": [
+            67,
+            179,
+            224,
+            605
+          ],
+          "placed": {
+            "x": 59,
+            "y": 5,
+            "w": 73,
+            "h": 198
+          },
+          "scale": 0.464789
+        },
+        {
+          "sourceBbox": [
+            63,
+            184,
+            224,
+            605
+          ],
+          "placed": {
+            "x": 58,
+            "y": 6,
+            "w": 75,
+            "h": 196
+          },
+          "scale": 0.464789
+        },
+        {
+          "sourceBbox": [
+            53,
+            181,
+            220,
+            605
+          ],
+          "placed": {
+            "x": 57,
+            "y": 5,
+            "w": 78,
+            "h": 197
+          },
+          "scale": 0.464789
+        }
+      ]
+    }
+  ],
+  "outputs": {
+    "spritesheetPng": "final/spritesheet.png",
+    "spritesheetWebp": "final/spritesheet.webp",
+    "contactSheet": "qa/contact-sheet.png",
+    "testConfig": "pet-v2.test.config.json",
+    "sha256Webp": "F8A458C6DA2E04DDF55AC67B560144443C0899EA9C8C5C1A4024FE023E64DB8A",
+    "sizeWebp": [
+      1536,
+      2288
+    ]
+  }
+}

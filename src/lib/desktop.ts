@@ -129,9 +129,23 @@ export async function setIdleDetectionEnabled(enabled: boolean): Promise<void> {
   await invoke("set_idle_detection_enabled", { enabled });
 }
 
+/** Seconds without input before the timer auto-pauses. Floored at 30s in Rust. */
+export async function setIdleThresholdSeconds(seconds: number): Promise<void> {
+  await invoke("set_idle_threshold_seconds", { seconds: Math.round(seconds) });
+}
+
 /** Show a native desktop notification when running under Tauri. */
 export async function showDesktopNotification(title: string, body: string): Promise<void> {
   await invoke("show_notification", { title, body });
+}
+
+/**
+ * M2 — manual "AI running" toggle. Opens/closes a non-expiring bridge lease
+ * so idle auto-pause is suppressed without agent hooks. Emits the same
+ * agent-run-started / agent-run-finished events as HTTP hooks.
+ */
+export async function setManualAgentActive(active: boolean): Promise<void> {
+  await invoke("set_manual_agent_active", { active });
 }
 
 // ---------------------------------------------------------------------------
@@ -153,17 +167,27 @@ export function isOnline(): boolean {
   return navigator.onLine;
 }
 
+// Named, so they can actually be removed. Inline closures were registered on
+// window once and never detached, outliving every unsubscribe.
+const _onOnline = () => _notifyAll(true);
+const _onOffline = () => _notifyAll(false);
+
 /** Register a callback for online/offline changes. Returns an unsubscribe fn. */
 export function onConnectionChange(cb: ConnectionCallback): () => void {
   _listeners.push(cb);
 
   if (!_initialized && typeof window !== "undefined") {
-    window.addEventListener("online", () => _notifyAll(true));
-    window.addEventListener("offline", () => _notifyAll(false));
+    window.addEventListener("online", _onOnline);
+    window.addEventListener("offline", _onOffline);
     _initialized = true;
   }
 
   return () => {
     _listeners = _listeners.filter((l) => l !== cb);
+    if (_listeners.length === 0 && _initialized && typeof window !== "undefined") {
+      window.removeEventListener("online", _onOnline);
+      window.removeEventListener("offline", _onOffline);
+      _initialized = false;
+    }
   };
 }

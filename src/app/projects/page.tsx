@@ -21,6 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { AddProjectModal } from "@/components/AddProjectModal";
 import { EditProjectModal } from "@/components/EditProjectModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useNotification } from "@/components/ui/notification";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { PageLayout, PageHeader, PageToolbar, PageContent } from "@/components/layout";
 import type { Project, ProjectColor } from "@/lib/types";
 import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
@@ -29,13 +31,18 @@ const colorDot = (color: string) => {
   return PROJECT_COLOR_CLASSES[color as ProjectColor] || "bg-slate-400";
 };
 
+const errorMessage = (err: unknown, fallback: string) =>
+  err instanceof Error && err.message ? err.message : fallback;
+
 export default function ProjectsPage() {
   const router = useRouter();
+  const { notify } = useNotification();
   const projects = useApp((s) => s.projects);
   const clients = useApp((s) => s.clients);
   const deleteProject = useApp((s) => s.deleteProject);
   const archiveProject = useApp((s) => s.archiveProject);
   const restoreProject = useApp((s) => s.restoreProject);
+  const initialLoadComplete = useApp((s) => s.initialLoadComplete);
 
   const [openAdd, setOpenAdd] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
@@ -82,6 +89,39 @@ export default function ProjectsPage() {
   const handleEditClose = () => {
     setOpenEdit(false);
     setEditingProject(undefined);
+  };
+
+  // archiveProject/restoreProject reject on failure. Called bare, that surfaced
+  // as an unhandled rejection and the card silently stayed put.
+  const handleArchiveToggle = async (project: Project, direction: "archive" | "restore") => {
+    const apply = direction === "archive" ? archiveProject : restoreProject;
+    const undo = direction === "archive" ? restoreProject : archiveProject;
+    try {
+      await apply(project.id);
+      notify({
+        title: direction === "archive" ? "Project archived" : "Project restored",
+        description: `"${project.name}"`,
+        tone: "success",
+        action: {
+          label: "Undo",
+          onClick: () => {
+            undo(project.id).catch((err) =>
+              notify({
+                title: "Undo failed",
+                description: errorMessage(err, "Could not revert that change."),
+                tone: "error",
+              })
+            );
+          },
+        },
+      });
+    } catch (err) {
+      notify({
+        title: direction === "archive" ? "Couldn't archive project" : "Couldn't restore project",
+        description: errorMessage(err, `"${project.name}" is unchanged.`),
+        tone: "error",
+      });
+    }
   };
 
   return (
@@ -164,7 +204,11 @@ export default function ProjectsPage() {
       </section>
 
       <section className="flex flex-col overflow-hidden rounded-lg" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>
-        {filteredProjects.length === 0 ? (
+        {/* Projects are not persisted locally, so without this gate a cold load
+            flashes "No projects yet" at users who have plenty. */}
+        {!initialLoadComplete ? (
+          <SkeletonRows rows={4} className="p-4" rowClassName="h-16" />
+        ) : filteredProjects.length === 0 ? (
           <div className="flex min-h-[240px] flex-col items-center justify-center gap-md px-6 py-10 text-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-md text-text-muted" style={{ background: "var(--border-subtle)" }}>
               <FolderOpen size={18} />
@@ -286,7 +330,7 @@ export default function ProjectsPage() {
                           size="icon-sm"
                           onClick={(event) => {
                             event.stopPropagation();
-                            archiveProject(project.id);
+                            handleArchiveToggle(project, "archive");
                           }}
                           aria-label="Archive project"
                           title="Archive"
@@ -316,7 +360,7 @@ export default function ProjectsPage() {
                           size="icon-sm"
                           onClick={(event) => {
                             event.stopPropagation();
-                            restoreProject(project.id);
+                            handleArchiveToggle(project, "restore");
                           }}
                           className="hover:text-status-success"
                           aria-label="Restore project"
@@ -359,7 +403,7 @@ export default function ProjectsPage() {
       <ConfirmDialog
         open={deleteTarget !== null}
         title="Delete project?"
-        description={`This will permanently delete "${deleteTarget?.name ?? "this project"}". Existing tasks and sessions linked to it may also be affected by the backend relationship.`}
+        description={`This will permanently delete "${deleteTarget?.name ?? "this project"}". Tasks and sessions logged against it lose their project link. This cannot be undone.`}
         pending={isDeleting}
         onClose={() => setDeleteTarget(null)}
         onConfirm={async () => {
@@ -367,6 +411,13 @@ export default function ProjectsPage() {
           setIsDeleting(true);
           try {
             await deleteProject(deleteTarget.id);
+            setDeleteTarget(null);
+          } catch (err) {
+            notify({
+              title: "Couldn't delete project",
+              description: errorMessage(err, `"${deleteTarget.name}" is still here.`),
+              tone: "error",
+            });
             setDeleteTarget(null);
           } finally {
             setIsDeleting(false);

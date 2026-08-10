@@ -1,9 +1,10 @@
-/* Flowmate pet overlay — a small "thinking" widget: a thought bubble (timer)
- * floating above an animated mascot, inside a 250x270 transparent, frameless,
+/* Flowmate pet overlay ΓÇö a small "thinking" widget: a thought bubble (timer)
+ * floating above an animated mascot, inside a transparent, frameless,
  * always-on-top window (see PET_W/PET_H in src-tauri/src/pet.rs).
+ * Card/speech widths use --panel-max so they track the overlay viewport.
  *
  * Sprite frames are positioned in PIXELS (computed in pet.js), not percentages,
- * and the mascot animates continuously — both keep it reliably painted on the
+ * and the mascot animates continuously ΓÇö both keep it reliably painted on the
  * Windows WebView2 compositor (percent + CSS filters drop frames there).
  */
 
@@ -12,62 +13,76 @@
 }
 
 :root {
-  /* Nunito is loaded in pet.html — rounded and friendly, fits the companion. */
-  --font: "Nunito", "Urbanist", "Segoe UI", system-ui, sans-serif;
+  /* Product system type ΓÇö Urbanist matches the main app (globals.css / design.md). */
+  --font: "Urbanist", "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Cascadia Mono", "SFMono-Regular", Consolas, ui-monospace, monospace;
 
-  /* Dark palette (default — overlays read best dark). Mirrors globals.css. */
-  --surface: rgba(24, 25, 27, 0.94);
-  --surface-2: rgba(34, 36, 38, 0.96);
-  --border: rgba(255, 255, 255, 0.10);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --text: #f4f6f8;
-  --text-muted: #9aa1ac;
+  /* Codex-like graphite surfaces: status color is reserved for state only. */
+  --surface: rgba(28, 30, 29, 0.96);
+  --surface-2: rgba(38, 40, 39, 0.98);
+  --border: rgba(255, 255, 255, 0.11);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #f1f3f2;
+  --text-muted: #a7adab;
 
-  --accent: #3385ff;
-  --accent-glow: rgba(51, 133, 255, 0.45);
-  --running: #3385ff;
-  --paused: #f5b14c;
-  --finished: #10b981;
-  --idle: #8a8f98;
+  --accent: #10a37f;
+  --accent-glow: rgba(16, 163, 127, 0.32);
+  --running: #10a37f;
+  --paused: #bdc2c0;
+  --finished: #10a37f;
+  --idle: #8c9491;
 
   --shadow: none;
   --radius: 16px;
 
-  /* Motion tokens — one spring + one soft-out, shared by every interaction. */
+  /* Motion tokens ΓÇö one spring + one soft-out, shared by every interaction. */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-soft: cubic-bezier(0.22, 0.7, 0.3, 1);
 
   /* Glassmorphism custom tokens */
-  --surface-glass: rgba(18, 19, 21, 0.78);
-  --border-glass: rgba(255, 255, 255, 0.12);
-  --text-highlight: rgba(255, 255, 255, 0.95);
-  --btn-bg: rgba(255, 255, 255, 0.06);
-  --btn-border: rgba(255, 255, 255, 0.08);
-  --btn-hover-bg: rgba(255, 255, 255, 0.12);
+  --surface-glass: rgba(29, 31, 30, 0.94);
+  --border-glass: rgba(255, 255, 255, 0.14);
+  --text-highlight: rgba(249, 250, 249, 0.96);
+  --btn-bg: rgba(255, 255, 255, 0.08);
+  --btn-border: rgba(255, 255, 255, 0.11);
+  --btn-hover-bg: rgba(255, 255, 255, 0.14);
+
+  /* Space under the mascot for the Clock | AI tab bar. */
+  --mascot-bottom: 34px;
+  --panel-switch-h: 26px;
+
+  /*
+   * Panels hug content (width: fit-content) and only grow up to --panel-max.
+   * Gutter keeps the cap clear of the window edge under overflow:hidden.
+   */
+  --panel-gutter: 16px;
+  --panel-max: min(268px, calc(100% - (var(--panel-gutter) * 2)));
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --surface: rgba(255, 255, 255, 0.96);
-    --surface-2: rgba(244, 247, 251, 0.98);
-    --border: rgba(11, 18, 32, 0.08);
-    --border-strong: rgba(11, 18, 32, 0.14);
-    --text: #0b1220;
-    --text-muted: #5b6675;
+    --surface: rgba(250, 251, 250, 0.98);
+    --surface-2: rgba(242, 244, 243, 0.98);
+    --border: rgba(20, 25, 23, 0.10);
+    --border-strong: rgba(20, 25, 23, 0.16);
+    --text: #1b211f;
+    --text-muted: #65706b;
 
-    --accent: #1a74de;
-    --accent-glow: rgba(26, 116, 222, 0.32);
-    --running: #1a74de;
+    --accent: #087f5b;
+    --accent-glow: rgba(8, 127, 91, 0.24);
+    --running: #087f5b;
+    --paused: #68716e;
+    --finished: #087f5b;
 
     --shadow: none;
 
     /* Glassmorphism custom tokens */
-    --surface-glass: rgba(255, 255, 255, 0.82);
-    --border-glass: rgba(11, 18, 32, 0.10);
-    --text-highlight: rgba(11, 18, 32, 0.92);
-    --btn-bg: rgba(11, 18, 32, 0.04);
-    --btn-border: rgba(11, 18, 32, 0.08);
-    --btn-hover-bg: rgba(11, 18, 32, 0.08);
+    --surface-glass: rgba(250, 251, 250, 0.96);
+    --border-glass: rgba(20, 25, 23, 0.12);
+    --text-highlight: rgba(27, 33, 31, 0.94);
+    --btn-bg: rgba(20, 25, 23, 0.05);
+    --btn-border: rgba(20, 25, 23, 0.09);
+    --btn-hover-bg: rgba(20, 25, 23, 0.10);
   }
 }
 
@@ -91,8 +106,11 @@ body {
 
 .shell {
   position: relative;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
+  /* Clip to the overlay window; panels size themselves with gutters so they
+   * never hit this edge. Visible overflow would paint outside the transparent
+   * window and look cut off by the OS anyway. */
   overflow: hidden;
   /* Anchored at the feet so the completion swell grows up into the empty top
    * of the overlay window instead of clipping past the bottom edge. */
@@ -102,15 +120,16 @@ body {
 
 .shell.dragging { cursor: grabbing; }
 
-/* On completion the pet is centered on screen and the whole widget swells to
- * grab attention. Shrinks back when the session resumes / clears. */
-.shell[data-phase="finished"] { transform: scale(1.18); }
+/* Soft completion pulse ΓÇö keep scale modest so left/right panels stay inside
+ * the shell (1.18 previously clipped the timer/speech edges). */
+.shell[data-phase="finished"] { transform: scale(1.06); }
 
 /* ===================== mascot ============================================= */
 
 .mascot {
   position: absolute;
-  bottom: 2px;
+  /* Lifted so Clock | AI tabs sit clearly under the feet. */
+  bottom: var(--mascot-bottom, 34px);
   left: 50%;
   margin-left: calc(var(--mascot-width, 118px) / -2);
   width: var(--mascot-width, 118px);
@@ -119,11 +138,11 @@ body {
   background-position: 0 0;       /* px offset, driven by pet.js */
   cursor: grab;
   z-index: 3;
-  transform: translateZ(0);       /* own compositor layer → always painted */
+  transform: translateZ(0);       /* own compositor layer ΓåÆ always painted */
   transform-origin: 50% 100%;
   will-change: background-position;
   transition: transform 0.18s var(--ease-soft), filter 0.2s ease;
-  /* Idle breathing — barely-there scale from the feet, so the sprite never
+  /* Idle breathing ΓÇö barely-there scale from the feet, so the sprite never
    * feels like a frozen image between frames. One-shot classes (pop/land)
    * temporarily take over the animation slot, then breathing resumes. */
   animation: breathe 4.5s ease-in-out infinite;
@@ -134,7 +153,7 @@ body {
   50%      { transform: translateZ(0) scaleY(1.014) scaleX(0.995); }
 }
 
-/* Hover — a soft lift, like the pet noticed you. */
+/* Hover ΓÇö a soft lift, like the pet noticed you. */
 .shell:not(.dragging) .mascot:hover {
   filter: brightness(1.06) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.18));
 }
@@ -154,14 +173,14 @@ body {
   transition: transform 0.2s var(--ease-soft), opacity 0.2s ease;
 }
 
-/* Picked up — pause breathing, tilt into the drag direction, and shrink the
+/* Picked up ΓÇö pause breathing, tilt into the drag direction, and shrink the
  * ground shadow so the pet visibly leaves the floor. */
 .shell.dragging .mascot { animation: none; cursor: grabbing; }
 .shell.dragging .mascot::after { transform: translateX(-50%) scaleX(0.6); opacity: 0.4; }
 .shell.drag-left .mascot  { transform: translateZ(0) rotate(-6deg); }
 .shell.drag-right .mascot { transform: translateZ(0) rotate(6deg); }
 
-/* Released — squash-and-stretch landing, removed by pet.js on animationend. */
+/* Released ΓÇö squash-and-stretch landing, removed by pet.js on animationend. */
 .mascot.land { animation: land 0.45s var(--ease-soft) 1; }
 
 @keyframes land {
@@ -177,7 +196,7 @@ body {
   45%      { transform: translateZ(0) translateY(-8px) scale(1.07); }
 }
 
-/* Flying kiss — spawned by pet.js on click for the companion mascot. */
+/* Flying kiss ΓÇö spawned by pet.js on click for the companion mascot. */
 .kiss {
   position: absolute;
   left: 50%;
@@ -200,7 +219,7 @@ body {
   .kiss { animation-duration: 0.6s; }
 }
 
-/* Petting particles (hearts / stars) — spawned while the mascot is held. */
+/* Petting particles (hearts / stars) ΓÇö spawned while the mascot is held. */
 .particle {
   position: absolute;
   left: 50%;
@@ -223,12 +242,12 @@ body {
   .particle { animation-duration: 0.6s; }
 }
 
-/* Confetti — spawned by pet.js on timerFinish. Each piece launches up and out,
+/* Confetti ΓÇö spawned by pet.js on timerFinish. Each piece launches up and out,
  * tumbles, and fades on the way back down. Colors/offsets set inline as vars. */
 .confetti-piece {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--mascot-height, 128px) * 0.6);
+  bottom: calc(var(--mascot-bottom, 28px) + var(--mascot-height, 128px) * 0.6);
   width: 6px;
   height: 9px;
   border-radius: 2px;
@@ -246,30 +265,106 @@ body {
   100% { opacity: 0; transform: translate(calc(-50% + var(--cp-dx, 0px)), var(--cp-down, 30px)) rotate(var(--cp-rot, 180deg)) scale(0.9); }
 }
 
-/* ===================== speech bubble ====================================== */
+/* ===================== panel switcher (Clock | AI) ======================== */
 
-/* A short stack keeps separate chat, reminder, and break lifetimes intact.
- * The newest item remains nearest to the mascot; only it owns the tail. */
-.speech-stack {
+.panel-switch {
   position: absolute;
-  bottom: calc(var(--mascot-height, 128px) + 16px);
+  /* Flush under the mascot ΓÇö always visible at the bottom of the overlay. */
+  bottom: 4px;
   left: 50%;
-  width: min(225px, calc(100vw - 24px));
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: center;
-  gap: 8px;
   transform: translateX(-50%);
-  pointer-events: none;
-  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: var(--panel-switch-h, 26px);
+  width: fit-content;
+  max-width: var(--panel-max);
+  padding: 3px;
+  z-index: 10;
+  border-radius: 999px;
+  background: var(--surface-glass);
+  border: 1px solid var(--border-glass);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  pointer-events: auto;
+  box-sizing: border-box;
 }
 
-.speech {
-  position: relative;
+.panel-switch-btn {
+  appearance: none;
   margin: 0;
-  width: max-content;
-  max-width: 100%;
-  padding: 8px 13px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 5px 12px;
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.panel-switch-btn:hover {
+  background: var(--btn-hover-bg);
+  color: var(--text-highlight);
+}
+
+.panel-switch-btn[aria-pressed="true"] {
+  background: var(--btn-bg);
+  color: var(--text-highlight);
+  border-color: var(--btn-border);
+}
+
+/* AI is working ΓÇö soft accent glow on the AI tab only (no log UI). */
+.shell[data-agent-active="true"] #modeAi {
+  color: var(--text-highlight);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent),
+    0 0 12px color-mix(in srgb, var(--accent) 35%, transparent);
+  animation: ai-tab-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes ai-tab-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
+      0 0 8px color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent),
+      0 0 16px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell[data-agent-active="true"] #modeAi {
+    animation: none;
+  }
+}
+
+/* Keep tabs under the pet even while noting; only hide if the shell is gone. */
+.shell[data-noting="true"] .panel-switch {
+  opacity: 0.55;
+}
+
+/* ===================== speech bubble ====================================== */
+
+/* Pet messages (reminders, AI replies, break nudges). Hugs the line of text;
+ * long copy wraps once it hits --panel-max. While visible the timer card
+ * fades back (shell[data-speaking] drives the swap). */
+.speech {
+  position: absolute;
+  bottom: calc(var(--mascot-bottom, 28px) + var(--mascot-height, 128px) + 16px);
+  left: 50%;
+  margin: 0;
+  width: fit-content;
+  max-width: var(--panel-max);
+  box-sizing: border-box;
+  padding: 8px 28px 8px 12px; /* right pad leaves room for the dismiss ├ù */
   font-family: var(--font);
   font-size: 12.5px;
   font-weight: 700;
@@ -285,14 +380,84 @@ body {
   backdrop-filter: blur(16px) saturate(1.2);
   -webkit-backdrop-filter: blur(16px) saturate(1.2);
   pointer-events: none;
-  opacity: 1;
-  transform: translateY(0) scale(1);
+  z-index: 6;
+  opacity: 0;
+  transform: translateX(-50%) translateY(5px) scale(0.96);
   transform-origin: 50% 100%;
-  animation: speech-in 0.3s var(--ease-spring) both;
+  transition: opacity 0.22s ease, transform 0.3s var(--ease-spring);
+}
+
+#speechText {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Pok├⌐mon-style letter reveal: blinking block caret while characters land. */
+.speech-caret {
+  display: inline-block;
+  width: 0.48em;
+  height: 0.95em;
+  margin-left: 1px;
+  vertical-align: -0.1em;
+  background: currentColor;
+  opacity: 0.9;
+  border-radius: 1px;
+  animation: speech-caret-blink 0.55s step-end infinite;
+}
+
+@keyframes speech-caret-blink {
+  50% { opacity: 0; }
+}
+
+/* Click-to-skip while typing (wired in pet.js). After reveal, dismiss / chips
+ * remain the interactive targets; the shell stays click-through elsewhere. */
+.speech[data-revealing="true"] {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* AI panel mode: speech is the primary surface even mid-timeout. */
+.shell[data-pet-panel="ai"][data-speaking="true"] .speech {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.shell[data-pet-panel="ai"] .bubble {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.speech-dismiss {
+  appearance: none;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.speech-dismiss:hover {
+  color: var(--text-highlight);
+  background: var(--btn-hover-bg);
 }
 
 /* Little tail pointing down at the mascot. */
-.speech-stack .speech:last-child::after {
+.speech::after {
   content: "";
   position: absolute;
   top: 100%;
@@ -303,9 +468,9 @@ body {
   border-bottom: none;
 }
 
-@keyframes speech-in {
-  from { opacity: 0; transform: translateY(5px) scale(0.92); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+.shell[data-speaking="true"] .speech {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
 }
 
 /* Reminder/break bubbles look distinct from ambient chatter: an icon prefix
@@ -313,25 +478,29 @@ body {
 .speech[data-kind="break"] {
   border-color: rgba(245, 177, 76, 0.5);
 }
-.speech[data-kind="break"] .speech-text::before {
-  content: "⏰ ";
+.speech[data-kind="break"] #speechText::before {
+  content: "ΓÅ░ ";
 }
 .speech[data-kind="reminder"] {
   border-color: rgba(51, 133, 255, 0.5);
 }
-.speech[data-kind="reminder"] .speech-text::before {
-  content: "🔔 ";
+.speech[data-kind="reminder"] #speechText::before {
+  content: "≡ƒöö ";
 }
 
 /* Inline actions on actionable reminders (e.g. break snooze). The bubble
  * itself stays pointer-transparent; only the buttons capture the mouse. */
 .speech-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 6px;
   margin-top: 7px;
+  max-width: 100%;
   pointer-events: auto;
 }
+
+.speech-actions[hidden] { display: none; }
 
 .speech-actions .speech-btn {
   flex: 0 0 auto;
@@ -350,16 +519,18 @@ body {
 
 .bubble {
   position: absolute;
-  bottom: calc(var(--mascot-height, 128px) + 14px);
+  bottom: calc(var(--mascot-bottom, 28px) + var(--mascot-height, 128px) + 14px);
   left: 50%;
   transform: translateX(-50%);
-  width: max-content;
-  max-width: 260px;
+  /* Hug task name + clock; cap so long titles never clip the window. */
+  width: fit-content;
+  max-width: var(--panel-max);
+  box-sizing: border-box;
   padding: 8px 14px 9px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   color: var(--text);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent),
@@ -374,7 +545,7 @@ body {
   z-index: 2;
 }
 
-/* Gentle bob while focusing — the "thinking" feel. */
+/* Gentle bob while focusing ΓÇö the "thinking" feel. */
 .shell[data-phase="running"] .bubble {
   animation: bob 3.2s ease-in-out infinite;
 }
@@ -468,12 +639,11 @@ body {
 
 .chev.down { transform: translateY(-1px) rotate(45deg); }
 
-/* Single always-visible chevron to hide/show the timer card — sits in the
- * card's top-right corner (relative to the timer bubble). */
+/* Chevron sits inside the card (not outside) so shell overflow never clips it. */
 .bubble-toggle {
   position: absolute;
-  top: -9px;
-  right: -9px;
+  top: 4px;
+  right: 4px;
   display: grid;
   place-items: center;
   width: 20px;
@@ -490,31 +660,43 @@ body {
   transition: color 0.14s ease, transform 0.14s ease, background 0.14s ease, border-color 0.14s ease;
 }
 
-.bubble-toggle:hover { color: var(--text-highlight); transform: scale(1.08); }
+.bubble-toggle:hover { color: var(--text-highlight); transform: scale(1.06); }
 
-/* Collapsed → chevron points down = "show the timer". */
+/* Collapsed ΓåÆ chevron points down = "show the timer". */
 .shell[data-collapsed="true"] .bubble-toggle .chev {
   transform: translateY(-1px) rotate(45deg);
 }
 
 .timer {
   margin: 0;
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  /* System UI font (Urbanist) ΓÇö not mono; tabular nums keep digits steady. */
   font-family: var(--font);
-  font-size: 34px;
-  font-weight: 800;
-  line-height: 1.0;
-  letter-spacing: -0.02em;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
   color: var(--text-highlight);
   transition: color 0.2s ease;
 }
 
 .task {
   margin: 0;
-  max-width: 232px;
+  /* Room for the in-card collapse toggle on the right. */
+  width: max-content;
+  max-width: 100%;
+  padding: 0 18px 0 4px;
+  box-sizing: border-box;
   overflow: hidden;
   font-family: var(--font);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.3;
   text-align: center;
@@ -523,10 +705,46 @@ body {
   white-space: nowrap;
 }
 
+/* Sync state dot. Absent from the layout while everything is saved ΓÇö this is a
+   focus surface, so it only earns space when something is actually wrong. */
+.sync-dot {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
+.sync-dot[hidden] {
+  display: none;
+}
+.sync-dot[data-sync="offline"] {
+  background: #8a8f98;
+}
+.sync-dot[data-sync="syncing"] {
+  background: #3b82f6;
+  animation: sync-pulse 1.4s ease-in-out infinite;
+}
+.sync-dot[data-sync="blocked"] {
+  background: #ef4444;
+}
+
+@keyframes sync-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-dot[data-sync="syncing"] { animation: none; }
+}
+
 /* Completion message (shown only when a session finishes). */
 .msg {
   margin: 0;
-  max-width: 232px;
+  width: max-content;
+  max-width: 100%;
   font-family: var(--font);
   font-size: 11px;
   font-weight: 700;
@@ -534,6 +752,8 @@ body {
   letter-spacing: 0;
   text-align: center;
   color: var(--finished);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* phase accents */
@@ -550,7 +770,7 @@ body {
 .shell[data-phase="paused"]   .bubble { border-color: rgba(245, 177, 76, 0.32); }
 .shell[data-phase="finished"] .bubble { border-color: rgba(16, 185, 129, 0.34); }
 
-/* Session complete → the card itself does a little cheer. */
+/* Session complete ΓåÆ the card itself does a little cheer. */
 .shell[data-phase="finished"]:not([data-collapsed="true"]) .bubble {
   animation: bubble-cheer 0.55s var(--ease-spring) 1;
 }
@@ -636,7 +856,7 @@ body {
 
 /* ===================== timer-complete extend chips ======================== */
 /* Shown inside the card while the completion alarm rings: +5/+10/+25/Finish.
- * Deliberately NOT `.controls` — that row is retired via display:none above. */
+ * Deliberately NOT `.controls` ΓÇö that row is retired via display:none above. */
 
 .complete-actions {
   display: flex;
@@ -644,6 +864,7 @@ body {
   justify-content: center;
   gap: 6px;
   margin-top: 8px;
+  max-width: 100%;
 }
 
 .complete-actions[hidden] { display: none; }
@@ -671,11 +892,11 @@ body {
 
 /* ===================== thought trail ===================================== */
 
-/* Two glass dots between the mascot's head and the card — reads as a thought
+/* Two glass dots between the mascot's head and the card ΓÇö reads as a thought
  * bubble, and visually ties the floating timer to the pet. */
 .trail {
   position: absolute;
-  bottom: calc(var(--mascot-height, 128px) - 4px);
+  bottom: calc(var(--mascot-bottom, 28px) + var(--mascot-height, 128px) - 4px);
   left: 50%;
   margin-left: 16px;
   display: flex;
@@ -713,7 +934,7 @@ body {
 
 .reopen {
   position: absolute;
-  bottom: calc(var(--mascot-height, 128px) - 12px);
+  bottom: calc(var(--mascot-bottom, 28px) + var(--mascot-height, 128px) - 12px);
   left: 50%;
   margin-left: 22px;
   display: none;
@@ -744,12 +965,23 @@ body {
   .mascot.pop, .mascot.land { animation-duration: 0.3s; animation-iteration-count: 1; }
   .confetti-piece { animation-duration: 0.7s; }
   .bubble { transition: opacity 0.15s ease; }
-  .speech { transition: opacity 0.15s ease; }
+  /* AI panel: opacity only ΓÇö no scale/spring that competes with the timer. */
+  .speech {
+    transition: opacity 0.15s ease;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  .shell[data-speaking="true"] .speech,
+  .shell[data-pet-panel="ai"][data-speaking="true"] .speech {
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  .panel-switch-btn { transition: opacity 0.15s ease, color 0.15s ease; }
+  /* Letter reveal is disabled in JS; hide caret if any residual paint. */
+  .speech-caret { display: none; animation: none; }
 }
 
 /* ===================== notepad ============================================ */
 /* Opened by right-clicking the mascot (pet.js contextmenu handler). A proper
- * note pad — noticeably bigger than the mascot — floating where the timer
+ * note pad ΓÇö noticeably bigger than the mascot ΓÇö floating where the timer
  * card normally sits. While open the card + trail step aside
  * (shell[data-noting] drives the swap, mirroring the speech bubble). */
 
@@ -762,12 +994,15 @@ body {
 
 .notepad {
   position: absolute;
-  bottom: calc(var(--mascot-height, 128px) + 14px);
+  bottom: calc(var(--mascot-bottom, 28px) + var(--mascot-height, 128px) + 14px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  width: 264px;
+  width: var(--panel-max);
+  min-width: var(--panel-min);
+  max-width: var(--panel-max);
+  box-sizing: border-box;
   color: var(--text);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent),
@@ -838,7 +1073,7 @@ body {
   background: var(--btn-hover-bg);
 }
 
-/* Ruled-paper writing area — like the session notes list in the app. */
+/* Ruled-paper writing area ΓÇö like the session notes list in the app. */
 .notepad-input {
   width: 100%;
   height: 148px;
@@ -870,22 +1105,31 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 8px 12px 10px;
   border-top: 1px solid var(--border-glass);
+  min-width: 0;
 }
 
 .notepad-hint {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .notepad-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .notepad-actions .btn {

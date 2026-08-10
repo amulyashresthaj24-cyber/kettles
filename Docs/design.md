@@ -893,14 +893,13 @@ The dashboard is **desktop-optimized**. Mobile support is **Phase 2**.
 ### State Management
 
 - Use **Zustand** for global state (tasks, clients, sessions, theme).
-- Store state in `src/lib/store.ts`.
+- Store state in `src/lib/store-supabase.ts`.
 - Define types in `src/lib/types.ts`.
 - Keep component state local (React hooks) for UI-only state (form inputs, modals).
 
 ### Data Fetching
 
-- Phase 1 (MVP): Data stored in **localStorage** via Zustand (no backend).
-- Phase 2+: API routes in `src/app/api/` for backend integration.
+- Data is managed through the Supabase-backed Zustand store in `src/lib/store-supabase.ts`.
 - Never fetch data in `render()` — use `useEffect()` or async server components (App Router).
 
 ---
@@ -1043,7 +1042,7 @@ src/
     Input.tsx             # Input/search component
     Badge.tsx             # Badge/pill component
   lib/
-    store.ts              # Zustand global state
+    store-supabase.ts     # Supabase-backed Zustand global state
     types.ts              # TypeScript types
     format.ts             # Formatting utilities
 

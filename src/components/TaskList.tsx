@@ -5,6 +5,7 @@ import { Play, ArrowClockwise, CheckSquare, Archive, Trash, PencilSimple } from 
 import { useState } from "react";
 import type { Task, TaskStatus } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
+import { useTaskArchive } from "@/lib/use-task-archive";
 import { cn } from "@/lib/utils";
 import { UrgencyDot } from "./UrgencyDot";
 import { ProjectTag } from "./ProjectTag";
@@ -29,7 +30,7 @@ export function TaskList({
   const startSession = useApp((s) => s.startSession);
   const activeSessionId = useApp((s) => s.activeSessionId);
   const setTaskStatus = useApp((s) => s.setTaskStatus);
-  const archiveTask = useApp((s) => s.archiveTask);
+  const runArchive = useTaskArchive();
   const deleteTask = useApp((s) => s.deleteTask);
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -238,7 +239,7 @@ export function TaskList({
                           variant="ghost"
                           onClick={(e) => {
                             e.stopPropagation();
-                            archiveTask(task.id);
+                            runArchive(task, "archive");
                           }}
                           className="gap-1 text-text-muted hover:text-accent"
                           title="Archive"

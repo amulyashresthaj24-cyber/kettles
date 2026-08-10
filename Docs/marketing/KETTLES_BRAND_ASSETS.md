@@ -39,9 +39,9 @@ The kettle companion is a **sprite-driven desktop pet**, fully built.
 | Clean variant | `public/pet/assets/sprite-2.clean.webp` | alt cleaned atlas |
 | Design source | `public/pet/assets/sprite-2 design.webp` | working file |
 | Config (source of truth) | `public/pet/pet.config.json` | states, fps, event→state map |
-| Row spec | `public/pet/kit/animation-rows.json` | per-row intent + "avoid" notes |
+| Row spec | `Docs/pet-kit/animation-rows.json` | per-row intent + "avoid" notes |
 | Overlay runtime | `public/pet/pet.html` · `pet.css` · `pet.js` | standalone pet window |
-| Build kit | `public/pet/kit/` | manifest, prompts, examples for regenerating the atlas |
+| Build kit | `Docs/pet-kit/` | manifest, prompts, examples for regenerating the atlas |
 
 **Animation states** (row → frames → fps): idle 0/6/5 · working 1/8/8 · running_left 2/8/10 · waving 3/4/6 · jumping 4/5/10 · failed 5/8/6 · waiting 6/6/4 · review 7/6/5 · running_right 8/6/9. (`sitting` derived from row 5 col 6.)
 

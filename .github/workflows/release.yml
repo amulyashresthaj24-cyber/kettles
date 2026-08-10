@@ -61,7 +61,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Kettles v__VERSION__"
           releaseBody: |
-            Download **Kettles_-_x64-setup.exe** (recommended) or the `.msi` below and run it.
+            Download **Kettles_-_x64-setup.exe** below and run it.
             Installed apps update themselves automatically on next launch.
           releaseDraft: false
           prerelease: false

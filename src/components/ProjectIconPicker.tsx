@@ -41,7 +41,7 @@ export function ProjectIconPicker({ icon, color, onChange }: Props) {
       {/* Popover */}
       {open && (
         <div
-          className="absolute left-0 top-[calc(100%+8px)] z-[80] w-[288px] rounded-xl shadow-2xl animate-fade-up overflow-hidden"
+          className="absolute left-0 top-[calc(100%+8px)] z-dropdown w-[288px] rounded-xl shadow-elevation-2 animate-fade-up overflow-hidden"
           style={{
             background: "var(--surface-raised)",
             border: "1px solid var(--border-subtle)",

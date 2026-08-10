@@ -1,8 +1,8 @@
-/* Flowmate pet overlay — controller for the "thinking" widget.
+/* Flowmate pet overlay ΓÇö controller for the "thinking" widget.
  *
  * Runs inside the "pet" window only. Talks to the host over Tauri events.
  *   inbound : "pet://state"   -> { state?, event?, phase?, source?, detail? }
- *   outbound: "pet://poke"    -> user tapped the mascot (restore main window)
+ *   outbound: "pet://poke"    -> openApp (double-click/Open) or a legacy poke
  *             "pet://control" -> user tapped Play/Pause (toggle the timer)
  *
  * Rendering: the sprite sheet is drawn with PIXEL background-position/size
@@ -23,11 +23,18 @@ const el = {
   shell: document.getElementById("shell"),
   mascot: document.getElementById("mascot"),
   bubble: document.getElementById("bubble"),
-  speechStack: document.getElementById("speechStack"),
+  speech: document.getElementById("speech"),
+  speechText: document.getElementById("speechText"),
+  speechActions: document.getElementById("speechActions"),
+  dismissSpeech: document.getElementById("dismissSpeech"),
+  panelSwitch: document.getElementById("panelSwitch"),
+  modeClock: document.getElementById("modeClock"),
+  modeAi: document.getElementById("modeAi"),
   dot: document.getElementById("dot"),
   label: document.getElementById("label"),
   timer: document.getElementById("timer"),
   task: document.getElementById("task"),
+  syncDot: document.getElementById("syncDot"),
   msg: document.getElementById("msg"),
   hideToggle: document.getElementById("hideToggle"),
   controls: document.getElementById("controls"),
@@ -62,19 +69,22 @@ const PHASE_LABELS = {
 
 // Default speech lines per timer event. A `quote` in the signal payload wins;
 // `anim` is an optional one-shot layered on top of the event's mapped state.
+// One voice, matching the warnings in src/lib/pet-context.ts: state the fact,
+// no exclamation marks, no emoji, no consolation for things that are not
+// setbacks. The host overrides any of these by sending an explicit `quote`.
 const SPEECH_LINES = {
-  timerStart:   { text: "Time to focus! Let's start work.", anim: "waving" },
-  timerResume:  { text: "Back at it — let's go!", anim: "waving" },
-  timerBreak:   { text: "Time to stretch and take a break!" },
-  breakEnd:     { text: "Break's over! Ready to dive back in?", anim: "jumping" },
-  timerFinish:  { text: "Great work! Session complete 🎉" },
-  timerAbandon: { text: "Session ended — we'll get it next time." },
+  timerStart:   { text: "Tracking.", anim: "waving" },
+  timerResume:  { text: "Resumed.", anim: "waving" },
+  timerBreak:   { text: "Break time." },
+  breakEnd:     { text: "Break's done.", anim: "jumping" },
+  timerFinish:  { text: "Session complete." },
+  timerAbandon: { text: "Session discarded. Nothing logged." },
 };
 
 const MASCOT_HEIGHT = 128; // px; the mascot box height, matches pet.css
 
 // ---------------------------------------------------------------------------
-// Female mascot ("female") — baked preset for assets/sprite-2.clean.webp.
+// Female mascot ("female") ΓÇö baked v2 preset for assets/sprite-2-v2.clean.webp.
 // (The newer sprite-female sheet rendered with bugs, so the female slot uses
 // the proven companion atlas. "sprite2" is a legacy persisted id that
 // resolves to this preset too.)
@@ -82,22 +92,30 @@ const MASCOT_HEIGHT = 128; // px; the mascot box height, matches pet.css
 // The source art (sprite-2 design.webp) shipped opaque, with an opaque checker
 // background and frames packed un-centered in their 8x9 grid. The .clean.webp
 // atlas has the background flood-filled to transparent and every frame
-// re-centered in a uniform 118x197 cell. Row meanings differ from the default
-// sheet, so this preset remaps `states` while keeping the state NAMES
+// re-centered in the canonical 192x208 v2 cell. Row meanings differ from the
+// default sheet, so this preset remaps `states` while keeping the state NAMES
 // identical so all event / phase / default-animation logic works untouched.
 //
 //   row 0 idle (standing)      row 1 walk-right        row 2 walk-left
 //   row 3 waving               row 4 jumping           row 5 standing (neutral)
 //   row 6 arms-crossed         row 7 laptop (working)  row 8 thinking (chin)
+//   rows 9-10 clockwise pointer-look poses (up -> right -> down -> left)
 // ---------------------------------------------------------------------------
 const FEMALE_PRESET = {
-  spritesheet: "assets/sprite-2.clean.webp",
-  cell: { width: 118, height: 197 },
-  sheet: { cols: 8, rows: 9 },
-  scale: 0.76,
+  spritesheet: "assets/sprite-2-v2.clean.webp",
+  cell: { width: 192, height: 208 },
+  sheet: { cols: 8, rows: 11 },
+  scale: 0.72,
+  spriteVersionNumber: 2,
+  lookDirections: {
+    enabled: true,
+    deadzonePx: 20,
+    phases: ["idle", "running", "paused", "finished"],
+  },
   states: {
     idle:          { row: 0, frames: 8, fps: 5,  loop: true },
     working:       { row: 7, frames: 8, fps: 8,  loop: true },
+    running:       { row: 7, frames: 8, fps: 8,  loop: true },
     running_left:  { row: 2, frames: 8, fps: 10, loop: true },
     waving:        { row: 3, frames: 8, fps: 6,  loop: false },
     jumping:       { row: 4, frames: 8, fps: 10, loop: false },
@@ -109,6 +127,22 @@ const FEMALE_PRESET = {
     reading:       { row: 8, frames: 8, fps: 5,  loop: true },
     drag_right:    { row: 1, frames: 8, fps: 11, loop: true },
     drag_left:     { row: 2, frames: 8, fps: 11, loop: true },
+    look_000:      { row: 9, col: 0, frames: 1, fps: 1, loop: true },
+    look_022_5:    { row: 9, col: 1, frames: 1, fps: 1, loop: true },
+    look_045:      { row: 9, col: 2, frames: 1, fps: 1, loop: true },
+    look_067_5:    { row: 9, col: 3, frames: 1, fps: 1, loop: true },
+    look_090:      { row: 9, col: 4, frames: 1, fps: 1, loop: true },
+    look_112_5:    { row: 9, col: 5, frames: 1, fps: 1, loop: true },
+    look_135:      { row: 9, col: 6, frames: 1, fps: 1, loop: true },
+    look_157_5:    { row: 9, col: 7, frames: 1, fps: 1, loop: true },
+    look_180:      { row: 10, col: 0, frames: 1, fps: 1, loop: true },
+    look_202_5:    { row: 10, col: 1, frames: 1, fps: 1, loop: true },
+    look_225:      { row: 10, col: 2, frames: 1, fps: 1, loop: true },
+    look_247_5:    { row: 10, col: 3, frames: 1, fps: 1, loop: true },
+    look_270:      { row: 10, col: 4, frames: 1, fps: 1, loop: true },
+    look_292_5:    { row: 10, col: 5, frames: 1, fps: 1, loop: true },
+    look_315:      { row: 10, col: 6, frames: 1, fps: 1, loop: true },
+    look_337_5:    { row: 10, col: 7, frames: 1, fps: 1, loop: true },
   },
 };
 
@@ -144,7 +178,6 @@ let lastCursorGx = null;
 let lastCursorGy = null;
 let sprinting = false;
 let afk = false;
-let runIdleNudged = false;   // true after the "still working?" nudge fires, until the cursor moves
 let shakeDir = 0;            // last horizontal travel sign (-1 | 0 | 1)
 let shakeFlips = [];         // timestamps of recent direction reversals
 let protesting = false;      // true while playing the shake-protest pose
@@ -155,9 +188,28 @@ const SHAKE_DEADZONE = 2;    // px; ignore sub-pixel jitter
 let petting = false;
 let petTimer = null;
 let petBurst = null;         // interval spawning hearts while held
-let zzzTimer = null;         // interval drifting 💤 while dozing
+let zzzTimer = null;         // interval drifting ≡ƒÆñ while dozing
+let lastDragCursorX = null;  // global physical px; drives Codex left/right drag rows
+let lastLookCursorX = null;  // global physical px; limits look-state stepping
+let lastLookCursorY = null;
+let dragOrigin = null;       // cursor/window origin for a pointer-captured drag
+let dragPointerId = null;
+let pendingDragPosition = null;
+let dragPositionFrame = null;
 const reducedMotion =
   window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// The v2 staging config remains opt-in through the Tauri window URL for
+// regression checks. The default production path now loads the live v2 config.
+const petConfigVariant = new URLSearchParams(window.location.search).get("petConfig");
+const configPath =
+  petConfigVariant === "v2"
+    ? "./staging/flowmate-v2/pet-v2.test.config.json"
+    : "./pet.config.json";
+const LOOK_DEGREES = ["000", "022_5", "045", "067_5", "090", "112_5", "135", "157_5", "180", "202_5", "225", "247_5", "270", "292_5", "315", "337_5"];
+const POINTER_LOOK_STEP_PX = 20;
+const DRAG_DIRECTION_STEP_PX = 20;
+let lookState = null;
 
 // ---------------------------------------------------------------------------
 // preferences sync
@@ -175,6 +227,69 @@ function loadPreferences() {
   }
 }
 
+// Key written by src/lib/mascot-custom.ts. It is deliberately separate from the
+// session store: that blob is rewritten on every timer tick, and a ~1MB data URL
+// riding along with it would be re-serialized each time.
+const CUSTOM_MASCOT_KEY = "flowmate-custom-mascot";
+
+/** Uploaded user atlas, or null when none is stored or the entry is unusable. */
+function loadCustomMascot() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_MASCOT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // A truncated write must not take the overlay down ΓÇö fall through to stock.
+    if (typeof parsed?.dataUrl !== "string" || !parsed.dataUrl.startsWith("data:image/")) {
+      return null;
+    }
+    return parsed;
+  } catch (e) {
+    console.error("[pet] failed to read custom mascot", e);
+    return null;
+  }
+}
+
+// Custom mascots are v1: 8x9, nine art rows, no look grid. All 14 state names
+// resolve by aliasing onto those rows ΓÇö a missing name would silently render
+// idle. Mirrors V1_STATES in src/lib/mascot-custom.ts.
+const CUSTOM_V1_PRESET = {
+  spritesheet: null, // filled in from the stored data URL
+  cell: { width: 192, height: 208 },
+  sheet: { cols: 8, rows: 9 },
+  scale: 0.58,
+  spriteVersionNumber: 1,
+  lookDirections: null, // v1 has no look grid; cursor tracking short-circuits
+  states: {
+    idle:          { row: 0, frames: 6, fps: 5,  loop: true },
+    sitting:       { row: 0, col: 0, frames: 1, fps: 2, loop: true },
+    working:       { row: 1, frames: 8, fps: 8,  loop: true },
+    drag_left:     { row: 2, frames: 8, fps: 11, loop: true },
+    drag_right:    { row: 2, frames: 8, fps: 11, loop: true },
+    running_left:  { row: 2, frames: 8, fps: 10, loop: true },
+    running_right: { row: 2, frames: 8, fps: 10, loop: true },
+    waving:        { row: 3, frames: 4, fps: 6,  loop: false },
+    jumping:       { row: 4, frames: 5, fps: 10, loop: false },
+    failed:        { row: 5, frames: 8, fps: 6,  loop: false },
+    waiting:       { row: 6, frames: 6, fps: 4,  loop: true },
+    review:        { row: 7, frames: 6, fps: 5,  loop: true },
+    reading:       { row: 7, frames: 6, fps: 5,  loop: true },
+    running:       { row: 8, frames: 6, fps: 9,  loop: true },
+  },
+  events: {
+    hover: "review",
+    click: "waving",
+    doubleClick: "jumping",
+    timerStart: { play: "waving", then: "running" },
+    timerResume: { play: "waving", then: "running" },
+    timerPause: "waiting",
+    timerBreak: "idle",
+    breakEnd: { play: "jumping", then: "running" },
+    timerFinish: { play: "jumping", then: "idle" },
+    timerAbandon: { play: "failed", then: "waiting" },
+  },
+  phaseStates: { idle: "idle", running: "running", paused: "waiting", finished: "idle" },
+};
+
 // Spontaneous-gesture cadence per the "Animation Frequency" setting.
 // 0 = off (the mascot only reacts to the timer and the mouse).
 const GESTURE_INTERVALS = { off: 0, calm: 150000, normal: 60000, lively: 25000 };
@@ -183,24 +298,45 @@ let gestureEveryMs = GESTURE_INTERVALS.normal;
 function applyPreferences() {
   if (!cfg) return;
   // No saved preferences (fresh install / cleared storage) still needs the
-  // visual setup below — only the override sections are skipped.
+  // visual setup below ΓÇö only the override sections are skipped.
   const prefs = loadPreferences() || {};
 
-  // 1. Character swap — two mascots only: the default male (kettle config) and
-  //    the female preset. Legacy ids ("sprite2", "custom") resolve sensibly.
-  const preset =
-    prefs.activeMascot === "female" || prefs.activeMascot === "sprite2"
-      ? FEMALE_PRESET
-      : null;
+  // 1. Character swap ΓÇö the default male (kettle config), the female preset, or
+  //    a user-uploaded v1 atlas. "sprite2" is a legacy alias for "female".
+  //
+  //    "custom" with nothing stored falls through to the default rather than
+  //    rendering an empty sprite: the upload can be cleared from another window
+  //    while this one is open.
+  let preset = null;
+  let customSheet = null;
+  if (prefs.activeMascot === "female" || prefs.activeMascot === "sprite2") {
+    preset = FEMALE_PRESET;
+  } else if (prefs.activeMascot === "custom") {
+    const custom = loadCustomMascot();
+    if (custom) {
+      preset = CUSTOM_V1_PRESET;
+      customSheet = custom.dataUrl;
+    }
+  }
   if (preset) {
-    cfg.spritesheet = preset.spritesheet;
+    cfg.spritesheet = customSheet || preset.spritesheet;
     cfg.cell = { ...preset.cell };
     cfg.sheet = { ...preset.sheet };
     cfg.scale = preset.scale;
+    cfg.spriteVersionNumber = preset.spriteVersionNumber;
+    // v1 presets carry no look grid. Deleting the key is what makes pet.js skip
+    // cursor tracking entirely ΓÇö an empty object would still enable it.
+    if (preset.lookDirections) {
+      cfg.lookDirections = JSON.parse(JSON.stringify(preset.lookDirections));
+    } else {
+      delete cfg.lookDirections;
+    }
     cfg.states = JSON.parse(JSON.stringify(preset.states));
+    if (preset.events) cfg.events = JSON.parse(JSON.stringify(preset.events));
+    if (preset.phaseStates) cfg.phaseStates = JSON.parse(JSON.stringify(preset.phaseStates));
   }
 
-  // 2. Default resting animation (dropdown in settings) — the looping state
+  // 2. Default resting animation (dropdown in settings) ΓÇö the looping state
   //    the mascot holds while nothing is happening.
   const rest = prefs.mascotDefaultAnimation;
   if (rest && cfg.states[rest] && cfg.states[rest].loop) {
@@ -238,8 +374,8 @@ function applyPreferences() {
 // ---------------------------------------------------------------------------
 
 async function boot() {
-  rawCfg = await fetch("./pet.config.json?t=" + Date.now()).then((r) => {
-    if (!r.ok) throw new Error(`pet.config.json: ${r.status}`);
+  rawCfg = await fetch(configPath + "?t=" + Date.now()).then((r) => {
+    if (!r.ok) throw new Error(`${configPath}: ${r.status}`);
     return r.json();
   });
 
@@ -254,7 +390,7 @@ async function boot() {
 
   // Listen to Storage events to sync preferences dynamically!
   window.addEventListener("storage", (e) => {
-    if (e.key === "flowmate-supabase-session-store") {
+    if (e.key === "flowmate-supabase-session-store" || e.key === CUSTOM_MASCOT_KEY) {
       cfg = JSON.parse(JSON.stringify(rawCfg));
       applyPreferences();
       if (!dragging) {
@@ -269,33 +405,26 @@ async function boot() {
   await refreshWinPos();
   setInterval(refreshWinPos, 1000);
 
-  // 5-minute AFK doze — only when idle (not running / dragging / petting).
-  // While dozing a 💤 drifts up every few seconds so the sleep reads at a glance.
+  // 5-minute AFK doze ΓÇö only when idle (not running / dragging / petting).
+  // While dozing a ≡ƒÆñ drifts up every few seconds so the sleep reads at a glance.
   setInterval(() => {
     const idleMs = Date.now() - lastCursorTime;
 
-    // Running + mouse idle > 1 min → wave and nudge. Fires once per idle
-    // stretch (the latch clears the moment the cursor moves again).
-    if (
-      idleMs > 60 * 1000 &&
-      phase === "running" &&
-      !runIdleNudged &&
-      !dragging &&
-      !petting
-    ) {
-      runIdleNudged = true;
-      if (cfg.states.waving) applyState("waving");
-      say("Are you doing your work?", { kind: "reminder" });
-    }
+    // No cursor-idle nudge. A still mouse is not evidence that work stopped ΓÇö
+    // the user may be reading, presenting, or on a call, and accusing them of
+    // slacking after one quiet minute is exactly the behavior that trains people
+    // to close the overlay. Real away-from-keyboard handling belongs to the
+    // host's OS-level idle detection, which knows about all input, not just this
+    // window's cursor.
 
-    // 5-minute AFK doze — only when idle (not running / dragging / petting).
+    // 5-minute AFK doze ΓÇö only when idle (not running / dragging / petting).
     if (idleMs > 5 * 60 * 1000) {
       if (!afk && !dragging && !petting && phase !== "running" && cfg.states.sitting) {
         afk = true;
         applyState("sitting");
-        spawnParticle("💤");
+        spawnParticle("≡ƒÆñ");
         clearInterval(zzzTimer);
-        zzzTimer = setInterval(() => spawnParticle("💤"), 4000);
+        zzzTimer = setInterval(() => spawnParticle("≡ƒÆñ"), 4000);
       }
     }
   }, 10000);
@@ -369,18 +498,17 @@ function setClickThrough(next) {
   invoke("pet_set_clickthrough", { enabled: next }).catch(() => {});
 }
 
-// Global physical cursor → drives hit-testing, fast-flick sprint, shake-protest
+// Global physical cursor ΓåÆ drives hit-testing, fast-flick sprint, shake-protest
 // and AFK wake. Coordinates arrive in physical px spanning all monitors.
 function onCursor(gx, gy) {
   if (typeof gx !== "number" || typeof gy !== "number") return;
   const now = Date.now();
   // The cursor thread emits ~60Hz even when the mouse is still, so "idle" is
-  // measured by an actual position change — not just receiving an event.
+  // measured by an actual position change ΓÇö not just receiving an event.
   const moved = lastCursorGx === null || gx !== lastCursorGx || gy !== lastCursorGy;
 
-  // Any movement wakes the pet from its AFK doze / clears the idle nudge latch.
+  // Any movement wakes the pet from its AFK doze.
   if (moved) {
-    runIdleNudged = false;
     if (afk) {
       afk = false;
       clearInterval(zzzTimer);
@@ -394,23 +522,98 @@ function onCursor(gx, gy) {
   const relX = (gx - winPos.x) / dpr;
   const relY = (gy - winPos.y) / dpr;
 
-  // Hit-test the mascot + bubble + chevron + open notepad (+ queue actions);
-  // capture the mouse only over interactive parts.
+  // Hit-test the mascot + bubble + chevron + switcher + open notepad
+  // (+ speech while speaking); capture the mouse only over them.
   const over =
     hitTest(el.mascot, relX, relY) ||
     hitTest(el.bubble, relX, relY) ||
     hitTest(el.hideToggle, relX, relY) ||
+    hitTest(el.panelSwitch, relX, relY) ||
     (el.notepad && !el.notepad.hidden && hitTest(el.notepad, relX, relY)) ||
-    Array.from(el.speechStack?.querySelectorAll(".speech-actions") || [])
-      .some((actions) => hitTest(actions, relX, relY));
+    (el.shell.dataset.speaking === "true" && hitTest(el.speech, relX, relY));
   interactive = over;
   if (!dragging) setClickThrough(!over);
 
-  // (No fast-flick or shake reactions — cursor speed no longer triggers poses.)
+  if (dragging) {
+    updateDragDirection(gx);
+    updateDraggedWindow(gx, gy);
+  }
+  updateLookDirection(gx, gy, moved);
+
+  // (No fast-flick or shake reactions ΓÇö cursor speed no longer triggers poses.)
 
   if (moved) lastCursorTime = now; // only real movement resets the idle clock
   lastCursorGx = gx;
   lastCursorGy = gy;
+}
+
+// V2 uses an 11-row atlas: two extra rows provide a clockwise set of 16
+// single-frame look poses.
+function updateLookDirection(gx, gy, moved) {
+  if (!cfg?.lookDirections?.enabled || !moved) return;
+  const activePhases = cfg.lookDirections.phases;
+  if (Array.isArray(activePhases) && !activePhases.includes(phase)) {
+    clearLookDirection();
+    return;
+  }
+  if (dragging || petting || afk || oneShot || collapsed) {
+    lastLookCursorX = null;
+    lastLookCursorY = null;
+    return;
+  }
+
+  const rect = el.mascot?.getBoundingClientRect();
+  if (!rect) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cx = winPos.x + (rect.left + rect.width / 2) * dpr;
+  const cy = winPos.y + (rect.top + rect.height / 2) * dpr;
+  const dx = gx - cx;
+  const dy = gy - cy;
+  // Cursor coordinates are OS-global, so this works across every monitor.
+  // Stay neutral inside the configured 20px center deadzone: v2 has no
+  // dedicated neutral look cell.
+  const configuredDeadzone = Number(cfg.lookDirections.deadzonePx);
+  const deadzone = Math.max(8, Number.isFinite(configuredDeadzone) ? configuredDeadzone : 20);
+
+  if (Math.hypot(dx, dy) < deadzone) {
+    lastLookCursorX = null;
+    lastLookCursorY = null;
+    clearLookDirection();
+    return;
+  }
+
+  // Do not flip between neighboring look frames on tiny cursor tremors.
+  // The first position outside the pet deadzone is accepted immediately;
+  // later changes need a full 20px physical move from the last accepted step.
+  if (lastLookCursorX !== null && lastLookCursorY !== null) {
+    if (Math.hypot(gx - lastLookCursorX, gy - lastLookCursorY) < POINTER_LOOK_STEP_PX) return;
+  }
+
+  // atan2(dx, -dy) produces the v2 convention: 000 is up, then clockwise.
+  const degrees = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
+  const index = Math.round(degrees / 22.5) % 16;
+  const next = `look_${LOOK_DEGREES[index]}`;
+  if (!cfg.states[next] || next === lookState) return;
+
+  lookState = next;
+  lastLookCursorX = gx;
+  lastLookCursorY = gy;
+  setState(next);
+}
+
+function clearLookDirection() {
+  if (!lookState) return;
+  lookState = null;
+  lastLookCursorX = null;
+  lastLookCursorY = null;
+  if (!oneShot && !dragging) restorePhaseState();
+}
+
+function restorePhaseState() {
+  const target = cfg?.phaseStates?.[phase];
+  if (!target || !cfg.states[target]) return;
+  baseState = target;
+  setState(target);
 }
 
 // Is (x,y) in CSS px inside an element's box (with a small padding)?
@@ -431,16 +634,39 @@ function eventTarget(name) {
   return typeof v === "string" ? { play: v } : v;
 }
 
-// Speech is a bounded notification stack: incoming chat no longer replaces an
-// actionable reminder. Priority keeps break/reminder items nearest to the
-// mascot, while bursts of chat collapse into one readable update.
-const MAX_SPEECH_ITEMS = 3;
-const speechItems = new Map();
-const SPEECH_PRIORITY = { chat: 1, reminder: 2, break: 3 };
-const CHAT_GROUP_WINDOW = 5000;
+// Show a message in the speech bubble. The bubble sizes to its text (CSS
+// max-content) and fades/springs in and out; the timer card steps aside while
+// the pet is talking (shell[data-speaking]). Clock | AI panel is data-pet-panel.
+let speechTimer = null;
+/** User explicitly chose Clock ΓÇö do not steal the view for a new reply. */
+let userPinnedClock = false;
+/** User explicitly chose AI ΓÇö keep the panel until they dismiss or switch. */
+let userPinnedAi = false;
+/** Latest AI/chat text so switching to AI without a fresh reply still works. */
+let lastAiText = "";
+let lastAiActions = [];
+/** True when lastAiText is a live agent status seed (safe to refresh each tick). */
+let lastAiIsAgentStatus = false;
+let speechHasActions = false;
+let singleClickTimer = null;
+let pendingChatRequestId = null;
+let chatReplyTimer = null;
 
-// Reminders stay up much longer than ambient chatter — they carry actions.
-const SPEECH_DURATIONS = { chat: 6000, reminder: 15000, break: 25000 };
+// Reminders stay up much longer than ambient chatter ΓÇö they carry actions.
+const SPEECH_DURATIONS = { chat: 7000, reminder: 15000, break: 25000 };
+const CHAT_REPLY_TIMEOUT_MS = 5000;
+
+// Pok├⌐mon-style letter reveal for speech. Hold duration starts after the
+// last character, so short lines are not dismissed mid-type.
+const SPEECH_CHAR_MS = 28;
+const SPEECH_PUNCT_PAUSE_MS = 120;
+const SPEECH_PUNCT = new Set([".", "!", "?", "ΓÇª", "ΓÇö", ";", ":"]);
+
+let speechRevealTimer = null;
+let speechRevealToken = 0;
+let speechFullText = "";
+let speechRevealing = false;
+let speechRevealOnComplete = null;
 
 // Break nudges get inline actions: snooze routes back to the host.
 const BREAK_ACTIONS = [
@@ -448,132 +674,313 @@ const BREAK_ACTIONS = [
   { label: "OK" },
 ];
 
-function syncSpeechVisibility() {
-  el.shell.dataset.speaking = speechItems.size > 0 ? "true" : "false";
-}
-
-function dismissSpeech(item) {
-  const timeout = speechItems.get(item);
-  if (timeout) clearTimeout(timeout);
-  speechItems.delete(item);
-  item.remove();
-  syncSpeechVisibility();
-}
-
-function hideSpeech() {
-  for (const item of Array.from(speechItems.keys())) dismissSpeech(item);
-}
-
-function priorityFor(kind) {
-  return SPEECH_PRIORITY[kind] || SPEECH_PRIORITY.chat;
-}
-
-function arrangeSpeechQueue() {
-  if (!el.speechStack) return;
-  const ordered = Array.from(speechItems.keys()).sort((a, b) => {
-    const priorityDelta = Number(a.dataset.priority) - Number(b.dataset.priority);
-    if (priorityDelta !== 0) return priorityDelta;
-    return Number(a.dataset.createdAt) - Number(b.dataset.createdAt);
-  });
-  for (const item of ordered) el.speechStack.appendChild(item);
-}
-
-function resetSpeechTimer(item, duration) {
-  const timeout = speechItems.get(item);
-  if (timeout) clearTimeout(timeout);
-  speechItems.set(item, setTimeout(() => dismissSpeech(item), duration));
-}
-
-function findRecentChatGroup(now) {
-  return Array.from(speechItems.keys()).find(
-    (item) =>
-      item.dataset.kind === "chat" &&
-      now - Number(item.dataset.lastAt || 0) <= CHAT_GROUP_WINDOW
-  );
-}
-
-function addToChatGroup(item, text, now) {
-  const count = Number(item.dataset.count || 1) + 1;
-  const message = item.querySelector(".speech-text");
-  item.dataset.count = String(count);
-  item.dataset.lastAt = String(now);
-  item.dataset.key = `chat-group:${now}`;
-  if (message) message.textContent = `${count} updates · Latest: ${text}`;
-  resetSpeechTimer(item, SPEECH_DURATIONS.chat);
-  arrangeSpeechQueue();
-  return item;
-}
-
-function trimSpeechQueue(nextPriority) {
-  while (speechItems.size >= MAX_SPEECH_ITEMS) {
-    const candidates = Array.from(speechItems.keys());
-    const removable = candidates
-      .filter((item) => Number(item.dataset.priority) <= nextPriority)
-      .sort((a, b) => Number(a.dataset.priority) - Number(b.dataset.priority) || Number(a.dataset.createdAt) - Number(b.dataset.createdAt))[0];
-    // Never push a lower-priority chat in front of a full set of reminders.
-    if (!removable) return false;
-    dismissSpeech(removable);
+function cancelSpeechReveal({ runComplete = false } = {}) {
+  if (speechRevealTimer != null) {
+    clearTimeout(speechRevealTimer);
+    speechRevealTimer = null;
   }
-  return true;
+  speechRevealing = false;
+  if (el.speech) el.speech.dataset.revealing = "false";
+  if (el.speechText) el.speechText.removeAttribute("aria-hidden");
+  if (el.speech) {
+    el.speech.removeAttribute("aria-busy");
+    // Drop temporary label used while the visible text was partial.
+    if (el.speech.getAttribute("aria-label") === speechFullText) {
+      el.speech.removeAttribute("aria-label");
+    }
+  }
+  const done = speechRevealOnComplete;
+  speechRevealOnComplete = null;
+  if (runComplete && typeof done === "function") done();
+}
+
+/** Snap to the full line and fire the post-reveal callback (e.g. auto-hide). */
+function skipSpeechReveal() {
+  if (!speechRevealing) return;
+  cancelSpeechReveal({ runComplete: true });
+  if (el.speechText && speechFullText) {
+    el.speechText.textContent = speechFullText;
+  }
+}
+
+/**
+ * Type the line into #speechText character by character (caret while active).
+ * Instant when reduced-motion is on, text is tiny, or opts.instant.
+ * Click the bubble while revealing to skip (wired in wireInput).
+ */
+function revealSpeechText(text, { instant = false, onComplete } = {}) {
+  cancelSpeechReveal();
+  speechFullText = text;
+  speechRevealOnComplete = typeof onComplete === "function" ? onComplete : null;
+
+  const finish = () => {
+    speechRevealing = false;
+    if (el.speech) {
+      el.speech.dataset.revealing = "false";
+      el.speech.removeAttribute("aria-busy");
+      if (el.speech.getAttribute("aria-label") === text) {
+        el.speech.removeAttribute("aria-label");
+      }
+    }
+    if (el.speechText) {
+      el.speechText.removeAttribute("aria-hidden");
+      el.speechText.textContent = text;
+    }
+    const done = speechRevealOnComplete;
+    speechRevealOnComplete = null;
+    if (typeof done === "function") done();
+  };
+
+  if (!el.speechText) {
+    finish();
+    return;
+  }
+
+  // Instant path: reduced motion, skip flag, or single glyph (e.g. "ΓÇª").
+  if (instant || reducedMotion || text.length <= 1) {
+    el.speechText.textContent = text;
+    finish();
+    return;
+  }
+
+  speechRevealing = true;
+  if (el.speech) {
+    el.speech.dataset.revealing = "true";
+    el.speech.setAttribute("aria-busy", "true");
+    // Full line available to AT immediately; visible text types in.
+    el.speech.setAttribute("aria-label", text);
+  }
+  el.speechText.setAttribute("aria-hidden", "true");
+  el.speechText.textContent = "";
+
+  const token = ++speechRevealToken;
+  let i = 0;
+
+  const paint = (partial) => {
+    // Clear then rebuild so the caret stays a real element (not text noise).
+    el.speechText.textContent = "";
+    el.speechText.appendChild(document.createTextNode(partial));
+    if (partial.length < text.length) {
+      const caret = document.createElement("span");
+      caret.className = "speech-caret";
+      caret.setAttribute("aria-hidden", "true");
+      el.speechText.appendChild(caret);
+    }
+  };
+
+  const step = () => {
+    if (token !== speechRevealToken) return;
+    if (i >= text.length) {
+      speechRevealTimer = null;
+      finish();
+      return;
+    }
+    i += 1;
+    paint(text.slice(0, i));
+    const ch = text[i - 1];
+    let delay = SPEECH_CHAR_MS;
+    // Tiny beat after sentence punctuation ΓÇö reads more like dialogue boxes.
+    if (SPEECH_PUNCT.has(ch)) delay += SPEECH_PUNCT_PAUSE_MS;
+    else if (ch === "," || ch === "ΓÇö") delay += SPEECH_PUNCT_PAUSE_MS * 0.45;
+    speechRevealTimer = setTimeout(step, delay);
+  };
+
+  step();
+}
+
+function getPetPanel() {
+  return el.shell?.dataset.petPanel === "ai" ? "ai" : "clock";
+}
+
+function applyPanelChrome(next) {
+  if (el.shell) el.shell.dataset.petPanel = next;
+  if (el.modeClock) el.modeClock.setAttribute("aria-pressed", String(next === "clock"));
+  if (el.modeAi) el.modeAi.setAttribute("aria-pressed", String(next === "ai"));
+}
+
+function setPetPanel(mode, { userChoice = false } = {}) {
+  const next = mode === "ai" ? "ai" : "clock";
+  applyPanelChrome(next);
+  if (userChoice) {
+    userPinnedClock = next === "clock";
+    userPinnedAi = next === "ai";
+  }
+  // AI panel with no live text: show last reply or request a fresh one.
+  if (next === "ai" && el.shell?.dataset.speaking !== "true") {
+    if (lastAiText) {
+      say(lastAiText, {
+        kind: "chat",
+        actions: lastAiActions,
+        stayOnAi: true,
+        forcePanel: true,
+        // User-opened AI keeps the message until dismiss / Clock.
+        hold: userPinnedAi,
+      });
+    } else {
+      requestPetReply({ fromSwitcher: true });
+    }
+  }
+}
+
+function hideSpeech({ returnToClock = true } = {}) {
+  cancelSpeechReveal();
+  el.shell.dataset.speaking = "false";
+  speechHasActions = false;
+  if (el.speechActions) {
+    el.speechActions.hidden = true;
+    el.speechActions.innerHTML = "";
+  }
+  if (el.dismissSpeech) el.dismissSpeech.hidden = true;
+  // Timeout after a readable delay returns to Clock unless the user pinned AI.
+  if (returnToClock && getPetPanel() === "ai" && !userPinnedAi) {
+    userPinnedClock = false;
+    applyPanelChrome("clock");
+  }
+  clearTimeout(speechTimer);
+  speechTimer = null;
 }
 
 function say(text, opts = {}) {
-  if (!el.speechStack || typeof text !== "string" || !text.trim()) return;
+  if (!el.speech || !text) return;
   const kind = opts.kind || "chat";
-  const normalizedText = text.trim();
-  const now = Date.now();
-  const priority = priorityFor(kind);
-  const actions = Array.isArray(opts.actions) ? opts.actions : [];
-  const key = `${kind}:${normalizedText}`;
-  const existing = Array.from(speechItems.keys()).find((item) => item.dataset.key === key);
-  if (existing) dismissSpeech(existing);
+  const actions = opts.actions || [];
+  speechHasActions = actions.length > 0;
 
-  if (kind === "chat") {
-    const chatGroup = findRecentChatGroup(now);
-    if (chatGroup) return addToChatGroup(chatGroup, normalizedText, now);
+  // Cache chat replies for the AI panel switcher.
+  if (kind === "chat" || opts.cacheAsAi) {
+    lastAiText = text;
+    lastAiActions = actions;
+    lastAiIsAgentStatus = Boolean(opts.agentStatus);
   }
 
-  if (!trimSpeechQueue(priority)) return;
-  const item = document.createElement("article");
-  item.className = "speech";
-  item.dataset.kind = kind;
-  item.dataset.key = key;
-  item.dataset.priority = String(priority);
-  item.dataset.createdAt = String(now);
-  item.dataset.lastAt = String(now);
-  item.dataset.count = "1";
-  item.dataset.actionable = actions.length > 0 ? "true" : "false";
+  el.speech.dataset.kind = kind;
 
-  const message = document.createElement("span");
-  message.className = "speech-text";
-  message.textContent = normalizedText;
-  item.appendChild(message);
-
-  if (actions.length > 0) {
-    const actionBar = document.createElement("div");
-    actionBar.className = "speech-actions";
-    for (const action of actions) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "btn speech-btn";
-      button.textContent = action.label;
-      button.addEventListener("click", (event) => {
-        event.stopPropagation();
-        if (action.action) emit("pet://control", { action: action.action, at: Date.now() });
-        dismissSpeech(item);
+  if (el.speechActions) {
+    el.speechActions.innerHTML = "";
+    for (const a of actions) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn speech-btn";
+      btn.textContent = a.label;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        // Retry uses the same correlated request path as a mascot tap; do not
+        // emit a bare control event that cannot resolve the pending bubble.
+        if (a.action === "requestPetReply") {
+          requestPetReply();
+          return;
+        }
+        if (a.action) {
+          const payload =
+            a.payload &&
+            typeof a.payload === "object" &&
+            !Array.isArray(a.payload)
+              ? a.payload
+              : {};
+          emit("pet://control", {
+            ...payload,
+            action: a.action,
+            at: Date.now(),
+          });
+        }
+        // Acting on a chip dismisses and returns to Clock.
+        userPinnedAi = false;
+        userPinnedClock = false;
+        hideSpeech({ returnToClock: true });
+        applyPanelChrome("clock");
       });
-      actionBar.appendChild(button);
+      el.speechActions.appendChild(btn);
     }
-    item.appendChild(actionBar);
+    el.speechActions.hidden = actions.length === 0;
   }
 
-  el.speechStack.appendChild(item);
-  resetSpeechTimer(item, opts.ms || SPEECH_DURATIONS[kind] || 6000);
-  arrangeSpeechQueue();
-  syncSpeechVisibility();
+  // Auto status lines (e.g. agent finished) need no dismiss affordance.
+  // User-opened AI always gets a dismiss so they can return to Clock.
+  if (el.dismissSpeech) {
+    const autoOnly =
+      Boolean(opts.ms && !speechHasActions && opts.forcePanel) && !userPinnedAi && !opts.hold;
+    el.dismissSpeech.hidden = autoOnly;
+  }
+
+  el.shell.dataset.speaking = "true";
+
+  // Switch to AI for new replies unless the user is reading the timer / noting /
+  // dragging, or has pinned Clock. forcePanel (agent finish) always shows.
+  const noting = el.shell?.dataset.noting === "true";
+  const shouldShowAi =
+    opts.forcePanel ||
+    opts.stayOnAi ||
+    (!userPinnedClock && !noting && !dragging && opts.forcePanel !== false);
+  if (shouldShowAi) {
+    applyPanelChrome("ai");
+    if (opts.forcePanel && !userPinnedAi) userPinnedClock = false;
+  }
+
+  clearTimeout(speechTimer);
+  speechTimer = null;
+  // Transient status lines (agent finished with empty chips + speechMs) always
+  // auto-return ΓÇö they are not a user-opened chat.
+  const transientStatus =
+    Boolean(opts.forcePanel) && !speechHasActions && typeof opts.ms === "number";
+  if (transientStatus) userPinnedAi = false;
+
+  // Hold duration begins after the reveal finishes so the full line is readable.
+  // Actionable / user-pinned AI stays until dismiss or a chip.
+  const scheduleHide = () => {
+    if (!speechHasActions && !opts.hold && (!userPinnedAi || transientStatus)) {
+      speechTimer = setTimeout(() => {
+        hideSpeech({ returnToClock: true });
+      }, opts.ms || SPEECH_DURATIONS[kind] || 6000);
+    }
+  };
+
+  // Agent status ticks and explicit opts.instant skip the typewriter (live refresh).
+  revealSpeechText(text, {
+    instant: Boolean(opts.instant || opts.agentStatus),
+    onComplete: scheduleHide,
+  });
+}
+
+function requestPetReply({ fromSwitcher = false } = {}) {
+  if (dragging || petting) return;
+  if (el.shell?.dataset.noting === "true") return;
+  if (pendingChatRequestId) return;
+  const requestId =
+    globalThis.crypto?.randomUUID?.() ?? `pet-chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  pendingChatRequestId = requestId;
+  userPinnedClock = false;
+  if (fromSwitcher) userPinnedAi = true;
+  applyPanelChrome("ai");
+  // Soft pending state until the host answers via pet://state.
+  if (!fromSwitcher || !lastAiText) {
+    cancelSpeechReveal();
+    if (el.speechText) el.speechText.textContent = "ΓÇª";
+    el.shell.dataset.speaking = "true";
+    if (el.dismissSpeech) el.dismissSpeech.hidden = false;
+  }
+  clearTimeout(chatReplyTimer);
+  chatReplyTimer = setTimeout(() => {
+    if (pendingChatRequestId !== requestId) return;
+    pendingChatRequestId = null;
+    say("Flowmate has not replied yet.", {
+      kind: "chat",
+      actions: [{ label: "Try again", action: "requestPetReply" }],
+      stayOnAi: true,
+      hold: userPinnedAi,
+    });
+  }, CHAT_REPLY_TIMEOUT_MS);
+  emit("pet://control", { action: "requestPetReply", requestId, at: Date.now() });
 }
 
 function onSignal(sig) {
+  if (
+    typeof sig.chatRequestId === "string" &&
+    sig.chatRequestId === pendingChatRequestId
+  ) {
+    pendingChatRequestId = null;
+    clearTimeout(chatReplyTimer);
+    chatReplyTimer = null;
+  }
   if (typeof sig.source === "string") el.task.textContent = sig.source || "Ready to focus";
   if (typeof sig.detail === "string") el.timer.textContent = sig.detail || "00:00:00";
   if (typeof sig.phase === "string") applyPhase(sig.phase);
@@ -583,19 +990,93 @@ function onSignal(sig) {
     setExtendVisible(sig.showExtend && phase === "finished");
   }
 
+  // AI-working indicator: slight glow on the AI tab only ΓÇö not a log UI.
+  // Host may also send `agentSummary` so the AI tab has live copy without a
+  // full requestPetReply round-trip.
+  if (typeof sig.agentActive === "boolean" && el.shell) {
+    el.shell.dataset.agentActive = String(sig.agentActive);
+  }
+  if (typeof sig.agentSummary === "string" && sig.agentSummary) {
+    // Only seed / refresh when empty or the cache is already agent status ΓÇö
+    // never clobber a real chat reply the user is reading.
+    if (sig.agentActive !== false && (!lastAiText || lastAiIsAgentStatus)) {
+      lastAiText = sig.agentSummary;
+      lastAiActions = [{ label: "Open timer", action: "openApp" }];
+      lastAiIsAgentStatus = true;
+      // Live-refresh the bubble if the AI panel is already showing that seed.
+      // Instant ΓÇö status ticks every second; typewriter would thrash.
+      if (
+        getPetPanel() === "ai" &&
+        el.shell?.dataset.speaking === "true" &&
+        el.speechText &&
+        lastAiIsAgentStatus
+      ) {
+        cancelSpeechReveal();
+        speechFullText = sig.agentSummary;
+        el.speechText.textContent = sig.agentSummary;
+      }
+    }
+  } else if (sig.agentActive === false && lastAiIsAgentStatus) {
+    // Agent stopped ΓÇö leave the last line; a finish quote will replace it.
+    lastAiIsAgentStatus = false;
+  }
+
+  // Sync indicator. Pet mode hides the main window, so this is the only place
+  // an offline or blocked queue can be seen while the user is focusing.
+  if (typeof sig.syncState === "string" && el.syncDot) {
+    const st = sig.syncState;
+    el.syncDot.dataset.sync = st;
+    el.syncDot.hidden = st === "ok";
+    const n = typeof sig.syncPending === "number" ? sig.syncPending : 0;
+    el.syncDot.title =
+      st === "blocked"
+        ? `${n || "Some"} change${n === 1 ? "" : "s"} could not be saved ΓÇö open Kettles`
+        : st === "offline"
+          ? n
+            ? `Offline ┬╖ ${n} change${n === 1 ? "" : "s"} waiting`
+            : "Offline"
+          : st === "syncing"
+            ? "SyncingΓÇª"
+            : "";
+  }
+
   // Speech: an explicit quote always wins; timer events fall back to their
-  // built-in line. Spoken even mid-drag — words are not animations. While the
+  // built-in line. Spoken even mid-drag ΓÇö words are not animations. While the
   // extend chips are up the card must stay visible (speech hides it), so the
-  // completion line is skipped — the card's own message covers it.
+  // completion line is skipped ΓÇö the card's own message covers it.
   const line = sig.event ? SPEECH_LINES[sig.event] : null;
   const quoteKind = sig.quoteKind || (sig.event === "timerBreak" ? "break" : "chat");
-  const quoteActions = quoteKind === "break" ? BREAK_ACTIONS : null;
+  // Explicit empty array means "no chips" (agent finish). Omitted = break defaults.
+  const quoteActions = Array.isArray(sig.actions)
+    ? sig.actions
+    : quoteKind === "break"
+      ? BREAK_ACTIONS
+      : null;
+  const speechMs =
+    typeof sig.speechMs === "number" && sig.speechMs > 0 ? sig.speechMs : undefined;
   if (sig.event === "timerFinish" && sig.showExtend === true) {
+    // Extend chips own the card ΓÇö flash a short secondary, skip the speech
+    // bubble so the timer card stays visible.
     hideSpeech();
+    clearTimeout(speechTimer);
+    showSecondary("Time's up! Keep going?");
   } else if (typeof sig.quote === "string" && sig.quote) {
-    say(sig.quote, { kind: quoteKind, actions: quoteActions });
+    say(sig.quote, {
+      kind: quoteKind,
+      actions: quoteActions === null ? undefined : quoteActions,
+      ms: speechMs,
+      // Agent finish / status lines should show without requiring a pet click.
+      forcePanel: quoteKind === "chat" && Array.isArray(sig.actions) && sig.actions.length === 0,
+    });
+    // Mirror short chat status onto the clock card for ~3s when it's a
+    // transient status line (no action chips).
+    if (Array.isArray(sig.actions) && sig.actions.length === 0) {
+      showSecondary(sig.quote);
+    }
   } else if (line) {
-    say(line.text, { kind: quoteKind, actions: quoteActions });
+    say(line.text, { kind: quoteKind, actions: quoteActions, ms: speechMs });
+    // Timer lifecycle events also flash under the task name for 3s.
+    showSecondary(line.text);
   }
 
   if (dragging) return; // If dragging, ignore incoming animation changes!
@@ -615,11 +1096,17 @@ function onSignal(sig) {
 
   if (cfg.flashOn && sig.event && cfg.flashOn.includes(sig.event)) pop();
   if (sig.event === "timerFinish") confettiBurst();
+  // Agent finish: a short cue + confetti, so a run completing while the user
+  // looks elsewhere is noticed without a native notification.
+  if (typeof sig.sound === "string" && sig.sound) {
+    playCue(sig.sound);
+    if (sig.sound === "cheer") confettiBurst();
+  }
 
   if (play) {
     if (then) baseState = then;
     // timerFinish's jump is deferred to applyPhase so it fires AFTER the pet
-    // reaches screen center — the celebration lands in the middle, not mid-slide.
+    // reaches screen center ΓÇö the celebration lands in the middle, not mid-slide.
     if (sig.event !== "timerFinish") applyState(play);
   } else if (typeof sig.phase === "string") {
     syncAnimToPhase(sig.phase);
@@ -646,7 +1133,7 @@ function applyPhase(next) {
   updateControls(next);
   // The extend chips only exist inside the finished state.
   if (next !== "finished") setExtendVisible(false);
-  // Hop to screen center on completion, THEN jump — so the celebration lands
+  // Hop to screen center on completion, THEN jump ΓÇö so the celebration lands
   // in the middle of the screen and the flow reads cleanly. Hop back when
   // leaving the finished state.
   if (changed) {
@@ -658,18 +1145,33 @@ function applyPhase(next) {
       restorePosition();
     }
   }
-  // Completion message: shown only while finished (task name stays above it).
-  if (el.msg) {
-    if (next === "finished") {
-      el.msg.textContent = extendVisible ? "Time's up! Keep going?" : "You have completed task!";
-      el.msg.hidden = false;
-    } else {
-      el.msg.hidden = true;
-    }
-  }
-  // Surface a freshly-finished session — but only on the transition, so the
+  // Secondary status line is event-driven (3s flash) ΓÇö never a permanent
+  // "You have completed task!" under the timer.
+  if (changed && next !== "finished") hideSecondary();
+  // Surface a freshly-finished session ΓÇö but only on the transition, so the
   // user can still collapse it afterwards (this fires every second otherwise).
   if (changed && next === "finished" && collapsed) setCollapsed(false);
+}
+
+// Secondary line under the task name ΓÇö only for brief event flashes (~3s).
+const SECONDARY_MS = 3000;
+let secondaryTimer = null;
+
+function showSecondary(text, ms = SECONDARY_MS) {
+  if (!el.msg || !text) return;
+  el.msg.textContent = text;
+  el.msg.hidden = false;
+  clearTimeout(secondaryTimer);
+  secondaryTimer = setTimeout(() => {
+    if (el.msg) el.msg.hidden = true;
+    secondaryTimer = null;
+  }, ms);
+}
+
+function hideSecondary() {
+  clearTimeout(secondaryTimer);
+  secondaryTimer = null;
+  if (el.msg) el.msg.hidden = true;
 }
 
 // Show/hide the timer-complete extend chips. While shown, force the window
@@ -681,10 +1183,8 @@ function setExtendVisible(show) {
   extendVisible = show;
   el.completeActions.hidden = !show;
   if (show) {
-    if (el.msg && phase === "finished") {
-      el.msg.textContent = "Time's up! Keep going?";
-      el.msg.hidden = false;
-    }
+    // One short flash when the alarm fires ΓÇö not a sticky finished label.
+    showSecondary("Time's up! Keep going?");
     setClickThrough(false);
   } else {
     setClickThrough(!interactive);
@@ -740,6 +1240,7 @@ function applyState(name) {
 }
 
 function setState(name) {
+  if (!name.startsWith("look_")) lookState = null;
   current = name;
   frame = 0;
   lastTick = 0;
@@ -747,6 +1248,7 @@ function setState(name) {
 }
 
 function playOneShot(name) {
+  lookState = null;
   current = name;
   frame = 0;
   lastTick = 0;
@@ -754,7 +1256,7 @@ function playOneShot(name) {
 }
 
 // ---------------------------------------------------------------------------
-// render loop — runs continuously so the sprite is never left unpainted
+// render loop ΓÇö runs continuously so the sprite is never left unpainted
 // ---------------------------------------------------------------------------
 
 function loop(now) {
@@ -784,14 +1286,14 @@ function draw(now) {
 
   const frameMs = 1000 / s.fps;
 
-  // At rest, loop states hold a still frame — the overlay stays calm instead
+  // At rest, loop states hold a still frame ΓÇö the overlay stays calm instead
   // of churning frames continuously (which reads as distracting). Only
   // interaction (hover, drag, petting) and one-shots (wave / jump / a
   // once-a-minute gesture) actually animate. The sprite still gets its
   // position written each rAF so the layer stays painted.
   const atRest = !isHovered && !dragging && !petting && !oneShot && s.loop;
   if (atRest) {
-    // Pin to frame 0 — the mascot holds a still pose
+    // Pin to frame 0 ΓÇö the mascot holds a still pose
     frame = 0;
   } else if (now - lastTick >= frameMs) {
     lastTick = now;
@@ -823,12 +1325,12 @@ function pop() {
   el.mascot.classList.add("pop");
 }
 
-// Flying kiss — a 💋 that drifts up from the mascot's head and fades.
+// Flying kiss ΓÇö a ≡ƒÆï that drifts up from the mascot's head and fades.
 function flyKiss() {
   if (!el.shell) return;
   const kiss = document.createElement("span");
   kiss.className = "kiss";
-  kiss.textContent = "💋";
+  kiss.textContent = "≡ƒÆï";
   // start a little above the mascot, with a small random horizontal drift
   const drift = (Math.random() * 28 - 14).toFixed(0);
   kiss.style.setProperty("--kiss-drift", `${drift}px`);
@@ -862,26 +1364,119 @@ function setCollapsed(next) {
 
 const DRAG_THRESHOLD = 4;
 
+function updateDragDirection(globalX) {
+  if (!dragging || typeof globalX !== "number") return;
+  if (lastDragCursorX === null) {
+    lastDragCursorX = globalX;
+    return;
+  }
+  const delta = globalX - lastDragCursorX;
+  // Keep the old sample until a true 20px drag step occurs. Updating it on
+  // every event makes slow drags appear motionless and causes direction jitter.
+  if (Math.abs(delta) < DRAG_DIRECTION_STEP_PX) return;
+  lastDragCursorX = globalX;
+  const next = delta < 0 ? "drag_left" : "drag_right";
+  if (cfg.states[next] && current !== next) applyState(next);
+}
+
+function updateDraggedWindow(globalX, globalY) {
+  if (!dragging || !dragOrigin) return;
+  pendingDragPosition = {
+    x: dragOrigin.windowX + globalX - dragOrigin.cursorX,
+    y: dragOrigin.windowY + globalY - dragOrigin.cursorY,
+  };
+  if (dragPositionFrame !== null) return;
+  dragPositionFrame = requestAnimationFrame(() => {
+    dragPositionFrame = null;
+    const next = pendingDragPosition;
+    pendingDragPosition = null;
+    if (!next) return;
+    // Keep the local origin current immediately; the native command catches up
+    // on the same animation frame and remains responsive across all monitors.
+    winPos = next;
+    invoke("pet_set_position", next).catch(() => {});
+  });
+}
+
 function wireInput() {
   let pressed = false;
   let dragged = false;
   let onMascot = false;
+  let didPet = false;
   let startX = 0;
   let startY = 0;
 
-  // Drag = grab-and-move the window while the pet stays SEATED (no walk/tilt).
-  const beginDrag = () => {
+  // Clock | AI switcher
+  el.modeClock?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    // Clock is the timer surface ΓÇö clear speech so the card is visible.
+    userPinnedAi = false;
+    hideSpeech({ returnToClock: false });
+    setPetPanel("clock", { userChoice: true });
+  });
+  el.modeAi?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setPetPanel("ai", { userChoice: true });
+  });
+  el.dismissSpeech?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    emit("pet://control", { action: "dismissPetReply", at: Date.now() });
+    userPinnedAi = false;
+    userPinnedClock = false;
+    hideSpeech({ returnToClock: false });
+    setPetPanel("clock", { userChoice: true });
+  });
+
+  // Click the bubble body while typing ΓåÆ skip to full line (Pok├⌐mon A-button).
+  // Dismiss / chips keep their own handlers above.
+  el.speech?.addEventListener("click", (e) => {
+    if (e.target.closest(".speech-dismiss, .speech-btn")) return;
+    if (!speechRevealing) return;
+    e.stopPropagation();
+    skipSpeechReveal();
+  });
+
+  // Drag = grab-and-move the window. Codex's directional locomotion rows show
+  // which way the pet is being carried; it settles back into its phase on drop.
+  const beginDrag = (initialDelta) => {
     if (dragging) return;
     dragging = true;
     isHovered = false; // cursor left mascot when drag started
-    if (!petting && cfg.states.sitting) applyState("sitting"); // ensure seated
+    lookState = null;
+    if (petting) {
+      petting = false;
+      clearInterval(petBurst);
+      petBurst = null;
+    }
+    const cursorX = Number.isFinite(lastCursorGx) ? lastCursorGx : winPos.x;
+    const cursorY = Number.isFinite(lastCursorGy) ? lastCursorGy : winPos.y;
+    dragOrigin = {
+      cursorX,
+      cursorY,
+      windowX: winPos.x,
+      windowY: winPos.y,
+    };
+    lastDragCursorX = cursorX;
+    const initialState = initialDelta < 0 ? "drag_left" : "drag_right";
+    if (cfg.states[initialState]) applyState(initialState);
     el.shell.classList.add("dragging");
-    getCurrentWindow?.()?.startDragging?.();
+    setClickThrough(false);
   };
 
   const endDrag = () => {
     if (!dragging) return;
     dragging = false;
+    lastDragCursorX = null;
+    dragOrigin = null;
+    pendingDragPosition = null;
+    if (dragPositionFrame !== null) {
+      cancelAnimationFrame(dragPositionFrame);
+      dragPositionFrame = null;
+    }
+    if (dragPointerId !== null && el.mascot.hasPointerCapture?.(dragPointerId)) {
+      el.mascot.releasePointerCapture(dragPointerId);
+    }
+    dragPointerId = null;
     pressed = false;
     el.shell.classList.remove("dragging");
     // Squash-and-stretch landing; the class is cleared on animationend so the
@@ -889,58 +1484,67 @@ function wireInput() {
     el.mascot.classList.remove("land");
     void el.mascot.offsetWidth;
     el.mascot.classList.add("land");
-    void refreshWinPos();   // window landed somewhere new — resync its origin
+    void refreshWinPos();   // window landed somewhere new ΓÇö resync its origin
     if (petting) stopPetting(); else syncAnimToPhase(phase);
   };
 
-  el.shell.addEventListener("mousedown", (e) => {
-    if (e.button !== 0) return;
-    if (e.target.closest("button")) return; // let buttons handle their own clicks
+  el.mascot.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || collapsed) return;
+    e.preventDefault();
+    el.mascot.setPointerCapture?.(e.pointerId);
+    dragPointerId = e.pointerId;
     pressed = true;
     dragged = false;
-    onMascot = e.target === el.mascot;
+    didPet = false;
+    onMascot = true;
     startX = e.screenX;
     startY = e.screenY;
     // Press-and-hold on the mascot = sit. A short delay lets a quick click /
     // double-click pass through without flashing the sit pose. Once seated,
     // moving the mouse drags the window (still seated).
-    if (onMascot) {
-      clearTimeout(petTimer);
-      petTimer = setTimeout(() => { if (pressed) startPetting(); }, 150);
-    }
+    clearTimeout(petTimer);
+    petTimer = setTimeout(() => {
+      if (pressed && !dragged) {
+        didPet = true;
+        startPetting();
+      }
+    }, 220);
   });
 
-  window.addEventListener("mousemove", (e) => {
-    if (dragging && (e.buttons & 1) === 0) {
-      endDrag();
-      return;
-    }
-    if (dragging) return; // seated drag — the OS moves the window, pose stays put
-    if (!pressed) return;
+  window.addEventListener("pointermove", (e) => {
+    if (!pressed || e.pointerId !== dragPointerId || dragging) return;
     if (Math.hypot(e.screenX - startX, e.screenY - startY) > DRAG_THRESHOLD) {
-      pressed = false;
       dragged = true;
       clearTimeout(petTimer);
-      if (!petting) startPetting(); // sit first, then drag from the seated pose
-      beginDrag();
+      if (petting) stopPetting();
+      beginDrag(e.screenX - startX);
     }
   });
 
-  window.addEventListener("mouseenter", (e) => {
-    if (dragging && (e.buttons & 1) === 0) {
-      endDrag();
-    }
-  });
-
-  window.addEventListener("mouseup", (e) => {
-    if (e.button !== 0) return;
+  const finishPointer = (e) => {
+    if (e.pointerId !== dragPointerId) return;
     clearTimeout(petTimer);
+    const wasDragging = dragging;
+    const wasPetting = petting || didPet;
     if (dragging) endDrag();
     if (petting) stopPetting(); // releasing after a hold ends the pet
-    // Single taps no longer collapse — the card always shows the time, and a
-    // double-tap is reserved for the jump.
+    // Quick click on mascot (no drag, no pet) ΓåÆ request AI reply.
+    // Debounced so double-click can cancel and jump instead.
+    if (onMascot && pressed && !wasDragging && !dragged && !wasPetting) {
+      clearTimeout(singleClickTimer);
+      singleClickTimer = setTimeout(() => {
+        singleClickTimer = null;
+        requestPetReply();
+      }, 280);
+    }
     pressed = false;
-  });
+    onMascot = false;
+    didPet = false;
+    dragPointerId = null;
+  };
+
+  window.addEventListener("pointerup", finishPointer);
+  window.addEventListener("pointercancel", finishPointer);
 
   el.collapse.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -990,7 +1594,7 @@ function wireInput() {
       e.stopPropagation();
       const minutes = Number(btn.dataset.extend) || 5;
       emit("pet://control", { action: "extend", minutes, at: Date.now() });
-      setExtendVisible(false); // optimistic — the host confirms via pet://state
+      setExtendVisible(false); // optimistic ΓÇö the host confirms via pet://state
     });
   });
 
@@ -1000,7 +1604,7 @@ function wireInput() {
     setExtendVisible(false);
   });
 
-  // Notepad handlers — right-click opens a full notepad panel that replaces
+  // Notepad handlers ΓÇö right-click opens a full notepad panel that replaces
   // the timer card while open (shell[data-noting] hides the card via CSS).
   let noteOpen = false;
 
@@ -1011,7 +1615,9 @@ function wireInput() {
     el.shell.dataset.noting = String(show);
 
     if (show) {
-      hideSpeech(); // the notepad owns the space above the mascot
+      hideSpeech({ returnToClock: false }); // notepad owns the space above the mascot
+      userPinnedAi = false;
+      setPetPanel("clock", { userChoice: true });
       // Title mirrors where the host will file the note (session vs new task).
       if (el.notepadTitle) {
         el.notepadTitle.textContent =
@@ -1064,6 +1670,29 @@ function wireInput() {
     }
   });
 
+  // Keyboard parity for the mascot: Escape always closes the active surface;
+  // Enter/Space performs the same quick-chat action as a click. This keeps the
+  // overlay usable when a user navigates into it with a keyboard or assistive
+  // technology instead of relying on pointer-only behavior.
+  el.shell.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      if (noteOpen) {
+        toggleNotePane(false);
+      } else if (el.shell.dataset.speaking === "true") {
+        emit("pet://control", { action: "dismissPetReply", at: Date.now() });
+        userPinnedAi = false;
+        hideSpeech({ returnToClock: false });
+        setPetPanel("clock", { userChoice: true });
+      }
+      return;
+    }
+    if (e.target !== el.mascot || (e.key !== "Enter" && e.key !== " ")) return;
+    e.preventDefault();
+    if (collapsed || dragging || petting) return;
+    requestPetReply();
+  });
+
   // Mascot interaction animations
   el.mascot.addEventListener("mouseenter", () => {
     if (collapsed || dragging) return;
@@ -1080,28 +1709,30 @@ function wireInput() {
     }
   });
 
-  el.mascot.addEventListener("click", () => {
-    if (dragging) return;
+  el.mascot.addEventListener("click", (e) => {
+    // Reply is scheduled from mouseup (gesture-safe). Companion mascots still
+    // get a light reaction without stealing the AI path.
+    if (dragging || dragged) return;
     const prefs = loadPreferences();
     if (prefs?.activeMascot === "sprite2" || prefs?.activeMascot === "female") {
-      // Companion mascots: clicking blows a flying kiss (hand-up pose + 💋).
       flyKiss();
       if (cfg.states.waving) applyState("waving");
     }
-    // Default mascot: single click does nothing — double-click jumps.
   });
 
-  // Double-click the mascot → jump, then open the main app.
+  // Double-click the mascot ΓåÆ jump, then open the main app (not AI reply).
   el.mascot.addEventListener("dblclick", (e) => {
     e.stopPropagation();
     e.preventDefault();
+    clearTimeout(singleClickTimer);
+    singleClickTimer = null;
     if (dragging) return;
     if (cfg.states.jumping) applyState("jumping");
     pokeApp();
   });
 
   // One-shot transform classes block the idle breathing animation while
-  // present — drop them as soon as their keyframes finish.
+  // present ΓÇö drop them as soon as their keyframes finish.
   el.mascot.addEventListener("animationend", (e) => {
     if (e.animationName === "land" || e.animationName === "pop") {
       el.mascot.classList.remove("land", "pop");
@@ -1120,7 +1751,7 @@ function wireInput() {
 
 // --- petting (press-and-hold the mascot) -----------------------------------
 
-// Which pose to play while being petted — prefer the click event's state,
+// Which pose to play while being petted ΓÇö prefer the click event's state,
 // fall back to a happy wave.
 function joyState() {
   const t = eventTarget("click");
@@ -1131,7 +1762,7 @@ function joyState() {
 function startPetting() {
   if (petting || collapsed || dragging) return;
   petting = true;
-  // Press-and-hold simply sits the pet down — no hearts/particles.
+  // Press-and-hold simply sits the pet down ΓÇö no hearts/particles.
   if (cfg.states.sitting) applyState("sitting");
 }
 
@@ -1144,12 +1775,12 @@ function stopPetting() {
 }
 
 // A single floating emoji that drifts up from the mascot and fades.
-// Defaults to affection (hearts/stars); callers can pass 💤 / 💢 / etc.
+// Defaults to affection (hearts/stars); callers can pass ≡ƒÆñ / ≡ƒÆó / etc.
 function spawnParticle(char) {
   if (!el.shell) return;
   const p = document.createElement("span");
   p.className = "particle";
-  p.textContent = char || (Math.random() < 0.5 ? "❤️" : "⭐");
+  p.textContent = char || (Math.random() < 0.5 ? "Γ¥ñ∩╕Å" : "Γ¡É");
   p.style.setProperty("--pdx", `${(Math.random() * 36 - 18).toFixed(0)}px`);
   const mh = parseFloat(getComputedStyle(el.mascot).height) || 150;
   p.style.bottom = `${mh * 0.7}px`;
@@ -1162,7 +1793,7 @@ function burstPets(n) {
   for (let i = 0; i < n; i++) setTimeout(() => spawnParticle(), i * 70);
 }
 
-// Celebration confetti — fired on timerFinish alongside the jump + pop.
+// Celebration confetti ΓÇö fired on timerFinish alongside the jump + pop.
 const CONFETTI_COLORS = ["#3385ff", "#10b981", "#f5b14c", "#ef6aa5", "#8b5cf6"];
 
 function confettiBurst() {
@@ -1183,8 +1814,49 @@ function confettiBurst() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// audio cue
+// ---------------------------------------------------------------------------
+// Synthesised, not a file: the overlay ships no audio assets and a two-note
+// blip is smaller as code than as an .ogg. Same WebAudio shape as
+// src/lib/alarm.ts. Deliberately quiet and under 400ms ΓÇö this fires while the
+// user is working in another window.
+const CUE_NOTES = {
+  cheer: [660, 880, 1175],
+  alert: [440, 330],
+};
+
+let cueCtx = null;
+
+function playCue(kind) {
+  const notes = CUE_NOTES[kind];
+  if (!notes) return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!cueCtx || cueCtx.state === "closed") cueCtx = new Ctx();
+    if (cueCtx.state === "suspended") cueCtx.resume().catch(() => {});
+    notes.forEach((freq, i) => {
+      const osc = cueCtx.createOscillator();
+      const gain = cueCtx.createGain();
+      osc.connect(gain);
+      gain.connect(cueCtx.destination);
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const t = cueCtx.currentTime + i * 0.11;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.16, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      osc.start(t);
+      osc.stop(t + 0.3);
+    });
+  } catch {
+    /* audio is decoration ΓÇö never break the overlay */
+  }
+}
+
 function pokeApp() {
-  emit("pet://poke", { at: Date.now() });
+  emit("pet://poke", { action: "openApp", at: Date.now() });
 }
 
 boot().catch((err) => console.error("[pet] boot failed", err));

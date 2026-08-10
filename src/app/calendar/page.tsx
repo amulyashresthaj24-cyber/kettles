@@ -121,10 +121,16 @@ const DAYS_LONG = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function CalendarPage() {
-  const [view, setView] = useState<ViewMode>(() => {
-    if (typeof window === "undefined") return "week";
-    return (localStorage.getItem("flowmate-calendar-view") as ViewMode) ?? "week";
-  });
+  // localStorage is not available during SSR, so reading it in the initializer
+  // desyncs the first client paint from the server HTML → hydration error.
+  // Resolve after mount, same as AppShell does for isDesktop().
+  const [view, setView] = useState<ViewMode>("week");
+  useEffect(() => {
+    const stored = localStorage.getItem("flowmate-calendar-view");
+    if (stored === "month" || stored === "week" || stored === "day" || stored === "list") {
+      setView(stored);
+    }
+  }, []);
   const [cursor, setCursor] = useState(new Date());
   const [openAddTask, setOpenAddTask] = useState(false);
   const [selectedDateRange, setSelectedDateRange] = useState<string>("");
@@ -387,7 +393,7 @@ export default function CalendarPage() {
                 </svg>
               </button>
               {projectDropdownOpen && (
-                <div className="absolute top-full mt-1 left-0 min-w-[140px] rounded-lg bg-surface-raised border border-border-subtle shadow-2xl z-[100] overflow-hidden animate-dropdown-in">
+                <div className="absolute top-full mt-1 left-0 min-w-[140px] rounded-lg bg-surface-raised border border-border-subtle shadow-elevation-2 z-dropdown overflow-hidden animate-dropdown-in">
                   <div className="p-1">
                     <button
                       onClick={() => { setFilterProject("all"); setProjectDropdownOpen(false); }}
@@ -1222,10 +1228,10 @@ function ListView({
           Upcoming
         </h2>
         <div className="flex items-center justify-between mt-3 mb-0">
-          <button className="flex items-center gap-1.5 text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>
+          {/* Label, not a control — ListView has no cursor setter to drive. */}
+          <span className="text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>
             {MONTHS[cursor.getMonth()]} {cursor.getFullYear()}
-            <CaretRight size={16} style={{ color: "var(--text-muted)" }} />
-          </button>
+          </span>
         </div>
 
         <div className="grid grid-cols-7 mt-3 pb-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
@@ -1261,7 +1267,6 @@ function ListView({
           <UpcomingSection
             label="Overdue"
             labelColor="var(--error)"
-            action={{ label: "Reschedule", color: "var(--error)" }}
             events={overdueEvents}
             showTime
             onTaskClick={onTaskClick}
@@ -1303,7 +1308,6 @@ function ListView({
 function UpcomingSection({
   label,
   labelColor,
-  action,
   events: sectionEvents,
   googleEvents = [],
   showTime,
@@ -1314,7 +1318,6 @@ function UpcomingSection({
 }: {
   label: string;
   labelColor: string;
-  action?: { label: string; color: string };
   events: CalendarEvent[];
   googleEvents?: GoogleCalendarEvent[];
   showTime?: boolean;
@@ -1344,9 +1347,6 @@ function UpcomingSection({
         style={{ borderBottom: "1px solid var(--border-subtle)" }}
       >
         <span className="text-[14px] font-semibold" style={{ color: labelColor }}>{label}</span>
-        {action && (
-          <button className="text-[13px] font-medium" style={{ color: action.color }}>{action.label}</button>
-        )}
       </div>
 
       {rows.map((row) =>

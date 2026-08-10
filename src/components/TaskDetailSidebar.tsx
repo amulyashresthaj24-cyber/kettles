@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { TagEditor } from "./TagEditor";
 import type { Task, ProjectColor } from "@/lib/types";
 import { PROJECT_COLOR_HEX } from "@/lib/constants";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 
 function getProjectColor(c: string) { return PROJECT_COLOR_HEX[c as ProjectColor] ?? "var(--text-muted)"; }
 
@@ -28,6 +29,7 @@ export function TaskDetailSidebar({ taskId, onClose, onEditTask }: TaskDetailSid
   const sessions = useApp((s) => s.sessions);
   const activeSessionId = useApp((s) => s.activeSessionId);
   const setTaskStatus = useApp((s) => s.setTaskStatus);
+  const panelRef = useRef<HTMLDivElement>(null);
   const updateTask = useApp((s) => s.updateTask);
 
   const task = tasks.find((t) => t.id === taskId) ?? null;
@@ -49,12 +51,9 @@ export function TaskDetailSidebar({ taskId, onClose, onEditTask }: TaskDetailSid
     if (editingTitle) inputRef.current?.focus();
   }, [editingTitle]);
 
-  useEffect(() => {
-    if (!taskId) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [taskId, onClose]);
+  // Escape + Tab confinement + focus restore. Tab used to walk straight out of
+  // the panel and into the page behind it.
+  useFocusTrap({ active: Boolean(taskId), containerRef: panelRef, onEscape: onClose });
 
   function commitTitle() {
     if (!task) return;
@@ -76,18 +75,21 @@ export function TaskDetailSidebar({ taskId, onClose, onEditTask }: TaskDetailSid
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40"
+        className="fixed inset-0 z-overlay"
         onClick={onClose}
         aria-hidden
       />
 
       {/* Panel */}
       <div
-        className="fixed right-0 top-0 bottom-0 w-96 z-50 flex flex-col overflow-hidden panel-animate"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Task details"
+        className="fixed right-0 top-0 bottom-0 w-96 z-modal flex flex-col overflow-hidden panel-animate shadow-elevation-4"
         style={{
           background: "var(--surface-raised)",
           borderLeft: "1px solid var(--border-subtle)",
-          boxShadow: "-4px 0 24px rgba(0,0,0,0.2)",
         }}
       >
         {/* Header */}

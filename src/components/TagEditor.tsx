@@ -89,7 +89,7 @@ export function TagEditor({ task }: TagEditorProps) {
 
         {isOpen && (
           <div
-            className="absolute top-full mt-1 left-0 w-44 rounded-lg bg-surface-raised border border-border-subtle shadow-2xl z-[100] overflow-hidden animate-dropdown-in"
+            className="absolute top-full mt-1 left-0 w-44 rounded-lg bg-surface-raised border border-border-subtle shadow-elevation-2 z-dropdown overflow-hidden animate-dropdown-in"
           >
             <div className="border-b border-border-subtle">
               <input

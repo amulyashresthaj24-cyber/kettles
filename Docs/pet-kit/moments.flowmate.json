@@ -1,18 +1,21 @@
 {
+  "tier": "v1",
+  "_comment": "Event and phase mapping for v1 (user-generated) mascots, tuned to the v1 art row intents. Stock v2 mascots map differently — v2 art reads 'waiting' as settled-after-finish, so it uses paused:idle / finished:waiting. Live truth for the shipped overlay is public/pet/pet.config.json.",
   "events": {
-    "hover": { "play": "waving", "reason": "Acknowledge attention without interrupting work." },
+    "hover": { "play": "review", "reason": "Acknowledge attention without interrupting work." },
     "click": { "play": "waving", "reason": "Friendly tap response." },
     "doubleClick": { "play": "jumping", "reason": "Expressive manual interaction." },
-    "timerStart": { "play": "working_still", "phase": "running", "reason": "Timer starts focused work." },
-    "timerResume": { "play": "working_still", "phase": "running", "reason": "Resume the focused state without a big flourish." },
+    "timerStart": { "play": "waving", "then": "running", "phase": "running", "reason": "Acknowledge the start, then settle into the focus loop." },
+    "timerResume": { "play": "waving", "then": "running", "phase": "running", "reason": "Same acknowledgement, no bigger flourish than a start." },
     "timerPause": { "play": "waiting", "phase": "paused", "reason": "Hold a calm waiting loop." },
     "timerBreak": { "play": "idle", "phase": "idle", "reason": "Return to a low-distraction loop." },
+    "breakEnd": { "play": "jumping", "then": "running", "phase": "running", "reason": "Mark the return, then resume the focus loop." },
     "timerFinish": { "play": "jumping", "then": "idle", "phase": "finished", "notify": true, "reason": "Celebrate completion, then settle." },
-    "timerAbandon": { "play": "failed", "then": "idle", "phase": "idle", "reason": "Brief interruption reaction, then recover." }
+    "timerAbandon": { "play": "failed", "then": "waiting", "phase": "idle", "reason": "Brief interruption reaction, then recover." }
   },
   "phaseStates": {
     "idle": "idle",
-    "running": "working_still",
+    "running": "running",
     "paused": "waiting",
     "finished": "idle"
   },
@@ -23,4 +26,3 @@
     "finished": "Complete"
   }
 }
-

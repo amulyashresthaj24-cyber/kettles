@@ -62,8 +62,8 @@ export function Checkbox({
       onKeyDown={handleKeyDown}
       tabIndex={disabled ? -1 : 0}
       className={cn(
-        "relative flex items-center justify-center shrink-0 border-2 transition-[background,border-color,box-shadow] duration-[120ms] ease-out",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-1 focus-visible:ring-offset-base",
+        "relative flex items-center justify-center shrink-0 border-2 transition-[background,border-color,box-shadow] duration-fast ease-out-soft",
+        "focus-ring",
         sizeClasses[size],
         checked || indeterminate
           ? "bg-accent border-accent shadow-sm"
@@ -125,7 +125,11 @@ export function NativeCheckbox({
   return (
     <label
       className={cn(
-        "relative flex items-center justify-center shrink-0 w-[18px] h-[18px] rounded-[5px] border-2 transition-all duration-150 cursor-pointer",
+        "relative flex items-center justify-center shrink-0 w-[18px] h-[18px] rounded-[5px] border-2 cursor-pointer",
+        "transition-[background,border-color,box-shadow] duration-fast ease-out-soft",
+        // The real input is sr-only, so the label has to carry the focus ring
+        // itself — otherwise this control is invisible to keyboard users.
+        "has-[:focus-visible]:shadow-[0_0_0_var(--focus-ring-offset)_var(--base),0_0_0_calc(var(--focus-ring-offset)+var(--focus-ring-width))_var(--focus-ring-color)]",
         checked
           ? "bg-accent border-accent shadow-sm"
           : "bg-surface border-border hover:border-text-secondary",

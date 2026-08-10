@@ -15,15 +15,43 @@ import {
   CheckCircle,
 } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
+import { readCustomMascot } from "@/lib/mascot-custom";
 import { formatDuration, formatHMS, formatMinSec, formatMSS, formatWallTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { useNotification } from "@/components/ui/notification";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { UrgencyDot } from "@/components/UrgencyDot";
 import { AddTaskModal } from "@/components/AddTaskModal";
 import { AddProjectModal } from "@/components/AddProjectModal";
 import { TaskFinishedState } from "@/components/TaskFinishedState";
+import { IdleRecoveryCard } from "@/components/IdleRecoveryCard";
+import { AgentPresenceBar } from "@/components/AgentPresenceBar";
 import type { Project, Session, Task } from "@/lib/types";
+import { elapsedSecondsFor } from "@/lib/session-timeline";
+
+/**
+ * Sprite sheet for a user-uploaded mascot, or `null` for the stock ones.
+ *
+ * The finish-screen jump reuses `animate-pet-jump-kettle`, whose keyframes are
+ * already written against a v1 8x9 sheet (1536x1872, row 4, 5 frames) — the
+ * exact geometry a custom mascot uses. So only the image needs swapping; the
+ * animation carries over unchanged.
+ *
+ * Read after mount, not during render: the atlas lives in localStorage, and
+ * touching it on the server would break the prerender.
+ */
+function useCustomMascotSheet(activeMascot: string): string | null {
+  const [sheet, setSheet] = useState<string | null>(null);
+  useEffect(() => {
+    if (activeMascot !== "custom") {
+      setSheet(null);
+      return;
+    }
+    setSheet(readCustomMascot()?.dataUrl ?? null);
+  }, [activeMascot]);
+  return sheet;
+}
 
 const URGENCY_ORDER = { urgent: 0, high: 1, normal: 2, low: 3 } as const;
 const FOCUS_RING_SIZE = 320;
@@ -43,9 +71,7 @@ function timeInputToToday(value: string) {
 }
 
 function elapsedForSession(session: Session) {
-  return session.durationSeconds + (session.state === "running"
-    ? Math.floor((Date.now() - session.startedAt) / 1000)
-    : 0);
+  return elapsedSecondsFor(session);
 }
 
 function dayBoundsFor(timestamp: number) {
@@ -129,6 +155,7 @@ export default function TimerPage() {
     activeSessionId ? s.sessions.find((x) => x.id === activeSessionId) : undefined
   );
 
+  const { notify } = useNotification();
   const startSession = useApp((s) => s.startSession);
   const startDraftSession = useApp((s) => s.startDraftSession);
   const pauseSession = useApp((s) => s.pauseSession);
@@ -275,24 +302,30 @@ export default function TimerPage() {
     setConfirmDiscard(false);
   }, [session?.id, session?.state]);
 
+  // Keep the shortcut body in a ref so the listener registers once. Inlining it
+  // in the effect with no dep array re-bound window on every render — and every
+  // elapsed-second tick is a render.
+  const shortcutHandler = useRef<(e: KeyboardEvent) => void>(() => {});
+  shortcutHandler.current = (e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+    if (!session) return;
+    if (e.key === " ") {
+      e.preventDefault();
+      session.state === "running" ? pauseSession() : resumeSession();
+    }
+    if (e.key.toLowerCase() === "f" && (session.state === "running" || session.state === "paused")) handleFinish();
+    if (e.key.toLowerCase() === "n") setShowQuickNote(true);
+    if (e.key === "Escape") {
+      setShowNotes(false);
+      setShowQuickNote(false);
+    }
+  };
+
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
-      if (!session) return;
-      if (e.key === " ") {
-        e.preventDefault();
-        session.state === "running" ? pauseSession() : resumeSession();
-      }
-      if (e.key.toLowerCase() === "f" && (session.state === "running" || session.state === "paused")) handleFinish();
-      if (e.key.toLowerCase() === "n") setShowQuickNote(true);
-      if (e.key === "Escape") {
-        setShowNotes(false);
-        setShowQuickNote(false);
-      }
-    };
+    const handler = (e: KeyboardEvent) => shortcutHandler.current(e);
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  });
+  }, []);
 
   const quickPick = useMemo(
     () =>
@@ -303,17 +336,26 @@ export default function TimerPage() {
     [tasks]
   );
 
+  // start*Session resolve to null on failure. Clicking "Start Focus" on a
+  // network blip used to do nothing at all, with no explanation.
+  const warnStartFailed = () =>
+    notify({
+      title: "Couldn't start the timer",
+      description: "Nothing was recorded. Check your connection and try again.",
+      tone: "error",
+    });
+
   const handleStart = async () => {
     if (!taskId) return;
     audioReady.current = true;
     const est = Number(estimateMin) > 0 ? Number(estimateMin) : undefined;
-    await startSession(taskId, billable, est);
+    if (!(await startSession(taskId, billable, est))) warnStartFailed();
   };
 
   const handleStartDraft = async () => {
     audioReady.current = true;
     const est = Number(estimateMin) > 0 ? Number(estimateMin) : undefined;
-    await startDraftSession(projectId, billable, est);
+    if (!(await startDraftSession(projectId, billable, est))) warnStartFailed();
   };
 
   const handleQuickStart = async (t: Task) => {
@@ -321,7 +363,7 @@ export default function TimerPage() {
     setProjectId(t.projectId ?? "");
     if (t.estimateMinutes) setEstimateMin(String(t.estimateMinutes));
     audioReady.current = true;
-    await startSession(t.id, undefined, t.estimateMinutes);
+    if (!(await startSession(t.id, undefined, t.estimateMinutes))) warnStartFailed();
   };
 
   const handleFinish = () => {
@@ -482,6 +524,13 @@ export default function TimerPage() {
 
   return (
     <div className="flex w-full flex-col gap-10">
+      {/* Above everything: an unresolved idle gap is the one thing on this page
+          that makes the ledger wrong if ignored. Renders nothing when clean. */}
+      <IdleRecoveryCard />
+
+      {/* M2 — live agents + manual AI toggle (hooks optional). */}
+      <AgentPresenceBar />
+
       {!session && (
         <header className="flex flex-col gap-1.5">
           <h1 className="text-[32px] font-semibold leading-[1.25] text-text-primary">Focus Mode</h1>
@@ -667,7 +716,7 @@ export default function TimerPage() {
 
           {showQuickNote && (
             <form
-              className="fixed bottom-20 right-6 z-[80] flex w-[280px] gap-2 rounded-lg p-2"
+              className="fixed bottom-20 right-6 z-sticky flex w-[280px] gap-2 rounded-lg p-2"
               style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
               onSubmit={(e) => { e.preventDefault(); addSessionNote(noteInput); setNoteInput(""); setShowQuickNote(false); }}
             >
@@ -680,7 +729,7 @@ export default function TimerPage() {
             aria-label={noteCount > 0 ? `${noteCount} session notes` : "Add note"}
             title={noteCount > 0 ? `${noteCount} session notes` : "Add note"}
             onClick={() => setShowNotes(true)}
-            className="fixed bottom-6 right-6 z-[70] flex h-12 max-w-[300px] items-center gap-2.5 rounded-full px-4 shadow-2xl transition-all hover:scale-[1.03]"
+            className="fixed bottom-6 right-6 z-sticky flex h-12 max-w-[300px] items-center gap-2.5 rounded-full px-4 shadow-elevation-3 transition-all hover:scale-[1.03]"
             style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
           >
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: "var(--accent-dim)" }}>
@@ -812,7 +861,7 @@ function TimerCenter({ elapsed, estimateSec, remaining, isOvertime, isPaused }: 
 function ModalShell({ open, children }: { open: boolean; children: React.ReactNode }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-modal flex items-center justify-center p-6">
       <div className="absolute inset-0 bg-base/70 backdrop-blur-sm" />
       <div className="relative w-full max-w-[620px] animate-modal-in">{children}</div>
     </div>
@@ -886,13 +935,14 @@ function FinishOverlay(props: {
 
   // "sprite2" is a legacy persisted id for the female mascot.
   const isFemale = props.activeMascot === "female" || props.activeMascot === "sprite2";
+  const customSheet = useCustomMascotSheet(props.activeMascot);
   const mascotKind = isFemale ? "female" : "kettle";
   const jumpClass = isFemale ? "animate-pet-jump-female" : "animate-pet-jump-kettle";
-  const jumpScale = isFemale ? "scale-[0.75]" : "scale-[0.55]";
+  const jumpScale = customSheet ? "scale-[0.55]" : isFemale ? "scale-[0.75]" : "scale-[0.55]";
 
   if (props.savedDraft) {
     return (
-      <div className="animate-modal-in mx-auto flex w-full max-w-[480px] flex-col items-center gap-4 rounded-2xl p-6 text-center shadow-2xl" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+      <div className="animate-modal-in mx-auto flex w-full max-w-[480px] flex-col items-center gap-4 rounded-2xl p-6 text-center shadow-elevation-3" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
         <h3 className="text-[18px] font-semibold text-text-primary">Saved to Draft Work Log</h3>
         <p className="text-[13px] text-text-muted">Confirm it later before it counts in reports.</p>
         <Button variant="primary" onClick={() => window.location.reload()}>Start another session</Button>
@@ -922,10 +972,13 @@ function FinishOverlay(props: {
   );
 
   return (
-    <div className="animate-modal-in mx-auto flex w-full max-w-[480px] flex-col gap-5 rounded-2xl p-6 shadow-2xl" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+    <div className="animate-modal-in mx-auto flex w-full max-w-[480px] flex-col gap-5 rounded-2xl p-6 shadow-elevation-3" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
       <div className="relative flex items-center justify-center -mb-6 overflow-visible" aria-hidden>
         <div className="pet-stage pointer-events-none" data-mascot={mascotKind}>
-          <div className={`${jumpClass} transform ${jumpScale} origin-bottom`} />
+          <div
+            className={`${jumpClass} transform ${jumpScale} origin-bottom`}
+            style={customSheet ? { backgroundImage: `url("${customSheet}")` } : undefined}
+          />
           <div className="pet-shadow" />
         </div>
       </div>
@@ -1037,7 +1090,7 @@ function FinishStat({ label, value }: { label: string; value: string }) {
 function SessionNotesPanel({ open, notes, noteInput, noteWarning, onChangeNote, onClose, onSubmit, onEdit, onDelete }: { open: boolean; notes: { id: string; timestamp: number; text: string }[]; noteInput: string; noteWarning: string; onChangeNote: (v: string) => void; onClose: () => void; onSubmit: () => void; onEdit: (id: string, text: string) => void; onDelete: (id: string) => void }) {
   if (!open) return null;
   return (
-    <aside className="fixed bottom-0 right-0 top-0 z-[85] flex w-[320px] animate-slide-in-right flex-col gap-4 p-5" style={{ background: "var(--surface-raised)", borderLeft: "1px solid var(--border)" }}>
+    <aside className="fixed bottom-0 right-0 top-0 z-modal flex w-[320px] animate-slide-in-right flex-col gap-4 p-5" style={{ background: "var(--surface-raised)", borderLeft: "1px solid var(--border)" }}>
       <div className="flex items-start justify-between gap-3">
         <div><h3 className="text-[16px] font-semibold text-text-primary">Session notes</h3><p className="text-[12px] text-text-muted">Notes are timestamped while your timer is running.</p></div>
         <button onClick={onClose} aria-label="Close notes" className="text-text-muted hover:text-text-primary"><X size={16} /></button>
@@ -1191,7 +1244,7 @@ function EntitySelectPill({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-[calc(100%+8px)] z-[70] min-w-[260px] overflow-hidden rounded-xl border border-border bg-surface-raised shadow-2xl animate-dropdown-in">
+        <div className="absolute left-0 top-[calc(100%+8px)] z-dropdown min-w-[260px] overflow-hidden rounded-xl border border-border bg-surface-raised shadow-elevation-2 animate-dropdown-in">
           <div className="max-h-[280px] overflow-y-auto py-1">
             {items.length === 0 ? (
               <p className="px-3 py-3 text-[12px] text-text-muted">No options yet.</p>
@@ -1270,18 +1323,22 @@ function AlarmModal({
   const activeMascot = preferences?.activeMascot || "kettle";
   // "sprite2" is a legacy persisted id for the female mascot.
   const isFemale = activeMascot === "female" || activeMascot === "sprite2";
+  const customSheet = useCustomMascotSheet(activeMascot);
   const mascotKind = isFemale ? "female" : "kettle";
   const jumpClass = isFemale ? "animate-pet-jump-female" : "animate-pet-jump-kettle";
-  const jumpScale = isFemale ? "scale-[0.85]" : "scale-[0.6]";
+  const jumpScale = customSheet ? "scale-[0.6]" : isFemale ? "scale-[0.85]" : "scale-[0.6]";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[18vh]">
+    <div className="fixed inset-0 z-modal flex items-start justify-center pt-[18vh]">
       <div className="absolute inset-0 bg-base/50 backdrop-blur-sm animate-fade-in" />
-      <div className="relative w-full max-w-[440px] mx-lg animate-modal-in flex flex-col items-center gap-6 rounded-xl p-8 shadow-2xl bg-surface-raised border border-border text-center overflow-hidden">
+      <div className="relative w-full max-w-[440px] mx-lg animate-modal-in flex flex-col items-center gap-6 rounded-xl p-8 shadow-elevation-3 bg-surface-raised border border-border text-center overflow-hidden">
 
         <div className="relative flex items-center justify-center -mb-8 mt-2 overflow-visible">
           <div className="pet-stage pointer-events-none" data-mascot={mascotKind}>
-            <div className={`${jumpClass} transform ${jumpScale} origin-bottom`} />
+            <div
+              className={`${jumpClass} transform ${jumpScale} origin-bottom`}
+              style={customSheet ? { backgroundImage: `url("${customSheet}")` } : undefined}
+            />
             <div className="pet-shadow" />
           </div>
         </div>

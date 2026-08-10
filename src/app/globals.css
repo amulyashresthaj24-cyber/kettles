@@ -33,20 +33,61 @@
   --card-gradient-mid: #e2f0ff;
   --card-gradient-end: #cce3ff;
 
-  /* Status */
+  /* Status. Warning is amber, not the info blue — they used to be the same
+     hex, which made a warning toast indistinguishable from an info one. */
   --success: #10b981;
-  --warning: #3b82f6;
+  --warning: #d97706;
   --error: #ef4444;
   --info: #3b82f6;
 
+  /* Per-status surface / text / border, so consumers stop improvising
+     bg-error/10 and friends at slightly different opacities each time. */
+  --success-subtle: color-mix(in srgb, var(--success) 12%, transparent);
+  --success-border: color-mix(in srgb, var(--success) 30%, transparent);
+  --warning-subtle: color-mix(in srgb, var(--warning) 12%, transparent);
+  --warning-border: color-mix(in srgb, var(--warning) 30%, transparent);
+  --error-subtle: color-mix(in srgb, var(--error) 12%, transparent);
+  --error-border: color-mix(in srgb, var(--error) 30%, transparent);
+  --info-subtle: color-mix(in srgb, var(--info) 12%, transparent);
+  --info-border: color-mix(in srgb, var(--info) 30%, transparent);
 
   /* Motion */
   --motion-fast: 120ms;
   --motion-base: 180ms;
   --motion-slow: 240ms;
+  /* Panels and modals travel further than a button does and need longer. */
+  --motion-slower: 320ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Elevation. Four steps, tied to how far off the page a thing sits.
+     Everything used to be shadow-2xl, so a dropdown and a full-screen modal
+     cast the same shadow. Tinted with the ink colour rather than pure black —
+     black shadows vanish on the dark surfaces and read cold on the light ones. */
+  --shadow-color: 220 40% 12%;
+  --elevation-1: 0 1px 2px hsl(var(--shadow-color) / 0.06),
+                 0 1px 3px hsl(var(--shadow-color) / 0.04);
+  --elevation-2: 0 2px 6px hsl(var(--shadow-color) / 0.08),
+                 0 4px 12px hsl(var(--shadow-color) / 0.06);
+  --elevation-3: 0 8px 24px hsl(var(--shadow-color) / 0.12),
+                 0 2px 8px hsl(var(--shadow-color) / 0.08);
+  --elevation-4: 0 16px 48px hsl(var(--shadow-color) / 0.18),
+                 0 4px 12px hsl(var(--shadow-color) / 0.10);
+
+  /* Stacking order. Raw z values used to conflict across the app — a
+     DatePicker at z-[9999] painted straight over the toast layer. */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+
+  /* Focus ring */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: var(--accent);
 
   /* Layout Tokens */
   /* Content padding & max-width */
@@ -121,6 +162,25 @@
   --card-gradient-mid: #061733;
   --card-gradient-end: #072a63;
 
+  /* Status. Amber and emerald both need lifting to stay legible against the
+     near-black surfaces; the light-theme values read muddy here. */
+  --success: #34d399;
+  --warning: #f59e0b;
+  --error: #f87171;
+  --info: #60a5fa;
+
+  /* Shadows on a #08090a surface can't be tinted-light or they disappear.
+     Go to true black and lean on much higher alpha instead. */
+  --shadow-color: 0 0% 0%;
+  --elevation-1: 0 1px 2px hsl(var(--shadow-color) / 0.40),
+                 0 1px 3px hsl(var(--shadow-color) / 0.30);
+  --elevation-2: 0 2px 6px hsl(var(--shadow-color) / 0.45),
+                 0 4px 12px hsl(var(--shadow-color) / 0.35);
+  --elevation-3: 0 8px 24px hsl(var(--shadow-color) / 0.55),
+                 0 2px 8px hsl(var(--shadow-color) / 0.40);
+  --elevation-4: 0 16px 48px hsl(var(--shadow-color) / 0.65),
+                 0 4px 12px hsl(var(--shadow-color) / 0.45);
+
   color-scheme: dark;
 }
 
@@ -180,13 +240,22 @@ body {
     border-radius: 2px 2px 0 0;
   }
 
-  /* Focus ring — use on custom interactive elements */
+  /* Focus ring — the single focus treatment for the whole app. Every primitive
+     used to invent its own (ring-accent vs ring-accent/40 vs a border swap vs
+     nothing at all), so keyboard users got four different languages. */
   .focus-ring {
     outline: none;
   }
   .focus-ring:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px var(--base), 0 0 0 4px var(--accent);
+    box-shadow:
+      0 0 0 var(--focus-ring-offset) var(--base),
+      0 0 0 calc(var(--focus-ring-offset) + var(--focus-ring-width)) var(--focus-ring-color);
+  }
+  /* For controls sitting on a raised surface, where --base would show as a halo. */
+  .focus-ring-inset:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring-color) inset;
   }
 
   /* Surface glass card */
@@ -249,6 +318,21 @@ input[type="number"] {
 @keyframes fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes sheet-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(100%); }
 }
 
 @keyframes modal-in {
@@ -338,23 +422,31 @@ input[type="number"] {
 }
 
 .animate-modal-in {
-  animation: modal-in 220ms var(--ease-out) both;
+  animation: modal-in var(--motion-slow) var(--ease-out) both;
+}
+
+.animate-modal-out {
+  animation: modal-out var(--motion-fast) var(--ease-in) both;
+}
+
+.animate-fade-out {
+  animation: fade-out var(--motion-fast) var(--ease-in) both;
 }
 
 .animate-dropdown-in {
-  animation: dropdown-in 160ms var(--ease-out) both;
+  animation: dropdown-in var(--motion-fast) var(--ease-out) both;
 }
 
 .animate-token-in {
-  animation: token-in 140ms var(--ease-out) both;
+  animation: token-in var(--motion-fast) var(--ease-out) both;
 }
 
 .animate-task-done {
-  animation: task-done 240ms var(--ease-standard) both;
+  animation: task-done var(--motion-slow) var(--ease-standard) both;
 }
 
 .animate-bar-grow {
-  animation: bar-grow 400ms var(--ease-out) both;
+  animation: bar-grow var(--motion-slower) var(--ease-out) both;
 }
 
 .animate-slide-in-right {
@@ -362,7 +454,17 @@ input[type="number"] {
 }
 
 .animate-slide-out-right {
-  animation: slide-out-right 200ms var(--ease-in) both;
+  animation: slide-out-right var(--motion-base) var(--ease-in) both;
+}
+
+/* Sheet — a side panel, not a centred dialog. Travels further, so it gets
+   --motion-slower rather than the modal's --motion-slow. */
+.animate-sheet-in {
+  animation: sheet-in var(--motion-slower) var(--ease-out) both;
+}
+
+.animate-sheet-out {
+  animation: sheet-out var(--motion-base) var(--ease-in) both;
 }
 
 /* Kettle celebration: the jump row is atlas row 4 (y -832px) and only has 5
@@ -610,110 +712,4 @@ input[type="number"] {
   }
 }
 
-/* ─── Mini-Timer Widget (Desktop) ──────────────────────────── */
-
-.mini-timer-drag {
-  -webkit-app-region: drag;
-}
-.mini-timer-nodrag {
-  -webkit-app-region: no-drag;
-}
-
-.mini-timer-empty {
-  width: 100%;
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface, #1a1a2e);
-  color: var(--text-muted, #888);
-  font-family: 'Inter', 'Plus Jakarta Sans', sans-serif;
-  font-size: 13px;
-  border-radius: 12px;
-  user-select: none;
-}
-
-.mini-timer-main {
-  width: 100%;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--surface, #1a1a2e);
-  color: var(--text-primary, #fff);
-  font-family: 'Inter', 'Plus Jakarta Sans', sans-serif;
-  border-radius: 12px;
-  user-select: none;
-  overflow: hidden;
-}
-
-.mini-timer-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.mini-timer-project-badge {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-muted, #aaa);
-  flex-shrink: 0;
-}
-
-.mini-timer-task-name {
-  font-size: 13px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mini-timer-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.mini-timer-clock {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 28px;
-  font-weight: 300;
-  letter-spacing: 0.04em;
-}
-
-.mini-timer-controls {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.mini-timer-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: none;
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  transition: background 0.15s ease;
-}
-
-.mini-timer-btn-outline {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: transparent;
-  color: var(--text-muted, #888);
-  font-size: 12px;
-}
 

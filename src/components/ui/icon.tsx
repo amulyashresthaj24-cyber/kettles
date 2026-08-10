@@ -68,6 +68,8 @@ import {
   // Data
   CurrencyDollar,
   Download,
+  UploadSimple,
+  Copy,
   Link,
   Funnel,
   FilePdf,
@@ -90,6 +92,8 @@ import {
   Checks,
   ClockCounterClockwise,
   SmileyXEyes,
+  // Agents (M2)
+  Robot,
   type Icon as PhosphorIcon,
   type IconWeight,
 } from "@phosphor-icons/react";
@@ -167,6 +171,8 @@ export const Icons = {
   // Data / finance
   dollar:       CurrencyDollar,
   download:     Download,
+  upload:       UploadSimple,
+  copy:         Copy,
   link:         Link,
   funnel:       Funnel,
   filePdf:      FilePdf,
@@ -192,6 +198,9 @@ export const Icons = {
   checks:       Checks,
   history:      ClockCounterClockwise,
   empty:        SmileyXEyes,
+
+  // Agents (M2 presence)
+  robot:        Robot,
 } as const;
 
 export type IconName = keyof typeof Icons;
@@ -278,6 +287,8 @@ export {
   TrendUp,
   CurrencyDollar,
   Download,
+  UploadSimple,
+  Copy,
   Link,
   Funnel,
   FilePdf,
@@ -296,4 +307,6 @@ export {
   BellRinging,
   Checks,
   ClockCounterClockwise,
+  SmileyXEyes,
+  Robot,
 };

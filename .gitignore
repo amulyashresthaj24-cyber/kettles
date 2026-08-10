@@ -21,8 +21,10 @@ build/
 *~
 
 # Environment
-.env.local
-.env.*.local
+.env
+.env.*
+!.env.example
+!.env.*.example
 
 # Logs
 npm-debug.log*
@@ -43,9 +45,6 @@ graphify-out/cache/
 graphify-out/manifest.json
 graphify-out/cost.json
 
-# Generated files
-next-env.d.ts
-
 # Backup files
 *.restored
 *.backup
@@ -58,5 +57,12 @@ Thumbs.db
 # Supabase
 supabase/.temp/
 
-.vercel
-.env*
+.vercel/
+
+# Local agent state
+.context/
+
+# Local test artifacts
+.playwright-cli/
+output/playwright/
+coverage/

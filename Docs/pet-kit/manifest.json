@@ -1,10 +1,28 @@
 {
   "name": "flowmate-mascot-pet-kit",
-  "purpose": "Reusable setup for turning a mascot sprite sheet or reference image into Flowmate desktop pet assets.",
+  "tier": "v1",
+  "purpose": "Reusable setup for turning a mascot sprite sheet or reference image into a v1 Flowmate desktop pet.",
+  "tiers": {
+    "v1": {
+      "who": "user-generated mascots",
+      "sheet": { "cols": 8, "rows": 9 },
+      "pixelSize": { "width": 1536, "height": 1872 },
+      "lookGrid": false,
+      "producedBy": "this kit"
+    },
+    "v2": {
+      "who": "stock Kettles mascots",
+      "sheet": { "cols": 8, "rows": 11 },
+      "pixelSize": { "width": 1536, "height": 2288 },
+      "lookGrid": "16 cells, rows 9-10, 22.5-degree steps",
+      "producedBy": "in-house only — not a kit output"
+    }
+  },
   "doesNot": [
     "hatch or install a Codex pet",
     "replace the live Flowmate pet config",
-    "generate new mascot identity without a user-provided mascot source"
+    "generate new mascot identity without a user-provided mascot source",
+    "produce a v2 look grid — cursor-following is a stock-mascot feature"
   ],
   "atlas": {
     "cell": { "width": 192, "height": 208 },
@@ -14,22 +32,24 @@
     "unusedCells": "transparent"
   },
   "files": {
-    "animationRows": "public/pet/kit/animation-rows.json",
-    "moments": "public/pet/kit/moments.flowmate.json",
-    "agentInstructions": "public/pet/kit/prompts/AGENT_INSTRUCTIONS.md",
-    "rowPrompts": "public/pet/kit/prompts/ROW_PROMPTS.md",
-    "seedConfig": "public/pet/kit/examples/seed-pet.config.json",
-    "seedAtlas": "public/pet/kit/examples/user-sprite/seed-atlas.png",
-    "seedSource": "public/pet/kit/examples/user-sprite/source.png"
+    "animationRows": "Docs/pet-kit/animation-rows.json",
+    "moments": "Docs/pet-kit/moments.flowmate.json",
+    "agentInstructions": "Docs/pet-kit/prompts/AGENT_INSTRUCTIONS.md",
+    "rowPrompts": "Docs/pet-kit/prompts/ROW_PROMPTS.md",
+    "seedConfig": "Docs/pet-kit/examples/seed-pet.config.json",
+    "seedAtlas": "Docs/pet-kit/examples/user-sprite/seed-atlas.png",
+    "seedSource": "Docs/pet-kit/examples/user-sprite/source.png",
+    "designSystem": "Docs/pet-design-system.md"
   },
   "validation": {
     "command": "node scripts/pet/validate-pet-atlas.mjs --atlas <atlas-path> --config <config-path>",
     "required": [
-      "atlas dimensions are 1536x1872",
+      "atlas pixel size equals cell size times sheet size",
       "config cell is 192x208",
-      "config sheet is 8x9",
-      "every configured state stays within the atlas bounds"
+      "config sheet is 8x9 (v1) or 8x11 (v2)",
+      "every configured state stays within the atlas bounds",
+      "every name in PetAnimationState is present in config.states",
+      "a v1 config declares no look_* states"
     ]
   }
 }
-

@@ -21,6 +21,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Plus } from "@/components/ui/icon";
 import type { Task, TaskStatus } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
+import { useNotification } from "@/components/ui/notification";
 import { TaskCard } from "./TaskCard";
 
 const COLUMNS: {
@@ -226,6 +227,7 @@ export function KanbanBoard({
   onEditTask?: (task: Task) => void;
 }) {
   const setTaskStatus = useApp((s) => s.setTaskStatus);
+  const { notify } = useNotification();
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -252,26 +254,32 @@ export function KanbanBoard({
     setActiveTaskId(e.active.id as string);
   };
 
-  const handleDragEnd = (e: DragEndEvent) => {
+  const handleDragCancel = () => {
+    setActiveTaskId(null);
+  };
+
+  const handleDragEnd = async (e: DragEndEvent) => {
     const { active, over } = e;
     setActiveTaskId(null);
     if (!over) return;
 
     const taskId = active.id as string;
     const overId = over.id as string;
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
 
     const col = COLUMNS.find((c) => c.id === overId);
-    if (col) {
-      const task = tasks.find((t) => t.id === taskId);
-      if (task && task.status !== col.id) setTaskStatus(taskId, col.id);
-      return;
-    }
+    const nextStatus = col ? col.id : tasks.find((t) => t.id === overId)?.status;
+    if (!nextStatus || task.status === nextStatus) return;
 
-    const overTask = tasks.find((t) => t.id === overId);
-    if (overTask) {
-      const task = tasks.find((t) => t.id === taskId);
-      if (task && task.status !== overTask.status)
-        setTaskStatus(taskId, overTask.status);
+    try {
+      await setTaskStatus(taskId, nextStatus);
+    } catch {
+      notify({
+        tone: "error",
+        title: "Couldn't move task",
+        description: `"${task.title}" stayed in ${COLUMNS.find((c) => c.id === task.status)?.label ?? task.status}.`,
+      });
     }
   };
 
@@ -301,6 +309,7 @@ export function KanbanBoard({
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {grouped.map((col) => (

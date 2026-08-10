@@ -6,6 +6,7 @@ import type { Client, Project, Session, Task, TaskStatus } from "@/lib/types";
 import type { DateRange } from "@/lib/report-dates";
 import { eachDayOf } from "@/lib/report-dates";
 import { earningsCents, resolveHourlyRate, type RateSource } from "@/lib/rates";
+import { hasTruthfulTimeline } from "@/lib/session-timeline";
 
 // ─── Inputs ──────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,10 @@ export function isReportableSession(s: Session): boolean {
  * Legacy pause → late confirm left startedAt at the real start but set endedAt
  * to the confirm moment, so TIME looked longer than DURATION. After resume,
  * startedAt is the last segment while durationSeconds is the full total.
+ *
+ * Only call this for legacy rows. Sessions at TIMELINE_VERSION 2+ keep a
+ * truthful startedAt across pauses, so a wall-clock range longer than the
+ * duration is the paused time and reconciling it would invent a fake block.
  */
 export function reconcileSessionBounds(
   startedAt: number,
@@ -134,7 +139,9 @@ export function selectSessions(src: ReportSource, filters: ReportFilters): Enric
     if (filters.tag && !tags.includes(filters.tag)) continue;
 
     const seconds = s.durationSeconds;
-    const bounds = reconcileSessionBounds(s.startedAt, endedAt, seconds);
+    const bounds = hasTruthfulTimeline(s)
+      ? { startedAt: s.startedAt, endedAt }
+      : reconcileSessionBounds(s.startedAt, endedAt, seconds);
     const rate = resolveHourlyRate(project, client);
 
     rows.push({
