@@ -1,0 +1,241 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "Kettles home" [ref=e5] [cursor=pointer]:
+        - /url: "#top"
+        - img "Kettles" [ref=e6]
+      - navigation "Primary" [ref=e20]:
+        - link "Features" [ref=e21] [cursor=pointer]:
+          - /url: "#features"
+        - link "How it works" [ref=e22] [cursor=pointer]:
+          - /url: "#how"
+        - link "Reviews" [ref=e23] [cursor=pointer]:
+          - /url: "#reviews"
+        - link "Pricing" [ref=e24] [cursor=pointer]:
+          - /url: "#pricing"
+      - generic [ref=e25]:
+        - link "Sign in" [ref=e26] [cursor=pointer]:
+          - /url: /auth
+        - link "Use now" [ref=e27] [cursor=pointer]:
+          - /url: /auth
+  - main [ref=e32]:
+    - generic [ref=e33]:
+      - generic [ref=e34]:
+        - heading "Time tracking that does the remembering for you." [level=1] [ref=e35]
+        - paragraph [ref=e36]: Pick a task, hit start. Every minute locks to the work. Your weekly report stays accurate and invoice-ready, automatically.
+        - generic [ref=e37]:
+          - link "Start free" [ref=e38] [cursor=pointer]:
+            - /url: /auth
+          - generic [ref=e43]: No card required · free to start
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - generic [ref=e47]:
+            - heading "Today's Focus" [level=3] [ref=e51]
+            - generic [ref=e52]:
+              - generic [ref=e53]: Landing Page Redesign
+              - generic [ref=e61]: API Database Schema
+              - generic [ref=e68]: Client Pitch Deck
+          - generic [ref=e74]:
+            - generic [ref=e75]:
+              - generic [ref=e76]: POMODORO RUNNING
+              - heading "Landing Page Redesign" [level=3] [ref=e78]
+              - paragraph [ref=e79]: Session 2 of 4
+            - generic [ref=e80]: 24:59
+            - generic [ref=e81]:
+              - button [ref=e82] [cursor=pointer]
+              - button [ref=e85] [cursor=pointer]
+          - generic [ref=e88]:
+            - generic [ref=e89]:
+              - heading "Weekly Analytics" [level=3] [ref=e93]
+              - generic [ref=e94]: 6h
+              - generic [ref=e103]:
+                - generic [ref=e104]: M
+                - generic [ref=e105]: T
+                - generic [ref=e106]: W
+                - generic [ref=e107]: T
+                - generic [ref=e108]: F
+                - generic [ref=e109]: S
+                - generic [ref=e110]: S
+            - generic [ref=e111]:
+              - generic [ref=e112]:
+                - generic [ref=e113]: Total Tracked
+                - generic [ref=e114]: 34h 15m
+              - generic [ref=e115]:
+                - generic [ref=e116]: Billable
+                - generic [ref=e117]: $2,850
+        - button "Play with the Flowmate companion" [ref=e118] [cursor=pointer]
+    - generic [ref=e120]:
+      - generic [ref=e121]:
+        - heading "Three steps. One honest record." [level=2] [ref=e122]
+        - paragraph [ref=e123]: No stopwatch guesswork. Pick the task, let the kettle boil, and the time locks itself to the work.
+      - generic [ref=e124]:
+        - generic [ref=e142]:
+          - heading "Pick a task" [level=3] [ref=e143]
+          - paragraph [ref=e144]: Choose what you're working on. The timer attaches to that task, not a blank stopwatch.
+        - generic [ref=e160]:
+          - heading "The timer runs" [level=3] [ref=e161]
+          - paragraph [ref=e162]: Watch your focus session count down. Close the app, switch devices. Your progress keeps ticking in the cloud.
+        - generic [ref=e175]:
+          - heading "Time locks to the task" [level=3] [ref=e176]
+          - paragraph [ref=e177]: When the brew is done, the minutes seal to the task. No guessing, no backfilling, no rounding up.
+    - generic [ref=e179]:
+      - generic [ref=e180]:
+        - heading "Your logged hours don't match your real work." [level=2] [ref=e181]
+        - paragraph [ref=e182]: Guessed timesheets quietly cost you money and trust. Kettles fixes the leak at the source. No boxes, just an honest record.
+      - generic [ref=e184]:
+        - generic [ref=e185]:
+          - paragraph [ref=e190]: Underbilling
+          - paragraph [ref=e191]: Forgotten minutes are unpaid minutes.
+        - generic [ref=e192]:
+          - paragraph [ref=e197]: The distraction tax
+          - paragraph [ref=e198]: A guessed timesheet is a story, not a record.
+        - generic [ref=e199]:
+          - paragraph [ref=e204]: Broken self-trust
+          - paragraph [ref=e205]: A log you don't trust is one you stop opening.
+    - generic [ref=e211]:
+      - generic [ref=e213]:
+        - heading "The whole day, in one calm view." [level=2] [ref=e214]
+        - paragraph [ref=e215]: This is the actual dashboard — tasks, brews, and billing already agreeing with each other.
+      - img "Kettles dashboard — stats, today's tasks, work log, and project breakdown" [ref=e218]
+    - generic [ref=e220]:
+      - generic [ref=e221]:
+        - heading "You're not focusing alone." [level=2] [ref=e222]
+        - paragraph [ref=e223]: Your kettle stays warm while you work, whistles when a brew is done, and wanders off when you go cold. Keep your streak. Keep the kettle on.
+      - generic [ref=e224]:
+        - article [ref=e225]:
+          - generic [ref=e237]:
+            - generic [ref=e238]: Brewing
+            - heading "Steaming along" [level=3] [ref=e239]
+            - paragraph [ref=e240]: While you focus, it stays warm and whistles the moment the brew is done.
+        - article [ref=e241]:
+          - generic [ref=e249]:
+            - generic [ref=e250]: Idle
+            - heading "Taking a breather" [level=3] [ref=e251]
+            - paragraph [ref=e252]: On a break, it cools down quietly. No alarms, no nagging.
+        - article [ref=e253]:
+          - generic [ref=e254]: "?"
+          - generic [ref=e262]:
+            - generic [ref=e263]: Lost
+            - heading "Gone cold" [level=3] [ref=e264]
+            - paragraph [ref=e265]: Go quiet too long and it wanders off. Start a brew and it comes right back.
+    - generic [ref=e267]:
+      - paragraph [ref=e268]: No screenshots. No keystroke spying. No productivity scores. Just an accurate record you own.
+      - generic [ref=e269]:
+        - generic [ref=e270]: SOC 2 Type II
+        - generic [ref=e273]: GDPR compliant
+        - generic [ref=e276]: 256-bit encryption
+        - generic [ref=e279]: Zero surveillance
+    - generic [ref=e283]:
+      - generic [ref=e284]:
+        - heading "People love using Kettles." [level=2] [ref=e285]
+        - paragraph [ref=e286]: Thousands before you have successfully tracked their time and loved it.
+      - generic [ref=e287]:
+        - generic [ref=e289]:
+          - paragraph [ref=e295]: “Once you experience using Kettles to track your work, there is no going back.”
+          - generic [ref=e297]:
+            - generic [ref=e298]: SS
+            - generic [ref=e299]:
+              - generic [ref=e300]: Samreshan Sahani
+              - generic [ref=e301]: Creative Director
+        - generic [ref=e302]:
+          - generic [ref=e305]:
+            - generic [ref=e306]:
+              - generic [ref=e307]: P
+              - generic [ref=e308]: Product Hunt
+            - generic [ref=e320]: (4.8) based on 620 reviews
+          - generic [ref=e327]:
+            - heading "Highest Productivity Retention" [level=4] [ref=e328]
+            - paragraph [ref=e329]: Users stay focused 3x longer than with traditional stopwatches.
+      - generic [ref=e331]:
+        - generic [ref=e332]:
+          - generic [ref=e333]: Pricing
+          - heading "Start free. Brew on." [level=3] [ref=e334]
+          - paragraph [ref=e335]: Track every client and the whole ritual at no cost while Kettles is in beta.
+          - link "Start free" [ref=e337] [cursor=pointer]:
+            - /url: /auth
+        - generic [ref=e342]:
+          - generic [ref=e343]:
+            - generic [ref=e344]: $0
+            - generic [ref=e345]: in beta
+          - paragraph [ref=e346]: No client limits, no feature gates.
+          - paragraph [ref=e347]: No card required · no trial clock
+    - generic [ref=e349]:
+      - heading "The kettle's ready when you are." [level=2] [ref=e350]
+      - paragraph [ref=e351]: Drop your email and pick up in the app. Every minute from here brews into a record you can bill.
+      - generic [ref=e353]:
+        - generic [ref=e354]:
+          - generic [ref=e355]:
+            - generic [ref=e356]: Work email
+            - textbox "Work email" [ref=e357]:
+              - /placeholder: you@studio.com
+          - button "Start free" [ref=e358] [cursor=pointer]
+        - paragraph [ref=e361]: Free to start · no card required.
+  - contentinfo [ref=e362]:
+    - generic [ref=e363]:
+      - generic [ref=e364]:
+        - generic [ref=e365]:
+          - generic [ref=e366]:
+            - img "Kettles" [ref=e367]
+            - paragraph [ref=e381]: Task-linked time tracking, made for focused work.
+          - generic [ref=e382]:
+            - link "X" [ref=e383] [cursor=pointer]:
+              - /url: "#"
+            - link "GitHub" [ref=e386] [cursor=pointer]:
+              - /url: "#"
+            - link "LinkedIn" [ref=e389] [cursor=pointer]:
+              - /url: "#"
+        - generic [ref=e392]:
+          - generic [ref=e393]:
+            - heading "Product" [level=5] [ref=e394]
+            - link "Features" [ref=e395] [cursor=pointer]:
+              - /url: "#features"
+            - link "How it works" [ref=e396] [cursor=pointer]:
+              - /url: "#how"
+            - link "Pricing" [ref=e397] [cursor=pointer]:
+              - /url: "#pricing"
+            - link "Download" [ref=e398] [cursor=pointer]:
+              - /url: "#download"
+          - generic [ref=e399]:
+            - heading "Resources" [level=5] [ref=e400]
+            - link "Blog" [ref=e401] [cursor=pointer]:
+              - /url: "#"
+            - link "Deep-work guide" [ref=e402] [cursor=pointer]:
+              - /url: "#"
+            - link "FAQ" [ref=e403] [cursor=pointer]:
+              - /url: "#faq"
+            - link "Help center" [ref=e404] [cursor=pointer]:
+              - /url: "#"
+          - generic [ref=e405]:
+            - heading "Company" [level=5] [ref=e406]
+            - link "About" [ref=e407] [cursor=pointer]:
+              - /url: "#"
+            - link "Mission" [ref=e408] [cursor=pointer]:
+              - /url: "#"
+            - link "Contact" [ref=e409] [cursor=pointer]:
+              - /url: "#"
+          - generic [ref=e410]:
+            - heading "Legal" [level=5] [ref=e411]
+            - link "Privacy" [ref=e412] [cursor=pointer]:
+              - /url: "#"
+            - link "Terms" [ref=e413] [cursor=pointer]:
+              - /url: "#"
+            - link "Security" [ref=e414] [cursor=pointer]:
+              - /url: "#security"
+      - generic [ref=e415]:
+        - paragraph [ref=e416]: © 2026 Kettles. Made for focused work.
+        - generic [ref=e417]:
+          - link "Privacy Policy" [ref=e418] [cursor=pointer]:
+            - /url: "#"
+          - generic [ref=e419]: •
+          - link "Terms of Service" [ref=e420] [cursor=pointer]:
+            - /url: "#"
+  - generic [ref=e421]:
+    - generic:
+      - generic:
+        - generic: K
+        - generic: E
+        - generic: T
+        - generic: T
+        - generic: L
+        - generic: E
+        - generic: S

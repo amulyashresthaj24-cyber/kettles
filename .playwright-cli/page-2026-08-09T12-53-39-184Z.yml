@@ -1,0 +1,16 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - link "Smart QR Attendance AttlLog" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e19]:
+            - generic [ref=e20]: Smart QR Attendance
+            - generic [ref=e21]: AttlLog
+        - navigation "Primary navigation" [ref=e22]
+        - button "U" [ref=e25] [cursor=pointer]
+    - main [ref=e29]:
+      - generic [ref=e31]:
+        - heading "404" [level=1] [ref=e32]
+        - heading "This page could not be found." [level=2] [ref=e34]
+  - button "Open Next.js Dev Tools" [ref=e40] [cursor=pointer]
