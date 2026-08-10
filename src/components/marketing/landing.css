@@ -158,6 +158,28 @@
 .k-qmark { animation: k-qpulse 3s ease-in-out infinite; }
 @keyframes k-qpulse { 0%,100%{opacity:.3; transform:translateY(2px)} 50%{opacity:.85; transform:translateY(-4px)} }
 
+/* ---------- landing pet sprite ----------
+   LandingPet.tsx paints frames with a percentage background-position, so the
+   atlas has to be sized cols x rows. The component sets background-size inline
+   from /pet/pet.config.json; the value here is the 8x9 fallback for that fetch. */
+.landing-pet {
+  display: block;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  background-image: url('/pet/assets/spritesheet.webp');
+  background-repeat: no-repeat;
+  background-size: 800% 900%;
+  transform: translateZ(0);
+  will-change: background-position;
+}
+button.landing-pet { cursor: pointer; }
+.landing-pet:focus-visible {
+  outline: 2px solid var(--k-accent2);
+  outline-offset: 4px;
+  border-radius: 14px;
+}
+
 /* ---------- perpetual bento micro-loops ---------- */
 @keyframes k-marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
 .k-marquee-track { animation: k-marquee 36s linear infinite; }
