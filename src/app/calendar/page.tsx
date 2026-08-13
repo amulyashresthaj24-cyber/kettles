@@ -17,7 +17,7 @@ import { AddTaskModal } from "@/components/AddTaskModal";
 import { TaskDetailSidebar } from "@/components/TaskDetailSidebar";
 import { Button } from "@/components/ui/button";
 import type { Task, ProjectColor, GoogleCalendarEvent } from "@/lib/types";
-import { PROJECT_COLOR_HEX } from "@/lib/constants";
+import { GOOGLE_CALENDAR_ENABLED, PROJECT_COLOR_HEX } from "@/lib/constants";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -235,6 +235,7 @@ export default function CalendarPage() {
   // loadGoogleEvents returns early — a connected user would see an empty
   // overlay with no indication anything was wrong.
   useEffect(() => {
+    if (!GOOGLE_CALENDAR_ENABLED) return;
     if (statusRequested.current || googleCalendarLoaded) return;
     statusRequested.current = true;
     void loadGoogleCalendarStatus();
@@ -244,7 +245,7 @@ export default function CalendarPage() {
   // so without it the fetch would not re-run and events would only appear after
   // the next view change.
   useEffect(() => {
-    if (!googleConnected) return;
+    if (!GOOGLE_CALENDAR_ENABLED || !googleConnected) return;
     void loadGoogleEvents(visibleRange.startMs, visibleRange.endMs);
   }, [visibleRange, loadGoogleEvents, googleConnected]);
 
@@ -452,7 +453,7 @@ export default function CalendarPage() {
 
       {/* View content */}
       <div className="flex-1 overflow-hidden flex flex-col px-8 pb-6">
-        {googleCalendarError === "reconnect_required" && (
+        {GOOGLE_CALENDAR_ENABLED && googleCalendarError === "reconnect_required" && (
           <p className="text-[12px] shrink-0 pt-2" style={{ color: "var(--text-muted)" }}>
             Google Calendar needs reconnection.{" "}
             <a href="/settings" className="underline underline-offset-2 hover:opacity-80" style={{ color: "var(--accent)" }}>

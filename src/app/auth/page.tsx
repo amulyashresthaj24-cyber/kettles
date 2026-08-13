@@ -63,7 +63,9 @@ export default function AuthPage() {
       // Callback may pass a short code or a provider error message.
       const decoded = decodeURIComponent(callbackError);
       setError(
-        decoded === "no_auth_code" || decoded === "authentication_failed"
+        decoded === "no_auth_code" ||
+        decoded === "no_session" ||
+        decoded === "authentication_failed"
           ? "Google sign-in failed. Please try again."
           : decoded
       );

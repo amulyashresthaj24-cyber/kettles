@@ -19,7 +19,6 @@ import {
   ArrowClockwise,
   Eye,
   EyeSlash,
-  Warning,
 } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
@@ -34,10 +33,10 @@ import { EditProjectModal } from "@/components/EditProjectModal";
 import { PageLayout, PageHeader, PageContent } from "@/components/layout";
 import { useNotification } from "@/components/ui/notification";
 import { AuthGuard } from "@/components/AuthGuard";
-import { getSupabaseClient, api } from "@/lib/supabase";
+import { getSupabaseClient } from "@/lib/supabase";
 import { isDesktop } from "@/lib/desktop";
-import { ALARM_SOUNDS } from "@/lib/constants";
-import type { Client, Project, ProjectColor, GoogleCalendarListEntry } from "@/lib/types";
+import { ALARM_SOUNDS, GOOGLE_CALENDAR_ENABLED } from "@/lib/constants";
+import type { Client, Project, ProjectColor } from "@/lib/types";
 import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
 
 type SettingsTab = "profile" | "preferences" | "projects" | "clients" | "data" | "pet";
@@ -84,13 +83,6 @@ function SettingsContent() {
   const restoreProject = useApp((s) => s.restoreProject);
   const sessions = useApp((s) => s.sessions);
   const tasks = useApp((s) => s.tasks);
-  const googleCalendar = useApp((s) => s.googleCalendar);
-  const googleCalendarLoaded = useApp((s) => s.googleCalendarLoaded);
-  const googleCalendarError = useApp((s) => s.googleCalendarError);
-  const loadGoogleCalendarStatus = useApp((s) => s.loadGoogleCalendarStatus);
-  const connectGoogleCalendar = useApp((s) => s.connectGoogleCalendar);
-  const setGoogleCalendars = useApp((s) => s.setGoogleCalendars);
-  const disconnectGoogleCalendar = useApp((s) => s.disconnectGoogleCalendar);
 
   // Profile forms
   const [displayName, setDisplayName] = useState(user?.name || "");
@@ -104,16 +96,6 @@ function SettingsContent() {
 
   const [profileLoading, setProfileLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
-
-  // Google Calendar local controllers
-  const [googleConnectLoading, setGoogleConnectLoading] = useState(false);
-  const [googleDisconnectLoading, setGoogleDisconnectLoading] = useState(false);
-  const [googleCalendarsSaving, setGoogleCalendarsSaving] = useState(false);
-  const [googleCalendarList, setGoogleCalendarList] = useState<GoogleCalendarListEntry[]>([]);
-  const [googleCalendarListLoading, setGoogleCalendarListLoading] = useState(false);
-  const [googleCalendarListError, setGoogleCalendarListError] = useState<string | null>(null);
-  const [googleCalendarFlash, setGoogleCalendarFlash] = useState<"connected" | "cancelled" | null>(null);
-  const [googleActionError, setGoogleActionError] = useState<string | null>(null);
 
   // Theme tracking
   const [currentTheme, setCurrentTheme] = useState<"light" | "dark">("dark");
@@ -136,64 +118,6 @@ function SettingsContent() {
     }
   }, [user]);
 
-  // Google Calendar: load status + handle OAuth return flash
-  useEffect(() => {
-    void loadGoogleCalendarStatus();
-  }, [loadGoogleCalendarStatus]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const result = params.get("googleCalendar");
-    if (result === "connected" || result === "cancelled") {
-      setGoogleCalendarFlash(result);
-      params.delete("googleCalendar");
-      const next = params.toString();
-      const path = window.location.pathname + (next ? `?${next}` : "") + window.location.hash;
-      window.history.replaceState({}, "", path);
-    }
-  }, []);
-
-  const googleNeedsReconnect =
-    googleCalendarError === "reconnect_required" || !!googleCalendar?.revokedAt;
-  const googleIsConnected =
-    !!googleCalendar?.connected && !googleNeedsReconnect;
-
-  useEffect(() => {
-    if (!googleCalendarLoaded || !googleIsConnected) {
-      setGoogleCalendarList([]);
-      setGoogleCalendarListError(null);
-      setGoogleCalendarListLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setGoogleCalendarListLoading(true);
-    setGoogleCalendarListError(null);
-
-    void (async () => {
-      try {
-        const { calendars } = await api.googleCalendar.listCalendars();
-        if (!cancelled) {
-          setGoogleCalendarList(calendars ?? []);
-        }
-      } catch {
-        if (!cancelled) {
-          setGoogleCalendarListError("Could not load calendars from Google.");
-          setGoogleCalendarList([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setGoogleCalendarListLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [googleCalendarLoaded, googleIsConnected]);
-
   // Projects local controllers
   const [openAddProject, setOpenAddProject] = useState(false);
   const [openEditProject, setOpenEditProject] = useState(false);
@@ -213,59 +137,6 @@ function SettingsContent() {
   const [clientFormLoading, setClientFormLoading] = useState(false);
   const [deleteTargetClient, setDeleteTargetClient] = useState<Client | null>(null);
   const [clientDeleting, setClientDeleting] = useState(false);
-
-  // ─── Google Calendar ───────────────────────────────────────────────────────
-  const handleConnectGoogleCalendar = async () => {
-    if (googleConnectLoading) return;
-    setGoogleConnectLoading(true);
-    setGoogleActionError(null);
-    try {
-      const url = await connectGoogleCalendar();
-      if (!url) {
-        setGoogleActionError("Could not start Google Calendar connection. Try again.");
-        return;
-      }
-      window.location.href = url;
-    } catch {
-      setGoogleActionError("Could not start Google Calendar connection. Try again.");
-    } finally {
-      setGoogleConnectLoading(false);
-    }
-  };
-
-  const handleDisconnectGoogleCalendar = async () => {
-    if (googleDisconnectLoading) return;
-    setGoogleDisconnectLoading(true);
-    setGoogleActionError(null);
-    try {
-      await disconnectGoogleCalendar();
-      setGoogleCalendarList([]);
-      setGoogleCalendarFlash(null);
-    } catch {
-      setGoogleActionError("Could not disconnect Google Calendar.");
-    } finally {
-      setGoogleDisconnectLoading(false);
-    }
-  };
-
-  const handleToggleGoogleCalendar = async (calendarId: string, checked: boolean) => {
-    if (googleCalendarsSaving) return;
-    const current = googleCalendar?.selectedCalendarIds ?? [];
-    const next = checked
-      ? current.includes(calendarId)
-        ? current
-        : [...current, calendarId]
-      : current.filter((id) => id !== calendarId);
-    setGoogleCalendarsSaving(true);
-    setGoogleActionError(null);
-    try {
-      await setGoogleCalendars(next);
-    } catch {
-      setGoogleActionError("Could not update calendar selection.");
-    } finally {
-      setGoogleCalendarsSaving(false);
-    }
-  };
 
   // ─── Theme Handler ─────────────────────────────────────────────────────────
   const handleThemeChange = (theme: "light" | "dark") => {
@@ -688,162 +559,16 @@ function SettingsContent() {
                   </form>
                 </section>
 
-                {/* Google Calendar */}
+                {!GOOGLE_CALENDAR_ENABLED && (
                 <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
                   <h2 className="text-[17px] font-semibold tracking-[-0.012em] text-text-primary mb-1">Google Calendar</h2>
-                  <p className="text-[13px] text-text-muted mb-lg">
-                    Show Google events on the Kettles calendar. Kettles only reads events and never writes to Google.
+                  <p className="text-[13px] text-text-muted max-w-md">
+                    Calendar overlay is paused. It needs extra Google access we cannot request until
+                    brand verification finishes. Sign in with Google on the login page is separate
+                    and still available.
                   </p>
-
-                  {googleCalendarFlash === "connected" && (
-                    <p className="text-[13px] text-text-secondary mb-md rounded-lg border border-border-subtle bg-surface p-md">
-                      Google Calendar connected.
-                    </p>
-                  )}
-                  {googleCalendarFlash === "cancelled" && (
-                    <p className="text-[13px] text-text-secondary mb-md rounded-lg border border-border-subtle bg-surface p-md">
-                      Google Calendar connection was cancelled.
-                    </p>
-                  )}
-                  {googleActionError && (
-                    <p className="text-[13px] text-error mb-md">{googleActionError}</p>
-                  )}
-
-                  {!googleCalendarLoaded ? (
-                    <div className="flex flex-col gap-2 max-w-md" aria-hidden="true">
-                      <div className="h-3.5 w-2/3 rounded bg-surface-mid" />
-                      <div className="h-8 w-44 rounded-lg bg-surface-mid" />
-                    </div>
-                  ) : googleNeedsReconnect ? (
-                    <div className="flex flex-col gap-md max-w-md">
-                      <div className="flex items-start gap-2.5 rounded-lg border border-border-subtle bg-surface p-md">
-                        <Warning size={16} className="text-error shrink-0 mt-0.5" />
-                        <div className="flex flex-col gap-1">
-                          <p className="text-[13px] font-semibold text-text-primary">Access was revoked at Google</p>
-                          <p className="text-[12px] text-text-muted">
-                            {googleCalendar?.revokedAt
-                              ? `Google reported revoked access on ${new Date(googleCalendar.revokedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. Reconnect to continue reading events.`
-                              : "Google no longer allows Kettles to read this calendar. Reconnect to continue."}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        className="w-fit"
-                        onClick={handleConnectGoogleCalendar}
-                        disabled={googleConnectLoading}
-                      >
-                        {googleConnectLoading ? "Redirecting..." : "Reconnect Google Calendar"}
-                      </Button>
-                    </div>
-                  ) : googleIsConnected ? (
-                    <div className="flex flex-col gap-lg max-w-xl">
-                      <div className="flex flex-col gap-1 rounded-lg border border-border-subtle bg-surface p-md">
-                        <p className="text-[13px] font-semibold text-text-primary">
-                          {googleCalendar?.googleAccountEmail || "Connected account"}
-                        </p>
-                        {googleCalendar?.connectedAt != null && (
-                          <p className="text-[12px] text-text-muted">
-                            Connected {new Date(googleCalendar.connectedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex flex-col gap-md">
-                        <div>
-                          <p className="text-[12px] font-semibold text-text-secondary mb-1">Calendars to show</p>
-                          <p className="text-[12px] text-text-muted">
-                            Leave none selected to use your primary calendar only.
-                          </p>
-                        </div>
-
-                        {googleCalendarListLoading ? (
-                          <div className="flex flex-col gap-2" aria-hidden="true">
-                            <div className="h-10 w-full rounded-lg bg-surface-mid" />
-                            <div className="h-10 w-full rounded-lg bg-surface-mid" />
-                          </div>
-                        ) : googleCalendarListError ? (
-                          <p className="text-[12px] text-text-muted">{googleCalendarListError}</p>
-                        ) : googleCalendarList.length === 0 ? (
-                          <p className="text-[12px] text-text-muted">No calendars returned from Google.</p>
-                        ) : (
-                          <div className="flex flex-col gap-2">
-                            {googleCalendarList.map((cal) => {
-                              const selectedIds = googleCalendar?.selectedCalendarIds ?? [];
-                              const checked = selectedIds.includes(cal.id);
-                              return (
-                                <div
-                                  key={cal.id}
-                                  className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface p-md"
-                                >
-                                  <Checkbox
-                                    id={`google-cal-${cal.id}`}
-                                    checked={checked}
-                                    disabled={googleCalendarsSaving}
-                                    onChange={(val) => void handleToggleGoogleCalendar(cal.id, val)}
-                                  />
-                                  <div
-                                    className="flex flex-col gap-0.5 select-none min-w-0"
-                                    onClick={() => {
-                                      if (!googleCalendarsSaving) {
-                                        void handleToggleGoogleCalendar(cal.id, !checked);
-                                      }
-                                    }}
-                                  >
-                                    <label
-                                      htmlFor={`google-cal-${cal.id}`}
-                                      className="text-[13px] font-semibold text-text-primary cursor-pointer truncate"
-                                    >
-                                      {cal.summary}
-                                      {cal.primary ? (
-                                        <span className="ml-1.5 text-[11px] font-medium text-text-faint">Primary</span>
-                                      ) : null}
-                                    </label>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {(googleCalendar?.selectedCalendarIds?.length ?? 0) === 0 && !googleCalendarListLoading && (
-                          <p className="text-[12px] text-text-faint">
-                            No calendars selected — primary calendar only.
-                          </p>
-                        )}
-                      </div>
-
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="w-fit text-error border-error/20 hover:bg-error/10"
-                        onClick={handleDisconnectGoogleCalendar}
-                        disabled={googleDisconnectLoading || googleCalendarsSaving}
-                      >
-                        {googleDisconnectLoading ? "Disconnecting..." : "Disconnect"}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-md max-w-md">
-                      <p className="text-[13px] text-text-secondary">
-                        Connect a Google account to overlay its events on your calendar view. Access stays read-only.
-                      </p>
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        className="w-fit"
-                        onClick={handleConnectGoogleCalendar}
-                        disabled={googleConnectLoading}
-                      >
-                        {googleConnectLoading ? "Redirecting..." : "Connect Google Calendar"}
-                      </Button>
-                    </div>
-                  )}
                 </section>
+                )}
               </div>
             )}
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { KettleLoader } from "@/components/KettleLoader";
 import { useApp } from "@/lib/store-supabase";
+import { GOOGLE_CALENDAR_ENABLED } from "@/lib/constants";
 
 /**
  * Google sends the user here after the Calendar consent screen.
@@ -27,6 +28,10 @@ export default function GoogleCalendarCallbackPage() {
   const exchanged = useRef(false);
 
   useEffect(() => {
+    if (!GOOGLE_CALENDAR_ENABLED) {
+      router.replace("/settings");
+      return;
+    }
     if (exchanged.current) return;
     exchanged.current = true;
 

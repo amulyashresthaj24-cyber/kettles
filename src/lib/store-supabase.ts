@@ -319,6 +319,7 @@ interface State {
 
   // Actions
   setUser: (user: { name: string; email?: string } | null) => void;
+  clearError: () => void;
   
   addClient: (c: Omit<Client, "id">) => Promise<Client>;
   updateClient: (id: string, updates: Partial<Omit<Client, "id">>) => Promise<Client>;
@@ -709,6 +710,7 @@ persist((set, get) => ({
   },
 
   setUser: (user) => set({ user }),
+  clearError: () => set({ error: null }),
 
   addClient: async (c) => {
     set({ isLoading: true, error: null });

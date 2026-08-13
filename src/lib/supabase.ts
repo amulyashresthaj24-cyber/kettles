@@ -53,7 +53,18 @@ export function getSupabaseClient() {
   }
 
   const { supabaseUrl, supabaseAnonKey } = getSupabaseEnv();
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
+  // PKCE is required: /auth/callback exchanges ?code=. The library default is
+  // still implicit (tokens in the hash), which that page never sees.
+  // detectSessionInUrl stays off so AuthProvider's getSession() does not
+  // consume the one-time code before the callback can exchange it.
+  supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      flowType: "pkce",
+      detectSessionInUrl: false,
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  });
   return supabase;
 }
 
@@ -125,6 +136,41 @@ export function getAppOrigin() {
 
   // 4. Development fallback
   return "http://localhost:3000";
+}
+
+/** Sign-in only. Never include Calendar or other sensitive Google scopes. */
+export const GOOGLE_SIGNIN_SCOPES = "openid email profile";
+
+function isLocalDevOrigin(value: string): boolean {
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return host === "localhost" || host === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * OAuth redirect for the current browser origin. PKCE stores the code verifier
+ * in that origin's localStorage — sending the user to SITE_URL from apex,
+ * preview, or localhost makes the exchange fail with a missing verifier.
+ * Tauri / other private origins are not valid Google redirects, so those
+ * fall back to getAppOrigin().
+ */
+export function buildOAuthRedirectTo(
+  currentOrigin: string | undefined,
+  fallbackOrigin: string,
+  path = "/auth/callback"
+): string {
+  if (currentOrigin && (isPublicWebOrigin(currentOrigin) || isLocalDevOrigin(currentOrigin))) {
+    return `${normalizeOrigin(currentOrigin)}${path}`;
+  }
+  return `${normalizeOrigin(fallbackOrigin)}${path}`;
+}
+
+export function getOAuthRedirectTo(path = "/auth/callback"): string {
+  const current = typeof window !== "undefined" ? window.location.origin : undefined;
+  return buildOAuthRedirectTo(current, getAppOrigin(), path);
 }
 
 function getEdgeFunctionUrl() {

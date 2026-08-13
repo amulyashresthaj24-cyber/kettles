@@ -1,35 +1,54 @@
 "use client";
 
-import { useEffect, Suspense } from "react";
+import { useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase";
 import { KettleLoader } from "@/components/KettleLoader";
 
+function oauthErrorMessage(error: string, description: string | null): string {
+  if (error === "access_denied") return "Google sign-in was cancelled.";
+  if (description) return description;
+  return "Google sign-in failed. Please try again.";
+}
+
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // React 18 StrictMode remounts effects in dev. The auth code is single-use.
+  const exchanged = useRef(false);
 
   useEffect(() => {
+    if (exchanged.current) return;
+    exchanged.current = true;
+
     const handleCallback = async () => {
       try {
         const supabase = getSupabaseClient();
 
-        // Get the code from URL params - Supabase sends it as ?code=...
-        const code = searchParams.get("code");
+        const providerError = searchParams.get("error");
+        if (providerError) {
+          router.replace(
+            "/auth?error=" +
+              encodeURIComponent(
+                oauthErrorMessage(providerError, searchParams.get("error_description"))
+              )
+          );
+          return;
+        }
 
+        const { data: existing } = await supabase.auth.getSession();
+        if (existing.session) {
+          router.replace("/dashboard");
+          return;
+        }
+
+        const code = searchParams.get("code");
         if (!code) {
-          // Already signed in (e.g. refresh) — still go to the app, not marketing home.
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            router.replace("/dashboard");
-            return;
-          }
           console.error("No auth code found in URL");
           router.replace("/auth?error=no_auth_code");
           return;
         }
 
-        // Exchange the code for a session
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (error) {
@@ -39,10 +58,8 @@ function AuthCallbackContent() {
         }
 
         if (data.session) {
-          // App home is /dashboard — never the marketing landing at /
           router.replace("/dashboard");
         } else {
-          // No session despite successful exchange
           console.warn("Auth callback: No session returned from exchangeCodeForSession");
           router.replace("/auth?error=no_session");
         }
@@ -52,7 +69,7 @@ function AuthCallbackContent() {
       }
     };
 
-    handleCallback();
+    void handleCallback();
   }, [router, searchParams]);
 
   return (

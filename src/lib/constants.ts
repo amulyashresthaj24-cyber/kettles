@@ -60,6 +60,9 @@ export const PROJECT_COLOR_OPTIONS = PROJECT_COLORS.map((c) => ({
   bg: c.bg,
 }));
 
+/** Calendar.readonly needs Google brand verification we do not have yet. */
+export const GOOGLE_CALENDAR_ENABLED = false;
+
 export type AlarmSound = "bell" | "chime" | "digital" | "gentle" | "pulse" | "kettle";
 export const ALARM_SOUNDS: { id: AlarmSound; label: string }[] = [
   { id: "bell", label: "Bell" },

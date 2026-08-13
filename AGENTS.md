@@ -137,13 +137,16 @@ that the edge function **shallow**-merges: send complete arrays, not partial one
 
 ## Current State (August 2026)
 
-- Version 1.0.3. Web on Vercel, desktop shipped as a self-updating Windows installer
-- Edge functions live: `sessions`, `tasks`, `projects`, `clients`, `analytics`, `report-shares`
+- Version 1.1.0. Web on Vercel, desktop shipped as a self-updating Windows installer
+- Edge functions live: `sessions`, `tasks`, `projects`, `clients`, `analytics`, `report-shares`, `google-calendar`
+- Auth: email + Sign in with Google (PKCE, openid/email/profile only)
+- Google Calendar overlay is built and parked (`GOOGLE_CALENDAR_ENABLED = false`) until brand verification
 - Desktop: tray, global shortcuts, notifications, idle detection + recovery, auto-update. "Mini mode" hides the main window and leaves the pet overlay on top — there is no separate mini-timer window
 - Agent tracking M1 shipped — loopback bridge suppresses idle auto-pause while an agent lease is open
 - Reports: filters, KPIs, charts, PDF/Excel export, shareable public links, project billing rates
 - Pet overlay: Tauri window driven by `public/pet/`, sprite atlas in `public/pet/assets/`
-- Theme: dark/light, persisted to localStorage
+- Theme: dark/light, persisted to localStorage. Preferences sync across devices
+- Legal: public Privacy Policy and Terms at `/legal/privacy` and `/legal/terms`
 
 <!-- pane-agent-context:start -->
 ## Pane

@@ -2,7 +2,13 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
-import { getFriendlySupabaseErrorMessage, getSupabaseClient, getAppOrigin } from "./supabase";
+import {
+  getFriendlySupabaseErrorMessage,
+  getSupabaseClient,
+  getAppOrigin,
+  getOAuthRedirectTo,
+  GOOGLE_SIGNIN_SCOPES,
+} from "./supabase";
 import { useApp } from "./store-supabase";
 
 interface AuthContextType {
@@ -99,7 +105,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${getAppOrigin()}/auth/callback`,
+        redirectTo: getOAuthRedirectTo(),
+        // Login only. Calendar uses a separate unverified client and is parked.
+        scopes: GOOGLE_SIGNIN_SCOPES,
       },
     });
     if (error) throw error;
