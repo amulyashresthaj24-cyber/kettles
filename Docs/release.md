@@ -13,6 +13,11 @@ push tag v0.2.0 ──► GitHub Actions ──► GitHub Release
         installed desktop apps poll this on every launch and self-update
 ```
 
+Both channels are gated by `.github/workflows/ci.yml`, which runs
+`check:stable-version`, `lint`, `test`, and a production `build` on every push
+and PR to `main`. Vercel deploys `main` on its own schedule, so treat a red CI
+run as "production is about to be wrong" and fix forward immediately.
+
 The desktop app ships with `tauri-plugin-updater`. On launch it fetches
 `https://github.com/amulyashresthaj24-cyber/kettles/releases/latest/download/latest.json`,
 compares versions, verifies the cryptographic signature against the public key

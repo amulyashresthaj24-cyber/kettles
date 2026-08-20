@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.1] - 2026-08-20
+
+Search and share polish, plus a CI gate on the web channel.
+
+### Added
+
+- `robots.txt` and `sitemap.xml` (both were 404 in production). App routes and token-gated share links are disallowed; landing and legal pages are indexable.
+- Open Graph and Twitter card metadata, so shared links render a title, description, and dashboard preview instead of a bare URL.
+- `.github/workflows/ci.yml` — lint, tests, version check, and a production build now gate every push and PR to `main`. Pushing to `main` auto-deploys to Vercel, and until now nothing checked it.
+
+### Changed
+
+- Site origin resolution moved to `src/lib/site-url.ts` and now reads `NEXT_PUBLIC_SITE_URL` first — the variable CI and `Docs/release.md` already set, which the root layout previously ignored. Always resolves to a public origin, so a dev `localhost` value can never leak into shipped metadata.
+- QA screenshots (`.qa-*.png`) untracked from the repo root and gitignored.
+
 ## [1.1.0] - 2026-08-13
 
 Production web + desktop release. Google sign-in is the login path. Calendar overlay stays off until Google brand verification.

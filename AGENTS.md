@@ -137,7 +137,7 @@ that the edge function **shallow**-merges: send complete arrays, not partial one
 
 ## Current State (August 2026)
 
-- Version 1.1.0. Web on Vercel, desktop shipped as a self-updating Windows installer
+- Version 1.1.1. Web on Vercel, desktop shipped as a self-updating Windows installer
 - Edge functions live: `sessions`, `tasks`, `projects`, `clients`, `analytics`, `report-shares`, `google-calendar`
 - Auth: email + Sign in with Google (PKCE, openid/email/profile only)
 - Google Calendar overlay is built and parked (`GOOGLE_CALENDAR_ENABLED = false`) until brand verification

@@ -1,4 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import {
+  DEFAULT_PUBLIC_SITE_URL,
+  isPublicWebOrigin,
+  normalizeOrigin,
+} from './site-url';
 import type {
   Client,
   GoogleCalendarConnection,
@@ -68,27 +73,9 @@ export function getSupabaseClient() {
   return supabase;
 }
 
-/** Production web origin for public links (never Tauri / localhost). */
-export const DEFAULT_PUBLIC_SITE_URL = "https://www.kettles.works";
-
-function normalizeOrigin(url: string) {
-  return url.replace(/\/$/, "");
-}
-
-/** True for real web hosts; false for Tauri, localhost, and other private origins. */
-export function isPublicWebOrigin(value: string | null | undefined): boolean {
-  if (!value) return false;
-  try {
-    const u = new URL(value);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
-    const host = u.hostname.toLowerCase();
-    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return false;
-    if (host === "tauri.localhost" || host.endsWith(".localhost")) return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
+// Origin helpers live in ./site-url so metadata routes can use them without
+// pulling in the Supabase client. Re-exported here for existing consumers.
+export { DEFAULT_PUBLIC_SITE_URL, isPublicWebOrigin };
 
 /**
  * Origin for public share / invite links. Prefer configured site URL;

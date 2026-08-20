@@ -2,30 +2,27 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { AuthProvider } from "@/lib/auth";
-
-function getSiteUrl() {
-  const explicitUrl = process.env.NEXT_PUBLIC_APP_URL;
-  const productionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
-  const deploymentUrl = process.env.VERCEL_URL;
-  const baseUrl = explicitUrl || productionUrl || deploymentUrl;
-
-  if (!baseUrl) {
-    return new URL("http://localhost:3000");
-  }
-
-  return new URL(baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`);
-}
+import { getSiteOrigin } from "@/lib/site-url";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  buildOpenGraph,
+  buildTwitter,
+} from "@/lib/site-metadata";
 
 export const metadata: Metadata = {
-  metadataBase: getSiteUrl(),
-  title: "Kettles",
-  description: "Task-linked time tracking for focused work",
+  metadataBase: new URL(getSiteOrigin()),
+  title: SITE_NAME,
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
   alternates: {
     canonical: "/",
   },
   icons: {
     icon: "/images/kettlesicon.svg",
   },
+  openGraph: buildOpenGraph(SITE_NAME, SITE_DESCRIPTION),
+  twitter: buildTwitter(SITE_NAME, SITE_DESCRIPTION),
 };
 
 export default function RootLayout({

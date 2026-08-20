@@ -66,3 +66,6 @@ supabase/.temp/
 .playwright-cli/
 output/playwright/
 coverage/
+
+# Local QA screenshots
+.qa-*.png
