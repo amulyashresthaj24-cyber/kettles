@@ -1,4 +1,4 @@
-/* Flowmate pet overlay ΓÇö controller for the "thinking" widget.
+/* Flowmate pet overlay — controller for the "thinking" widget.
  *
  * Runs inside the "pet" window only. Talks to the host over Tauri events.
  *   inbound : "pet://state"   -> { state?, event?, phase?, source?, detail? }
@@ -84,7 +84,7 @@ const SPEECH_LINES = {
 const MASCOT_HEIGHT = 128; // px; the mascot box height, matches pet.css
 
 // ---------------------------------------------------------------------------
-// Female mascot ("female") ΓÇö baked v2 preset for assets/sprite-2-v2.clean.webp.
+// Female mascot ("female") — baked v2 preset for assets/sprite-2-v2.clean.webp.
 // (The newer sprite-female sheet rendered with bugs, so the female slot uses
 // the proven companion atlas. "sprite2" is a legacy persisted id that
 // resolves to this preset too.)
@@ -188,7 +188,7 @@ const SHAKE_DEADZONE = 2;    // px; ignore sub-pixel jitter
 let petting = false;
 let petTimer = null;
 let petBurst = null;         // interval spawning hearts while held
-let zzzTimer = null;         // interval drifting ≡ƒÆñ while dozing
+let zzzTimer = null;         // interval drifting 💤 while dozing
 let lastDragCursorX = null;  // global physical px; drives Codex left/right drag rows
 let lastLookCursorX = null;  // global physical px; limits look-state stepping
 let lastLookCursorY = null;
@@ -238,7 +238,7 @@ function loadCustomMascot() {
     const raw = localStorage.getItem(CUSTOM_MASCOT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    // A truncated write must not take the overlay down ΓÇö fall through to stock.
+    // A truncated write must not take the overlay down — fall through to stock.
     if (typeof parsed?.dataUrl !== "string" || !parsed.dataUrl.startsWith("data:image/")) {
       return null;
     }
@@ -250,7 +250,7 @@ function loadCustomMascot() {
 }
 
 // Custom mascots are v1: 8x9, nine art rows, no look grid. All 14 state names
-// resolve by aliasing onto those rows ΓÇö a missing name would silently render
+// resolve by aliasing onto those rows — a missing name would silently render
 // idle. Mirrors V1_STATES in src/lib/mascot-custom.ts.
 const CUSTOM_V1_PRESET = {
   spritesheet: null, // filled in from the stored data URL
@@ -298,10 +298,10 @@ let gestureEveryMs = GESTURE_INTERVALS.normal;
 function applyPreferences() {
   if (!cfg) return;
   // No saved preferences (fresh install / cleared storage) still needs the
-  // visual setup below ΓÇö only the override sections are skipped.
+  // visual setup below — only the override sections are skipped.
   const prefs = loadPreferences() || {};
 
-  // 1. Character swap ΓÇö the default male (kettle config), the female preset, or
+  // 1. Character swap — the default male (kettle config), the female preset, or
   //    a user-uploaded v1 atlas. "sprite2" is a legacy alias for "female".
   //
   //    "custom" with nothing stored falls through to the default rather than
@@ -325,7 +325,7 @@ function applyPreferences() {
     cfg.scale = preset.scale;
     cfg.spriteVersionNumber = preset.spriteVersionNumber;
     // v1 presets carry no look grid. Deleting the key is what makes pet.js skip
-    // cursor tracking entirely ΓÇö an empty object would still enable it.
+    // cursor tracking entirely — an empty object would still enable it.
     if (preset.lookDirections) {
       cfg.lookDirections = JSON.parse(JSON.stringify(preset.lookDirections));
     } else {
@@ -336,7 +336,7 @@ function applyPreferences() {
     if (preset.phaseStates) cfg.phaseStates = JSON.parse(JSON.stringify(preset.phaseStates));
   }
 
-  // 2. Default resting animation (dropdown in settings) ΓÇö the looping state
+  // 2. Default resting animation (dropdown in settings) — the looping state
   //    the mascot holds while nothing is happening.
   const rest = prefs.mascotDefaultAnimation;
   if (rest && cfg.states[rest] && cfg.states[rest].loop) {
@@ -405,26 +405,26 @@ async function boot() {
   await refreshWinPos();
   setInterval(refreshWinPos, 1000);
 
-  // 5-minute AFK doze ΓÇö only when idle (not running / dragging / petting).
-  // While dozing a ≡ƒÆñ drifts up every few seconds so the sleep reads at a glance.
+  // 5-minute AFK doze — only when idle (not running / dragging / petting).
+  // While dozing a 💤 drifts up every few seconds so the sleep reads at a glance.
   setInterval(() => {
     const idleMs = Date.now() - lastCursorTime;
 
-    // No cursor-idle nudge. A still mouse is not evidence that work stopped ΓÇö
+    // No cursor-idle nudge. A still mouse is not evidence that work stopped —
     // the user may be reading, presenting, or on a call, and accusing them of
     // slacking after one quiet minute is exactly the behavior that trains people
     // to close the overlay. Real away-from-keyboard handling belongs to the
     // host's OS-level idle detection, which knows about all input, not just this
     // window's cursor.
 
-    // 5-minute AFK doze ΓÇö only when idle (not running / dragging / petting).
+    // 5-minute AFK doze — only when idle (not running / dragging / petting).
     if (idleMs > 5 * 60 * 1000) {
       if (!afk && !dragging && !petting && phase !== "running" && cfg.states.sitting) {
         afk = true;
         applyState("sitting");
-        spawnParticle("≡ƒÆñ");
+        spawnParticle("💤");
         clearInterval(zzzTimer);
-        zzzTimer = setInterval(() => spawnParticle("≡ƒÆñ"), 4000);
+        zzzTimer = setInterval(() => spawnParticle("💤"), 4000);
       }
     }
   }, 10000);
@@ -498,13 +498,13 @@ function setClickThrough(next) {
   invoke("pet_set_clickthrough", { enabled: next }).catch(() => {});
 }
 
-// Global physical cursor ΓåÆ drives hit-testing, fast-flick sprint, shake-protest
+// Global physical cursor → drives hit-testing, fast-flick sprint, shake-protest
 // and AFK wake. Coordinates arrive in physical px spanning all monitors.
 function onCursor(gx, gy) {
   if (typeof gx !== "number" || typeof gy !== "number") return;
   const now = Date.now();
   // The cursor thread emits ~60Hz even when the mouse is still, so "idle" is
-  // measured by an actual position change ΓÇö not just receiving an event.
+  // measured by an actual position change — not just receiving an event.
   const moved = lastCursorGx === null || gx !== lastCursorGx || gy !== lastCursorGy;
 
   // Any movement wakes the pet from its AFK doze.
@@ -540,7 +540,7 @@ function onCursor(gx, gy) {
   }
   updateLookDirection(gx, gy, moved);
 
-  // (No fast-flick or shake reactions ΓÇö cursor speed no longer triggers poses.)
+  // (No fast-flick or shake reactions — cursor speed no longer triggers poses.)
 
   if (moved) lastCursorTime = now; // only real movement resets the idle clock
   lastCursorGx = gx;
@@ -638,9 +638,9 @@ function eventTarget(name) {
 // max-content) and fades/springs in and out; the timer card steps aside while
 // the pet is talking (shell[data-speaking]). Clock | AI panel is data-pet-panel.
 let speechTimer = null;
-/** User explicitly chose Clock ΓÇö do not steal the view for a new reply. */
+/** User explicitly chose Clock — do not steal the view for a new reply. */
 let userPinnedClock = false;
-/** User explicitly chose AI ΓÇö keep the panel until they dismiss or switch. */
+/** User explicitly chose AI — keep the panel until they dismiss or switch. */
 let userPinnedAi = false;
 /** Latest AI/chat text so switching to AI without a fresh reply still works. */
 let lastAiText = "";
@@ -652,15 +652,15 @@ let singleClickTimer = null;
 let pendingChatRequestId = null;
 let chatReplyTimer = null;
 
-// Reminders stay up much longer than ambient chatter ΓÇö they carry actions.
+// Reminders stay up much longer than ambient chatter — they carry actions.
 const SPEECH_DURATIONS = { chat: 7000, reminder: 15000, break: 25000 };
 const CHAT_REPLY_TIMEOUT_MS = 5000;
 
-// Pok├⌐mon-style letter reveal for speech. Hold duration starts after the
+// Pokémon-style letter reveal for speech. Hold duration starts after the
 // last character, so short lines are not dismissed mid-type.
 const SPEECH_CHAR_MS = 28;
 const SPEECH_PUNCT_PAUSE_MS = 120;
-const SPEECH_PUNCT = new Set([".", "!", "?", "ΓÇª", "ΓÇö", ";", ":"]);
+const SPEECH_PUNCT = new Set([".", "!", "?", "…", "—", ";", ":"]);
 
 let speechRevealTimer = null;
 let speechRevealToken = 0;
@@ -736,7 +736,7 @@ function revealSpeechText(text, { instant = false, onComplete } = {}) {
     return;
   }
 
-  // Instant path: reduced motion, skip flag, or single glyph (e.g. "ΓÇª").
+  // Instant path: reduced motion, skip flag, or single glyph (e.g. "…").
   if (instant || reducedMotion || text.length <= 1) {
     el.speechText.textContent = text;
     finish();
@@ -779,9 +779,9 @@ function revealSpeechText(text, { instant = false, onComplete } = {}) {
     paint(text.slice(0, i));
     const ch = text[i - 1];
     let delay = SPEECH_CHAR_MS;
-    // Tiny beat after sentence punctuation ΓÇö reads more like dialogue boxes.
+    // Tiny beat after sentence punctuation — reads more like dialogue boxes.
     if (SPEECH_PUNCT.has(ch)) delay += SPEECH_PUNCT_PAUSE_MS;
-    else if (ch === "," || ch === "ΓÇö") delay += SPEECH_PUNCT_PAUSE_MS * 0.45;
+    else if (ch === "," || ch === "—") delay += SPEECH_PUNCT_PAUSE_MS * 0.45;
     speechRevealTimer = setTimeout(step, delay);
   };
 
@@ -919,7 +919,7 @@ function say(text, opts = {}) {
   clearTimeout(speechTimer);
   speechTimer = null;
   // Transient status lines (agent finished with empty chips + speechMs) always
-  // auto-return ΓÇö they are not a user-opened chat.
+  // auto-return — they are not a user-opened chat.
   const transientStatus =
     Boolean(opts.forcePanel) && !speechHasActions && typeof opts.ms === "number";
   if (transientStatus) userPinnedAi = false;
@@ -954,7 +954,7 @@ function requestPetReply({ fromSwitcher = false } = {}) {
   // Soft pending state until the host answers via pet://state.
   if (!fromSwitcher || !lastAiText) {
     cancelSpeechReveal();
-    if (el.speechText) el.speechText.textContent = "ΓÇª";
+    if (el.speechText) el.speechText.textContent = "…";
     el.shell.dataset.speaking = "true";
     if (el.dismissSpeech) el.dismissSpeech.hidden = false;
   }
@@ -990,21 +990,21 @@ function onSignal(sig) {
     setExtendVisible(sig.showExtend && phase === "finished");
   }
 
-  // AI-working indicator: slight glow on the AI tab only ΓÇö not a log UI.
+  // AI-working indicator: slight glow on the AI tab only — not a log UI.
   // Host may also send `agentSummary` so the AI tab has live copy without a
   // full requestPetReply round-trip.
   if (typeof sig.agentActive === "boolean" && el.shell) {
     el.shell.dataset.agentActive = String(sig.agentActive);
   }
   if (typeof sig.agentSummary === "string" && sig.agentSummary) {
-    // Only seed / refresh when empty or the cache is already agent status ΓÇö
+    // Only seed / refresh when empty or the cache is already agent status —
     // never clobber a real chat reply the user is reading.
     if (sig.agentActive !== false && (!lastAiText || lastAiIsAgentStatus)) {
       lastAiText = sig.agentSummary;
       lastAiActions = [{ label: "Open timer", action: "openApp" }];
       lastAiIsAgentStatus = true;
       // Live-refresh the bubble if the AI panel is already showing that seed.
-      // Instant ΓÇö status ticks every second; typewriter would thrash.
+      // Instant — status ticks every second; typewriter would thrash.
       if (
         getPetPanel() === "ai" &&
         el.shell?.dataset.speaking === "true" &&
@@ -1017,7 +1017,7 @@ function onSignal(sig) {
       }
     }
   } else if (sig.agentActive === false && lastAiIsAgentStatus) {
-    // Agent stopped ΓÇö leave the last line; a finish quote will replace it.
+    // Agent stopped — leave the last line; a finish quote will replace it.
     lastAiIsAgentStatus = false;
   }
 
@@ -1030,20 +1030,20 @@ function onSignal(sig) {
     const n = typeof sig.syncPending === "number" ? sig.syncPending : 0;
     el.syncDot.title =
       st === "blocked"
-        ? `${n || "Some"} change${n === 1 ? "" : "s"} could not be saved ΓÇö open Kettles`
+        ? `${n || "Some"} change${n === 1 ? "" : "s"} could not be saved — open Kettles`
         : st === "offline"
           ? n
-            ? `Offline ┬╖ ${n} change${n === 1 ? "" : "s"} waiting`
+            ? `Offline · ${n} change${n === 1 ? "" : "s"} waiting`
             : "Offline"
           : st === "syncing"
-            ? "SyncingΓÇª"
+            ? "Syncing…"
             : "";
   }
 
   // Speech: an explicit quote always wins; timer events fall back to their
-  // built-in line. Spoken even mid-drag ΓÇö words are not animations. While the
+  // built-in line. Spoken even mid-drag — words are not animations. While the
   // extend chips are up the card must stay visible (speech hides it), so the
-  // completion line is skipped ΓÇö the card's own message covers it.
+  // completion line is skipped — the card's own message covers it.
   const line = sig.event ? SPEECH_LINES[sig.event] : null;
   const quoteKind = sig.quoteKind || (sig.event === "timerBreak" ? "break" : "chat");
   // Explicit empty array means "no chips" (agent finish). Omitted = break defaults.
@@ -1055,7 +1055,7 @@ function onSignal(sig) {
   const speechMs =
     typeof sig.speechMs === "number" && sig.speechMs > 0 ? sig.speechMs : undefined;
   if (sig.event === "timerFinish" && sig.showExtend === true) {
-    // Extend chips own the card ΓÇö flash a short secondary, skip the speech
+    // Extend chips own the card — flash a short secondary, skip the speech
     // bubble so the timer card stays visible.
     hideSpeech();
     clearTimeout(speechTimer);
@@ -1106,7 +1106,7 @@ function onSignal(sig) {
   if (play) {
     if (then) baseState = then;
     // timerFinish's jump is deferred to applyPhase so it fires AFTER the pet
-    // reaches screen center ΓÇö the celebration lands in the middle, not mid-slide.
+    // reaches screen center — the celebration lands in the middle, not mid-slide.
     if (sig.event !== "timerFinish") applyState(play);
   } else if (typeof sig.phase === "string") {
     syncAnimToPhase(sig.phase);
@@ -1133,7 +1133,7 @@ function applyPhase(next) {
   updateControls(next);
   // The extend chips only exist inside the finished state.
   if (next !== "finished") setExtendVisible(false);
-  // Hop to screen center on completion, THEN jump ΓÇö so the celebration lands
+  // Hop to screen center on completion, THEN jump — so the celebration lands
   // in the middle of the screen and the flow reads cleanly. Hop back when
   // leaving the finished state.
   if (changed) {
@@ -1145,15 +1145,15 @@ function applyPhase(next) {
       restorePosition();
     }
   }
-  // Secondary status line is event-driven (3s flash) ΓÇö never a permanent
+  // Secondary status line is event-driven (3s flash) — never a permanent
   // "You have completed task!" under the timer.
   if (changed && next !== "finished") hideSecondary();
-  // Surface a freshly-finished session ΓÇö but only on the transition, so the
+  // Surface a freshly-finished session — but only on the transition, so the
   // user can still collapse it afterwards (this fires every second otherwise).
   if (changed && next === "finished" && collapsed) setCollapsed(false);
 }
 
-// Secondary line under the task name ΓÇö only for brief event flashes (~3s).
+// Secondary line under the task name — only for brief event flashes (~3s).
 const SECONDARY_MS = 3000;
 let secondaryTimer = null;
 
@@ -1183,7 +1183,7 @@ function setExtendVisible(show) {
   extendVisible = show;
   el.completeActions.hidden = !show;
   if (show) {
-    // One short flash when the alarm fires ΓÇö not a sticky finished label.
+    // One short flash when the alarm fires — not a sticky finished label.
     showSecondary("Time's up! Keep going?");
     setClickThrough(false);
   } else {
@@ -1256,7 +1256,7 @@ function playOneShot(name) {
 }
 
 // ---------------------------------------------------------------------------
-// render loop ΓÇö runs continuously so the sprite is never left unpainted
+// render loop — runs continuously so the sprite is never left unpainted
 // ---------------------------------------------------------------------------
 
 function loop(now) {
@@ -1286,14 +1286,14 @@ function draw(now) {
 
   const frameMs = 1000 / s.fps;
 
-  // At rest, loop states hold a still frame ΓÇö the overlay stays calm instead
+  // At rest, loop states hold a still frame — the overlay stays calm instead
   // of churning frames continuously (which reads as distracting). Only
   // interaction (hover, drag, petting) and one-shots (wave / jump / a
   // once-a-minute gesture) actually animate. The sprite still gets its
   // position written each rAF so the layer stays painted.
   const atRest = !isHovered && !dragging && !petting && !oneShot && s.loop;
   if (atRest) {
-    // Pin to frame 0 ΓÇö the mascot holds a still pose
+    // Pin to frame 0 — the mascot holds a still pose
     frame = 0;
   } else if (now - lastTick >= frameMs) {
     lastTick = now;
@@ -1325,12 +1325,12 @@ function pop() {
   el.mascot.classList.add("pop");
 }
 
-// Flying kiss ΓÇö a ≡ƒÆï that drifts up from the mascot's head and fades.
+// Flying kiss — a 💋 that drifts up from the mascot's head and fades.
 function flyKiss() {
   if (!el.shell) return;
   const kiss = document.createElement("span");
   kiss.className = "kiss";
-  kiss.textContent = "≡ƒÆï";
+  kiss.textContent = "💋";
   // start a little above the mascot, with a small random horizontal drift
   const drift = (Math.random() * 28 - 14).toFixed(0);
   kiss.style.setProperty("--kiss-drift", `${drift}px`);
@@ -1409,7 +1409,7 @@ function wireInput() {
   // Clock | AI switcher
   el.modeClock?.addEventListener("click", (e) => {
     e.stopPropagation();
-    // Clock is the timer surface ΓÇö clear speech so the card is visible.
+    // Clock is the timer surface — clear speech so the card is visible.
     userPinnedAi = false;
     hideSpeech({ returnToClock: false });
     setPetPanel("clock", { userChoice: true });
@@ -1427,7 +1427,7 @@ function wireInput() {
     setPetPanel("clock", { userChoice: true });
   });
 
-  // Click the bubble body while typing ΓåÆ skip to full line (Pok├⌐mon A-button).
+  // Click the bubble body while typing → skip to full line (Pokémon A-button).
   // Dismiss / chips keep their own handlers above.
   el.speech?.addEventListener("click", (e) => {
     if (e.target.closest(".speech-dismiss, .speech-btn")) return;
@@ -1484,7 +1484,7 @@ function wireInput() {
     el.mascot.classList.remove("land");
     void el.mascot.offsetWidth;
     el.mascot.classList.add("land");
-    void refreshWinPos();   // window landed somewhere new ΓÇö resync its origin
+    void refreshWinPos();   // window landed somewhere new — resync its origin
     if (petting) stopPetting(); else syncAnimToPhase(phase);
   };
 
@@ -1528,7 +1528,7 @@ function wireInput() {
     const wasPetting = petting || didPet;
     if (dragging) endDrag();
     if (petting) stopPetting(); // releasing after a hold ends the pet
-    // Quick click on mascot (no drag, no pet) ΓåÆ request AI reply.
+    // Quick click on mascot (no drag, no pet) → request AI reply.
     // Debounced so double-click can cancel and jump instead.
     if (onMascot && pressed && !wasDragging && !dragged && !wasPetting) {
       clearTimeout(singleClickTimer);
@@ -1594,7 +1594,7 @@ function wireInput() {
       e.stopPropagation();
       const minutes = Number(btn.dataset.extend) || 5;
       emit("pet://control", { action: "extend", minutes, at: Date.now() });
-      setExtendVisible(false); // optimistic ΓÇö the host confirms via pet://state
+      setExtendVisible(false); // optimistic — the host confirms via pet://state
     });
   });
 
@@ -1604,7 +1604,7 @@ function wireInput() {
     setExtendVisible(false);
   });
 
-  // Notepad handlers ΓÇö right-click opens a full notepad panel that replaces
+  // Notepad handlers — right-click opens a full notepad panel that replaces
   // the timer card while open (shell[data-noting] hides the card via CSS).
   let noteOpen = false;
 
@@ -1720,7 +1720,7 @@ function wireInput() {
     }
   });
 
-  // Double-click the mascot ΓåÆ jump, then open the main app (not AI reply).
+  // Double-click the mascot → jump, then open the main app (not AI reply).
   el.mascot.addEventListener("dblclick", (e) => {
     e.stopPropagation();
     e.preventDefault();
@@ -1732,7 +1732,7 @@ function wireInput() {
   });
 
   // One-shot transform classes block the idle breathing animation while
-  // present ΓÇö drop them as soon as their keyframes finish.
+  // present — drop them as soon as their keyframes finish.
   el.mascot.addEventListener("animationend", (e) => {
     if (e.animationName === "land" || e.animationName === "pop") {
       el.mascot.classList.remove("land", "pop");
@@ -1751,7 +1751,7 @@ function wireInput() {
 
 // --- petting (press-and-hold the mascot) -----------------------------------
 
-// Which pose to play while being petted ΓÇö prefer the click event's state,
+// Which pose to play while being petted — prefer the click event's state,
 // fall back to a happy wave.
 function joyState() {
   const t = eventTarget("click");
@@ -1762,7 +1762,7 @@ function joyState() {
 function startPetting() {
   if (petting || collapsed || dragging) return;
   petting = true;
-  // Press-and-hold simply sits the pet down ΓÇö no hearts/particles.
+  // Press-and-hold simply sits the pet down — no hearts/particles.
   if (cfg.states.sitting) applyState("sitting");
 }
 
@@ -1775,12 +1775,12 @@ function stopPetting() {
 }
 
 // A single floating emoji that drifts up from the mascot and fades.
-// Defaults to affection (hearts/stars); callers can pass ≡ƒÆñ / ≡ƒÆó / etc.
+// Defaults to affection (hearts/stars); callers can pass 💤 / 💢 / etc.
 function spawnParticle(char) {
   if (!el.shell) return;
   const p = document.createElement("span");
   p.className = "particle";
-  p.textContent = char || (Math.random() < 0.5 ? "Γ¥ñ∩╕Å" : "Γ¡É");
+  p.textContent = char || (Math.random() < 0.5 ? "❤️" : "⭐");
   p.style.setProperty("--pdx", `${(Math.random() * 36 - 18).toFixed(0)}px`);
   const mh = parseFloat(getComputedStyle(el.mascot).height) || 150;
   p.style.bottom = `${mh * 0.7}px`;
@@ -1793,7 +1793,7 @@ function burstPets(n) {
   for (let i = 0; i < n; i++) setTimeout(() => spawnParticle(), i * 70);
 }
 
-// Celebration confetti ΓÇö fired on timerFinish alongside the jump + pop.
+// Celebration confetti — fired on timerFinish alongside the jump + pop.
 const CONFETTI_COLORS = ["#3385ff", "#10b981", "#f5b14c", "#ef6aa5", "#8b5cf6"];
 
 function confettiBurst() {
@@ -1819,7 +1819,7 @@ function confettiBurst() {
 // ---------------------------------------------------------------------------
 // Synthesised, not a file: the overlay ships no audio assets and a two-note
 // blip is smaller as code than as an .ogg. Same WebAudio shape as
-// src/lib/alarm.ts. Deliberately quiet and under 400ms ΓÇö this fires while the
+// src/lib/alarm.ts. Deliberately quiet and under 400ms — this fires while the
 // user is working in another window.
 const CUE_NOTES = {
   cheer: [660, 880, 1175],
@@ -1851,7 +1851,7 @@ function playCue(kind) {
       osc.stop(t + 0.3);
     });
   } catch {
-    /* audio is decoration ΓÇö never break the overlay */
+    /* audio is decoration — never break the overlay */
   }
 }
 

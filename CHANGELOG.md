@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.2] - 2026-08-20
+
+Repairs mojibake in the pet overlay. The dismiss control rendered as a tofu box
+plus a stray letter instead of a close glyph.
+
+### Fixed
+
+- `public/pet/` had 115 CP437-mojibake sequences across `pet.html`, `overlay.html`, `pet.css`, and `pet.js` — UTF-8 bytes that were once decoded as CP437 and saved back. Repaired by the exact inverse round-trip.
+- Speech-bubble and notepad close buttons showed `├ù` instead of `×`. Two characters in a 20px button, and `├` is absent from Urbanist, so it rendered as a tofu box overflowing the bubble corner.
+- Break and reminder bubble prefixes, the thinking indicator, `Syncing…`, the offline-changes warning, and the kiss / heart / star / doze particles all rendered as garbage text.
+- `.speech-dismiss` now centers its glyph with `display: grid; place-items: center`, matching `.notepad-close`, and picks up the same hover transition.
+
 ## [1.1.1] - 2026-08-20
 
 Search and share polish, plus a CI gate on the web channel.

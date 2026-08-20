@@ -21,7 +21,7 @@
       data-pet-panel="clock"
       data-speaking="false"
     >
-      <!-- Timer card ΓÇö task name on top, completion message, time below. -->
+      <!-- Timer card — task name on top, completion message, time below. -->
       <section id="bubble" class="bubble">
         <!-- Chevron lives in the card's top-right; stays put when collapsed. -->
         <button type="button" id="hideToggle" class="bubble-toggle" aria-label="Hide timer">
@@ -31,7 +31,7 @@
         <!-- Sync state. Hidden while everything is saved; pet mode hides the
              main window, so this is the only sync signal during focus time. -->
         <span id="syncDot" class="sync-dot" data-sync="ok" hidden aria-hidden="true"></span>
-        <!-- Transient event flash (~3s) ΓÇö never a permanent finished label. -->
+        <!-- Transient event flash (~3s) — never a permanent finished label. -->
         <p id="msg" class="msg" hidden></p>
         <p id="timer" class="timer" aria-live="polite">00:00:00</p>
 
@@ -63,14 +63,14 @@
         </div>
       </section>
 
-      <!-- Notepad ΓÇö opened by right-clicking the mascot. A full note pad that
+      <!-- Notepad — opened by right-clicking the mascot. A full note pad that
            replaces the timer card while open (shell[data-noting] hides it).
            Notes go to the active session, or become a task when idle. -->
       <section id="notepad" class="notepad" hidden>
         <header class="notepad-head">
           <span class="notepad-dot" aria-hidden="true"></span>
           <span id="notepadTitle" class="notepad-title">Quick note</span>
-          <button type="button" id="closeNote" class="notepad-close" aria-label="Close notepad">├ù</button>
+          <button type="button" id="closeNote" class="notepad-close" aria-label="Close notepad">×</button>
         </header>
         <textarea
           id="noteInput"
@@ -78,7 +78,7 @@
           placeholder="Jot it down before it slips away..."
         ></textarea>
         <footer class="notepad-foot">
-          <span class="notepad-hint">Enter saves ┬╖ Esc closes</span>
+          <span class="notepad-hint">Enter saves · Esc closes</span>
           <div class="notepad-actions">
             <button type="button" id="cancelNote" class="btn">Cancel</button>
             <button type="button" id="saveNote" class="btn btn-primary">Save</button>
@@ -86,7 +86,7 @@
         </footer>
       </section>
 
-      <!-- Speech bubble ΓÇö AI replies, reminders & timer messages.
+      <!-- Speech bubble — AI replies, reminders & timer messages.
            Clock/AI panel is driven by data-pet-panel; speaking still uses
            data-speaking for the bubble visibility transition. -->
       <div id="speech" class="speech" role="status" aria-live="polite">
@@ -97,7 +97,7 @@
           aria-label="Dismiss message and show timer"
           hidden
         >
-          ├ù
+          ×
         </button>
         <span id="speechText"></span>
         <div id="speechActions" class="speech-actions" hidden></div>
@@ -115,7 +115,7 @@
         aria-label="Open pet chat"
       ></div>
 
-      <!-- Clock | AI tabs ΓÇö always under the mascot feet. -->
+      <!-- Clock | AI tabs — always under the mascot feet. -->
       <div id="panelSwitch" class="panel-switch" role="group" aria-label="Pet view">
         <button
           type="button"

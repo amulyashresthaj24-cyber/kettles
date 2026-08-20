@@ -1,10 +1,10 @@
-/* Flowmate pet overlay ΓÇö a small "thinking" widget: a thought bubble (timer)
+/* Flowmate pet overlay — a small "thinking" widget: a thought bubble (timer)
  * floating above an animated mascot, inside a transparent, frameless,
  * always-on-top window (see PET_W/PET_H in src-tauri/src/pet.rs).
  * Card/speech widths use --panel-max so they track the overlay viewport.
  *
  * Sprite frames are positioned in PIXELS (computed in pet.js), not percentages,
- * and the mascot animates continuously ΓÇö both keep it reliably painted on the
+ * and the mascot animates continuously — both keep it reliably painted on the
  * Windows WebView2 compositor (percent + CSS filters drop frames there).
  */
 
@@ -13,7 +13,7 @@
 }
 
 :root {
-  /* Product system type ΓÇö Urbanist matches the main app (globals.css / design.md). */
+  /* Product system type — Urbanist matches the main app (globals.css / design.md). */
   --font: "Urbanist", "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", "Cascadia Mono", "SFMono-Regular", Consolas, ui-monospace, monospace;
 
@@ -35,7 +35,7 @@
   --shadow: none;
   --radius: 16px;
 
-  /* Motion tokens ΓÇö one spring + one soft-out, shared by every interaction. */
+  /* Motion tokens — one spring + one soft-out, shared by every interaction. */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-soft: cubic-bezier(0.22, 0.7, 0.3, 1);
 
@@ -120,7 +120,7 @@ body {
 
 .shell.dragging { cursor: grabbing; }
 
-/* Soft completion pulse ΓÇö keep scale modest so left/right panels stay inside
+/* Soft completion pulse — keep scale modest so left/right panels stay inside
  * the shell (1.18 previously clipped the timer/speech edges). */
 .shell[data-phase="finished"] { transform: scale(1.06); }
 
@@ -138,11 +138,11 @@ body {
   background-position: 0 0;       /* px offset, driven by pet.js */
   cursor: grab;
   z-index: 3;
-  transform: translateZ(0);       /* own compositor layer ΓåÆ always painted */
+  transform: translateZ(0);       /* own compositor layer → always painted */
   transform-origin: 50% 100%;
   will-change: background-position;
   transition: transform 0.18s var(--ease-soft), filter 0.2s ease;
-  /* Idle breathing ΓÇö barely-there scale from the feet, so the sprite never
+  /* Idle breathing — barely-there scale from the feet, so the sprite never
    * feels like a frozen image between frames. One-shot classes (pop/land)
    * temporarily take over the animation slot, then breathing resumes. */
   animation: breathe 4.5s ease-in-out infinite;
@@ -153,7 +153,7 @@ body {
   50%      { transform: translateZ(0) scaleY(1.014) scaleX(0.995); }
 }
 
-/* Hover ΓÇö a soft lift, like the pet noticed you. */
+/* Hover — a soft lift, like the pet noticed you. */
 .shell:not(.dragging) .mascot:hover {
   filter: brightness(1.06) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.18));
 }
@@ -173,14 +173,14 @@ body {
   transition: transform 0.2s var(--ease-soft), opacity 0.2s ease;
 }
 
-/* Picked up ΓÇö pause breathing, tilt into the drag direction, and shrink the
+/* Picked up — pause breathing, tilt into the drag direction, and shrink the
  * ground shadow so the pet visibly leaves the floor. */
 .shell.dragging .mascot { animation: none; cursor: grabbing; }
 .shell.dragging .mascot::after { transform: translateX(-50%) scaleX(0.6); opacity: 0.4; }
 .shell.drag-left .mascot  { transform: translateZ(0) rotate(-6deg); }
 .shell.drag-right .mascot { transform: translateZ(0) rotate(6deg); }
 
-/* Released ΓÇö squash-and-stretch landing, removed by pet.js on animationend. */
+/* Released — squash-and-stretch landing, removed by pet.js on animationend. */
 .mascot.land { animation: land 0.45s var(--ease-soft) 1; }
 
 @keyframes land {
@@ -196,7 +196,7 @@ body {
   45%      { transform: translateZ(0) translateY(-8px) scale(1.07); }
 }
 
-/* Flying kiss ΓÇö spawned by pet.js on click for the companion mascot. */
+/* Flying kiss — spawned by pet.js on click for the companion mascot. */
 .kiss {
   position: absolute;
   left: 50%;
@@ -219,7 +219,7 @@ body {
   .kiss { animation-duration: 0.6s; }
 }
 
-/* Petting particles (hearts / stars) ΓÇö spawned while the mascot is held. */
+/* Petting particles (hearts / stars) — spawned while the mascot is held. */
 .particle {
   position: absolute;
   left: 50%;
@@ -242,7 +242,7 @@ body {
   .particle { animation-duration: 0.6s; }
 }
 
-/* Confetti ΓÇö spawned by pet.js on timerFinish. Each piece launches up and out,
+/* Confetti — spawned by pet.js on timerFinish. Each piece launches up and out,
  * tumbles, and fades on the way back down. Colors/offsets set inline as vars. */
 .confetti-piece {
   position: absolute;
@@ -269,7 +269,7 @@ body {
 
 .panel-switch {
   position: absolute;
-  /* Flush under the mascot ΓÇö always visible at the bottom of the overlay. */
+  /* Flush under the mascot — always visible at the bottom of the overlay. */
   bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
@@ -319,7 +319,7 @@ body {
   border-color: var(--btn-border);
 }
 
-/* AI is working ΓÇö soft accent glow on the AI tab only (no log UI). */
+/* AI is working — soft accent glow on the AI tab only (no log UI). */
 .shell[data-agent-active="true"] #modeAi {
   color: var(--text-highlight);
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
@@ -364,7 +364,7 @@ body {
   width: fit-content;
   max-width: var(--panel-max);
   box-sizing: border-box;
-  padding: 8px 28px 8px 12px; /* right pad leaves room for the dismiss ├ù */
+  padding: 8px 28px 8px 12px; /* right pad leaves room for the dismiss × */
   font-family: var(--font);
   font-size: 12.5px;
   font-weight: 700;
@@ -396,7 +396,7 @@ body {
   word-break: break-word;
 }
 
-/* Pok├⌐mon-style letter reveal: blinking block caret while characters land. */
+/* Pokémon-style letter reveal: blinking block caret while characters land. */
 .speech-caret {
   display: inline-block;
   width: 0.48em;
@@ -436,6 +436,8 @@ body {
   position: absolute;
   top: 4px;
   right: 4px;
+  display: grid;
+  place-items: center;
   width: 20px;
   height: 20px;
   margin: 0;
@@ -449,6 +451,7 @@ body {
   cursor: pointer;
   pointer-events: auto;
   z-index: 1;
+  transition: color 0.14s ease, background 0.14s ease;
 }
 
 .speech-dismiss:hover {
@@ -479,13 +482,13 @@ body {
   border-color: rgba(245, 177, 76, 0.5);
 }
 .speech[data-kind="break"] #speechText::before {
-  content: "ΓÅ░ ";
+  content: "⏰ ";
 }
 .speech[data-kind="reminder"] {
   border-color: rgba(51, 133, 255, 0.5);
 }
 .speech[data-kind="reminder"] #speechText::before {
-  content: "≡ƒöö ";
+  content: "🔔 ";
 }
 
 /* Inline actions on actionable reminders (e.g. break snooze). The bubble
@@ -545,7 +548,7 @@ body {
   z-index: 2;
 }
 
-/* Gentle bob while focusing ΓÇö the "thinking" feel. */
+/* Gentle bob while focusing — the "thinking" feel. */
 .shell[data-phase="running"] .bubble {
   animation: bob 3.2s ease-in-out infinite;
 }
@@ -662,7 +665,7 @@ body {
 
 .bubble-toggle:hover { color: var(--text-highlight); transform: scale(1.06); }
 
-/* Collapsed ΓåÆ chevron points down = "show the timer". */
+/* Collapsed → chevron points down = "show the timer". */
 .shell[data-collapsed="true"] .bubble-toggle .chev {
   transform: translateY(-1px) rotate(45deg);
 }
@@ -672,7 +675,7 @@ body {
   width: max-content;
   max-width: 100%;
   overflow: hidden;
-  /* System UI font (Urbanist) ΓÇö not mono; tabular nums keep digits steady. */
+  /* System UI font (Urbanist) — not mono; tabular nums keep digits steady. */
   font-family: var(--font);
   font-size: 30px;
   font-weight: 600;
@@ -705,7 +708,7 @@ body {
   white-space: nowrap;
 }
 
-/* Sync state dot. Absent from the layout while everything is saved ΓÇö this is a
+/* Sync state dot. Absent from the layout while everything is saved — this is a
    focus surface, so it only earns space when something is actually wrong. */
 .sync-dot {
   position: absolute;
@@ -770,7 +773,7 @@ body {
 .shell[data-phase="paused"]   .bubble { border-color: rgba(245, 177, 76, 0.32); }
 .shell[data-phase="finished"] .bubble { border-color: rgba(16, 185, 129, 0.34); }
 
-/* Session complete ΓåÆ the card itself does a little cheer. */
+/* Session complete → the card itself does a little cheer. */
 .shell[data-phase="finished"]:not([data-collapsed="true"]) .bubble {
   animation: bubble-cheer 0.55s var(--ease-spring) 1;
 }
@@ -856,7 +859,7 @@ body {
 
 /* ===================== timer-complete extend chips ======================== */
 /* Shown inside the card while the completion alarm rings: +5/+10/+25/Finish.
- * Deliberately NOT `.controls` ΓÇö that row is retired via display:none above. */
+ * Deliberately NOT `.controls` — that row is retired via display:none above. */
 
 .complete-actions {
   display: flex;
@@ -892,7 +895,7 @@ body {
 
 /* ===================== thought trail ===================================== */
 
-/* Two glass dots between the mascot's head and the card ΓÇö reads as a thought
+/* Two glass dots between the mascot's head and the card — reads as a thought
  * bubble, and visually ties the floating timer to the pet. */
 .trail {
   position: absolute;
@@ -965,7 +968,7 @@ body {
   .mascot.pop, .mascot.land { animation-duration: 0.3s; animation-iteration-count: 1; }
   .confetti-piece { animation-duration: 0.7s; }
   .bubble { transition: opacity 0.15s ease; }
-  /* AI panel: opacity only ΓÇö no scale/spring that competes with the timer. */
+  /* AI panel: opacity only — no scale/spring that competes with the timer. */
   .speech {
     transition: opacity 0.15s ease;
     transform: translateX(-50%) translateY(0) scale(1);
@@ -981,7 +984,7 @@ body {
 
 /* ===================== notepad ============================================ */
 /* Opened by right-clicking the mascot (pet.js contextmenu handler). A proper
- * note pad ΓÇö noticeably bigger than the mascot ΓÇö floating where the timer
+ * note pad — noticeably bigger than the mascot — floating where the timer
  * card normally sits. While open the card + trail step aside
  * (shell[data-noting] drives the swap, mirroring the speech bubble). */
 
@@ -1073,7 +1076,7 @@ body {
   background: var(--btn-hover-bg);
 }
 
-/* Ruled-paper writing area ΓÇö like the session notes list in the app. */
+/* Ruled-paper writing area — like the session notes list in the app. */
 .notepad-input {
   width: 100%;
   height: 148px;
