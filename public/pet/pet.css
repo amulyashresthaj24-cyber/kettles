@@ -57,6 +57,8 @@
    */
   --panel-gutter: 16px;
   --panel-max: min(268px, calc(100% - (var(--panel-gutter) * 2)));
+  /* Notepad min so Cancel/Save don't wrap into a one-column stack at the cap. */
+  --panel-min: 200px;
 }
 
 @media (prefers-color-scheme: light) {
@@ -456,6 +458,17 @@ body {
   background: var(--btn-hover-bg);
 }
 
+.speech-dismiss:focus-visible,
+.bubble-toggle:focus-visible,
+.collapse:focus-visible,
+.notepad-close:focus-visible,
+.panel-switch-btn:focus-visible,
+.btn:focus-visible,
+.mascot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Little tail pointing down at the mascot. */
 .speech::after {
   content: "";
@@ -478,14 +491,8 @@ body {
 .speech[data-kind="break"] {
   border-color: rgba(245, 177, 76, 0.5);
 }
-.speech[data-kind="break"] #speechText::before {
-  content: "ΓÅ░ ";
-}
 .speech[data-kind="reminder"] {
   border-color: rgba(51, 133, 255, 0.5);
-}
-.speech[data-kind="reminder"] #speechText::before {
-  content: "≡ƒöö ";
 }
 
 /* Inline actions on actionable reminders (e.g. break snooze). The bubble
@@ -1094,6 +1101,10 @@ body {
   border: none;
   outline: none;
   resize: none;
+}
+
+.notepad-input:focus-visible {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .notepad-input::placeholder {

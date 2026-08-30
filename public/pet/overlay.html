@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./pet.css?v=4.6" />
+    <link rel="stylesheet" href="./pet.css?v=4.7" />
   </head>
   <body>
     <main
@@ -24,7 +24,7 @@
       <!-- Timer card ΓÇö task name on top, completion message, time below. -->
       <section id="bubble" class="bubble">
         <!-- Chevron lives in the card's top-right; stays put when collapsed. -->
-        <button type="button" id="hideToggle" class="bubble-toggle" aria-label="Hide timer">
+        <button type="button" id="hideToggle" class="bubble-toggle" aria-label="Hide timer" aria-expanded="true">
           <span class="chev" aria-hidden="true"></span>
         </button>
         <p id="task" class="task">Ready to focus</p>
@@ -70,7 +70,7 @@
         <header class="notepad-head">
           <span class="notepad-dot" aria-hidden="true"></span>
           <span id="notepadTitle" class="notepad-title">Quick note</span>
-          <button type="button" id="closeNote" class="notepad-close" aria-label="Close notepad">├ù</button>
+          <button type="button" id="closeNote" class="notepad-close" aria-label="Close notepad">×</button>
         </header>
         <textarea
           id="noteInput"
@@ -78,7 +78,7 @@
           placeholder="Jot it down before it slips away..."
         ></textarea>
         <footer class="notepad-foot">
-          <span class="notepad-hint">Enter saves ┬╖ Esc closes</span>
+          <span class="notepad-hint">Enter saves · Esc closes</span>
           <div class="notepad-actions">
             <button type="button" id="cancelNote" class="btn">Cancel</button>
             <button type="button" id="saveNote" class="btn btn-primary">Save</button>
@@ -97,7 +97,7 @@
           aria-label="Dismiss message and show timer"
           hidden
         >
-          ├ù
+          ×
         </button>
         <span id="speechText"></span>
         <div id="speechActions" class="speech-actions" hidden></div>
@@ -142,6 +142,6 @@
         <span class="chev down" aria-hidden="true"></span>
       </button>
     </main>
-    <script src="./pet.js?v=4.5"></script>
+    <script src="./pet.js?v=4.6"></script>
   </body>
 </html>

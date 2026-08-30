@@ -484,17 +484,17 @@ input[type="number"] {
   filter: drop-shadow(0 0 12px var(--accent-dim));
 }
 
-/* Female mascot jump — sprite-2.clean.webp is 944x1773, an 8x9 grid of
- * 118x197 cells; the jump lives on row 4 (y -788px). */
+/* Female mascot jump — live companion atlas is v2 1536x2288 (8x11 of
+ * 192x208). Jump is row 4, 8 frames, matching public/pet/pet.js FEMALE_PRESET. */
 @keyframes female-jump {
-  100% { background-position-x: -944px; }
+  100% { background-position-x: -1536px; }
 }
 .animate-pet-jump-female {
-  width: 118px;
-  height: 197px;
-  background-image: url('/pet/assets/sprite-2.clean.webp');
-  background-position: 0px -788px;
-  background-size: 944px 1773px;
+  width: 192px;
+  height: 208px;
+  background-image: url('/pet/assets/sprite-2-v2.clean.webp');
+  background-position: 0px -832px;
+  background-size: 1536px 2288px;
   background-repeat: no-repeat;
   animation: female-jump 1.2s steps(8) infinite;
   filter: drop-shadow(0 0 12px var(--accent-dim));

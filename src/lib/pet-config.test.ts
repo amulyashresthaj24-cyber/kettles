@@ -165,6 +165,36 @@ describe("pet mascot tiers", () => {
   });
 });
 
+describe("overlay copy encoding", () => {
+  it("uses real close and hint glyphs instead of mojibake", () => {
+    const html = read("public", "pet", "overlay.html");
+    expect(html).toContain(">×</button>");
+    expect(html).toContain("Enter saves · Esc closes");
+    expect(html).not.toContain("├ù");
+    expect(html).not.toContain("┬╖");
+  });
+
+  it("keeps overlay status strings free of mojibake", () => {
+    const js = read("public", "pet", "pet.js");
+    expect(js).toContain("Syncing…");
+    expect(js).toContain("Offline · ");
+    expect(js).not.toContain("SyncingΓÇª");
+    expect(js).not.toContain("Offline ┬╖");
+  });
+});
+
+describe("settings and in-app previews", () => {
+  it("preview the live v2 atlases, not the retired v1 companion sheet", () => {
+    const settings = read("src", "app", "settings", "page.tsx");
+    const globals = read("src", "app", "globals.css");
+    expect(settings).toContain("/pet/assets/spritesheet.webp");
+    expect(settings).toContain("/pet/assets/sprite-2-v2.clean.webp");
+    expect(settings).not.toContain("sprite-2.clean.webp");
+    expect(globals).toContain("/pet/assets/sprite-2-v2.clean.webp");
+    expect(globals).not.toContain("url('/pet/assets/sprite-2.clean.webp')");
+  });
+});
+
 describe("pet.js mascot presets", () => {
   // Presets live in vanilla JS inside the overlay bundle, so they cannot be
   // imported. Scanning the source for declared keys still catches the failure
