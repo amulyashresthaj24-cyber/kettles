@@ -1,3 +1,4 @@
+import type { AgentSegment } from "@/lib/types";
 // Shared contract for live report shares (owner UI + public viewer + edge fn mirror).
 // Keep this file free of React / store imports so the edge function can stay in sync manually.
 
@@ -31,6 +32,12 @@ export interface ShareDisclosureOptions {
   showEarnings: boolean;
   showTaskTitles: boolean;
   showNotes: boolean;
+  /**
+   * Include the AI-assisted vs solo split (M3). Off by default: how much of a
+   * client's bill was agent-supervised is the owner's disclosure to make, not
+   * something a share link should leak because the data happened to be there.
+   */
+  showAgentSplit?: boolean;
   allowExport: boolean;
   defaultPeriodMode: SharePeriodMode;
   /** Period the owner was viewing when the share was created (e.g. "2026-07"). */
@@ -99,6 +106,8 @@ export interface PublicShareSession {
   durationSeconds: number;
   state: "confirmed";
   notes?: { id: string; timestamp: number; text: string }[];
+  /** Present only when the owner enabled `showAgentSplit` on the share. */
+  agentSegments?: AgentSegment[];
 }
 
 export interface PublicShareTask {
@@ -184,6 +193,7 @@ export function defaultShareOptions(
     showEarnings: true,
     showTaskTitles: true,
     showNotes: true,
+    showAgentSplit: false,
     allowExport: true,
     defaultPeriodMode: periodMode,
     ...(periodKey ? { defaultPeriodKey: periodKey } : {}),

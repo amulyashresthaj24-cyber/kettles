@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 import { useApp } from "@/lib/store-supabase";
+import { projectBudgetHealth } from "@/lib/budget";
+import { formatCurrency, formatDuration } from "@/lib/format";
 import { PencilSimple, Archive, Trash, CalendarBlank, CurrencyDollar } from "@/components/ui/icon";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -35,6 +37,8 @@ export function ProjectDetailsCard({
   const restoreProject = useApp((s) => s.restoreProject);
   const deleteProject = useApp((s) => s.deleteProject);
 
+  const sessions = useApp((s) => s.sessions);
+
   const client = useMemo(
     () => clients.find((c) => c.id === project.clientId),
     [clients, project.clientId]
@@ -56,6 +60,12 @@ export function ProjectDetailsCard({
       await deleteProject(project.id);
     }
   };
+
+  // Lifetime, not report-period — see budget.ts.
+  const budget = useMemo(
+    () => projectBudgetHealth(project, sessions, client),
+    [project, sessions, client]
+  );
 
   const formatDate = (timestamp?: number) => {
     if (!timestamp) return "-";
@@ -173,6 +183,54 @@ export function ProjectDetailsCard({
               {project.budget ? `$${project.budget}` : "Not set"}
             </p>
           </div>
+          {budget.status !== "none" && (
+            <div className="space-y-1 pt-1">
+              <div className="flex items-center justify-between">
+                <span
+                  className={cn(
+                    "text-[12px] tabular-nums font-medium",
+                    budget.status === "over"
+                      ? "text-error"
+                      : budget.status === "warning"
+                        ? "text-warning"
+                        : "text-text-secondary"
+                  )}
+                >
+                  {formatCurrency(budget.spentCents)} spent · {budget.usedPct.toFixed(0)}%
+                </span>
+                <span className="text-[12px] text-text-faint tabular-nums">
+                  {budget.remainingCents >= 0
+                    ? `${formatCurrency(budget.remainingCents)} left`
+                    : `${formatCurrency(-budget.remainingCents)} over`}
+                </span>
+              </div>
+              <div
+                className="h-1.5 rounded-full overflow-hidden"
+                style={{ background: "var(--surface-mid)" }}
+              >
+                <div
+                  className={cn(
+                    "h-full rounded-full",
+                    budget.status === "over"
+                      ? "bg-error"
+                      : budget.status === "warning"
+                        ? "bg-warning"
+                        : "bg-success"
+                  )}
+                  style={{ width: `${Math.min(100, budget.usedPct)}%` }}
+                />
+              </div>
+              {/* Hours is what people act on; only shown when a rate makes the
+                  conversion real. */}
+              {budget.remainingSeconds !== null && (
+                <p className="text-[12px] text-text-muted">
+                  {budget.remainingSeconds > 0
+                    ? `About ${formatDuration(budget.remainingSeconds)} of billable work left`
+                    : "No billable hours left in this budget"}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

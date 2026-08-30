@@ -343,6 +343,7 @@ function parseShareData(data: any) {
       showEarnings: options.showEarnings !== false,
       showTaskTitles: options.showTaskTitles !== false,
       showNotes: options.showNotes !== false,
+      showAgentSplit: options.showAgentSplit === true,
       allowExport: options.allowExport !== false,
       defaultPeriodMode: ['week', 'month', 'year'].includes(options.defaultPeriodMode)
         ? options.defaultPeriodMode
@@ -592,6 +593,11 @@ async function buildPublicSource(
       endedAt: new Date(s.ended_at).getTime(),
       durationSeconds: s.duration_seconds ?? 0,
       state: 'confirmed' as const,
+      // Opt-in only. Without it the shared report shows no AI attribution at
+      // all, rather than a misleading zero.
+      ...(options.showAgentSplit && Array.isArray(d.agentSegments)
+        ? { agentSegments: d.agentSegments }
+        : {}),
       ...(notes && notes.length ? { notes } : {}),
     };
   });
@@ -871,6 +877,7 @@ serve(async (req) => {
         showEarnings: body.options?.showEarnings !== false,
         showTaskTitles: body.options?.showTaskTitles !== false,
         showNotes: body.options?.showNotes !== false,
+        showAgentSplit: body.options?.showAgentSplit === true,
         allowExport: body.options?.allowExport !== false,
         defaultPeriodMode: body.options?.defaultPeriodMode ?? 'month',
         defaultPeriodKey:

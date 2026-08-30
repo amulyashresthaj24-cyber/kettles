@@ -297,13 +297,14 @@ export function ShareReportDialog({
                       ["showEarnings", "Earnings & rates"],
                       ["showTaskTitles", "Task names"],
                       ["showNotes", "Session notes"],
+                      ["showAgentSplit", "AI-assisted time split"],
                       ["allowExport", "Download timesheet"],
                     ] as const
                   ).map(([key, label]) => (
                     <label key={key} className="flex items-center gap-2 text-[13px] text-text-secondary">
                       <input
                         type="checkbox"
-                        checked={options[key]}
+                        checked={options[key] ?? false}
                         onChange={(e) => setOptions((o) => ({ ...o, [key]: e.target.checked }))}
                         className="rounded border-border"
                       />

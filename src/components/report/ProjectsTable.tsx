@@ -55,7 +55,7 @@ export function ProjectsTable({ projects, totals, groupByClient }: ProjectsTable
         <HeaderCell>Billable</HeaderCell>
         <HeaderCell>Rate</HeaderCell>
         <HeaderCell>Earnings</HeaderCell>
-        <HeaderCell>Budget</HeaderCell>
+        <HeaderCell>Budget (period)</HeaderCell>
       </div>
 
       {groups.map((group) => (
@@ -182,6 +182,12 @@ function HeaderCell({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Spend *in the filtered period* against the project's lifetime budget — not
+ * budget health. A week-long filter on a nearly-exhausted budget shows a low
+ * number here, correctly. Lifetime health lives on the project page
+ * (`projectBudgetHealth` in lib/budget.ts).
+ */
 function BudgetCell({ budgetDollars, usedPct }: { budgetDollars?: number; usedPct?: number }) {
   if (!budgetDollars || usedPct === undefined) {
     return <span className="text-[12px] text-text-faint">–</span>;

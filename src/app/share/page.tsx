@@ -8,6 +8,7 @@ import {
   CurrencyDollar,
   Download,
   Lock,
+  Robot,
   ArrowClockwise,
   ShareNetwork,
   TrendUp,
@@ -39,7 +40,8 @@ type LiveState = "loading" | "live" | "refreshing" | "stale" | "offline" | "pass
 type Tab = "overview" | "projects" | "logs";
 
 const TOKEN_KEY = "flowmate-share-token";
-const PASS_KEY = "flowmate-share-password";
+/** Legacy key. The password is held in memory only now; this just clears it. */
+const LEGACY_PASS_KEY = "flowmate-share-password";
 const VIEWER_KEY = "flowmate-share-viewer";
 /** Live refresh cadence — short enough to feel transparent for clients. */
 const POLL_MS = 15_000;
@@ -123,9 +125,11 @@ export default function SharePage() {
   useEffect(() => {
     const t = readStoredToken();
     setToken(t);
+    // The share password is never written to storage — it unlocks a client's
+    // billing figures, and the report only needs it for the lifetime of the
+    // view. Clear anything an earlier build left behind.
     try {
-      const storedPass = sessionStorage.getItem(PASS_KEY);
-      if (storedPass) setPassword(storedPass);
+      sessionStorage.removeItem(LEGACY_PASS_KEY);
     } catch {
       /* ignore */
     }
@@ -288,13 +292,7 @@ export default function SharePage() {
   }, [token, periodKey, load]);
 
   const submitPassword = () => {
-    const pw = passwordInput;
-    try {
-      sessionStorage.setItem(PASS_KEY, pw);
-    } catch {
-      /* ignore */
-    }
-    setPassword(pw);
+    setPassword(passwordInput);
     setPasswordInput("");
   };
 
@@ -533,6 +531,16 @@ export default function SharePage() {
                 value={String(totals.sessionCount)}
                 sub={`${totals.tasksCompleted} tasks completed`}
               />
+              {/* Only present when the owner opted into the split — the payload
+                  carries no agent segments otherwise, so this stays hidden. */}
+              {totals.agentSeconds > 0 && (
+                <KpiCard
+                  icon={<Robot size={14} className="text-accent" />}
+                  label="AI-Assisted"
+                  value={formatDuration(totals.agentSeconds)}
+                  sub={`${totals.agentPct.toFixed(0)}% of total · ${formatDuration(totals.soloSeconds)} solo`}
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-3">

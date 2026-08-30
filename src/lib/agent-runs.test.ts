@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TIMELINE_VERSION } from "./session-timeline";
 import {
+  agentSecondsIn,
   appendSegment,
   clampIdleSeconds,
   closeSegment,
@@ -12,11 +13,12 @@ import {
   listDetectedAgents,
   listLiveAgents,
   openSegment,
+  splitSessionTime,
   summarizeLiveAgents,
   toMillis,
   type AgentRunStart,
 } from "./agent-runs";
-import type { AgentSegment } from "./types";
+import type { AgentSegment, Session } from "./types";
 
 const T0 = 1_700_000_000_000; // fixed epoch — no Date.now() in assertions
 const MIN = 60_000;
@@ -218,5 +220,114 @@ describe("summarizeLiveAgents (M2)", () => {
     expect(listLiveAgents(map)).toHaveLength(2);
     expect(listDetectedAgents(map)).toHaveLength(1);
     expect(listDetectedAgents(map)[0].agent).toBe("claude-code");
+  });
+});
+
+// ─── M3: attribution ─────────────────────────────────────────────────────────
+
+describe("agentSecondsIn", () => {
+  const T0 = Date.UTC(2026, 0, 1, 9, 0, 0);
+  const MIN = 60_000;
+
+  function sess(segs: AgentSegment[], over = {}): Session {
+    return {
+      id: "s1",
+      taskId: "t1",
+      projectId: "p1",
+      billable: true,
+      startedAt: T0,
+      endedAt: T0 + 60 * MIN,
+      durationSeconds: 3600,
+      paused: true,
+      state: "confirmed",
+      isDraft: false,
+      notes: [],
+      agentSegments: segs,
+      ...over,
+    } as Session;
+  }
+
+  function seg(startMin: number, endMin?: number, agent = "claude-code"): AgentSegment {
+    return {
+      runId: `r${startMin}`,
+      agent,
+      startedAt: T0 + startMin * MIN,
+      endedAt: endMin == null ? undefined : T0 + endMin * MIN,
+      status: endMin == null ? "running" : "ok",
+    };
+  }
+
+  it("returns 0 with no segments", () => {
+    expect(agentSecondsIn(sess([]))).toBe(0);
+    expect(agentSecondsIn(sess(undefined as never))).toBe(0);
+  });
+
+  it("sums a single segment", () => {
+    expect(agentSecondsIn(sess([seg(10, 25)]))).toBe(15 * 60);
+  });
+
+  it("sums disjoint segments", () => {
+    expect(agentSecondsIn(sess([seg(0, 10), seg(20, 30)]))).toBe(20 * 60);
+  });
+
+  it("merges overlapping concurrent agents instead of double counting", () => {
+    // Two agents, 10→30 and 20→40: one 30-minute supervised stretch, not 40.
+    const s = sess([seg(10, 30, "claude-code"), seg(20, 40, "codex")]);
+    expect(agentSecondsIn(s)).toBe(30 * 60);
+  });
+
+  it("merges segments that touch exactly", () => {
+    expect(agentSecondsIn(sess([seg(0, 10), seg(10, 20)]))).toBe(20 * 60);
+  });
+
+  it("clamps a run that started before the session", () => {
+    expect(agentSecondsIn(sess([seg(-30, 10)]))).toBe(10 * 60);
+  });
+
+  it("clamps a run that outlived the session", () => {
+    expect(agentSecondsIn(sess([seg(50, 120)]))).toBe(10 * 60);
+  });
+
+  it("counts an unclosed run to the session end", () => {
+    expect(agentSecondsIn(sess([seg(30)]))).toBe(30 * 60);
+  });
+
+  it("never exceeds the billed duration", () => {
+    // Wall clock is 60 min but only 20 min was billed (the rest was paused).
+    const s = sess([seg(0, 60)], { durationSeconds: 1200 });
+    expect(agentSecondsIn(s)).toBe(1200);
+  });
+
+  it("ignores zero-length and inverted segments", () => {
+    expect(agentSecondsIn(sess([seg(10, 10), seg(30, 20)]))).toBe(0);
+  });
+});
+
+describe("splitSessionTime", () => {
+  const T0 = Date.UTC(2026, 0, 1, 9, 0, 0);
+  const MIN = 60_000;
+  const base = {
+    id: "s1", taskId: "t1", projectId: "p1", billable: true,
+    startedAt: T0, endedAt: T0 + 60 * MIN, durationSeconds: 3600,
+    paused: true, state: "confirmed", isDraft: false, notes: [],
+  } as unknown as Session;
+
+  it("splits supervised from solo", () => {
+    const s = {
+      ...base,
+      agentSegments: [
+        { runId: "r1", agent: "claude-code", startedAt: T0, endedAt: T0 + 15 * MIN, status: "ok" },
+      ],
+    } as Session;
+    expect(splitSessionTime(s)).toEqual({ agentSeconds: 900, soloSeconds: 2700, agentPct: 25 });
+  });
+
+  it("is all solo with no agents", () => {
+    expect(splitSessionTime(base)).toEqual({ agentSeconds: 0, soloSeconds: 3600, agentPct: 0 });
+  });
+
+  it("handles a zero-duration session without dividing by zero", () => {
+    const s = { ...base, durationSeconds: 0 } as Session;
+    expect(splitSessionTime(s)).toEqual({ agentSeconds: 0, soloSeconds: 0, agentPct: 0 });
   });
 });
