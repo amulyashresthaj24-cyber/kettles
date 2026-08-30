@@ -24,6 +24,7 @@ import { AddTaskModal } from "./AddTaskModal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageLayout, PageHeader, PageContent } from "@/components/layout";
+import { BudgetAlerts } from "@/components/BudgetAlerts";
 import type { Task, Urgency, ProjectColor } from "@/lib/types";
 import { getProjectColor } from "@/lib/constants";
 import { getWeekRange } from "@/lib/report-dates";
@@ -284,6 +285,9 @@ export default function Dashboard() {
             />
           ))}
         </div>
+
+        {/* Budget alerts — renders nothing when every budget is healthy */}
+        <BudgetAlerts />
 
         {/* Active session banner */}
         {activeSession && activeTask && (

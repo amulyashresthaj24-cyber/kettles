@@ -34,9 +34,11 @@ import {
   planProjectClientLink,
 } from "./clients";
 import {
+  activeSince,
   durationAtIdleStart,
   elapsedSecondsFor,
   idleStartedAt,
+  TIMELINE_VERSION,
 } from "./session-timeline";
 import {
   describeIdleResolution,
@@ -143,6 +145,11 @@ function normalizeSession(session: Session): Session {
   };
 }
 
+/**
+ * True when the server minted this id. Local rows come from `uid()` (16 chars);
+ * Postgres mints 36-char uuids. The threshold is asserted by a test in
+ * store-sessions.test.ts so a change to `uid()` can't silently reroute writes.
+ */
 function isRemoteId(id: string): boolean {
   return id.length >= 20;
 }
@@ -171,6 +178,19 @@ function handleSessionApiError(
   }
 }
 
+/**
+ * Persist a session patch. Local-only rows have nothing to update remotely;
+ * offline rows go on the sync queue instead of throwing and losing the change.
+ */
+async function persistSessionPatch(id: string, patch: Partial<Session>) {
+  if (!isRemoteId(id)) return;
+  if (!isOnline()) {
+    queueMutation("sessions", "update", id, patch as Record<string, unknown>);
+    return;
+  }
+  await api.sessions.update(id, patch);
+}
+
 function elapsedFor(session: Session) {
   return elapsedSecondsFor(normalizeSession(session));
 }
@@ -184,10 +204,14 @@ function freezeStaleRunning(sessions: Session[]): Session[] {
   const now = Date.now();
   return sessions.map((s) => {
     if (s.state !== "running" || s.endedAt) return s;
-    if (now - s.startedAt <= STALE_RUNNING_THRESHOLD_MS) return s;
-    // Cap elapsed at the stale threshold so a multi-day kill doesn't bill days.
-    const capped = Math.min(
-      elapsedFor(s),
+    // Measure the *current running stretch*, not the original start — a session
+    // started this morning and resumed a minute ago is not stale.
+    if (now - activeSince(s) <= STALE_RUNNING_THRESHOLD_MS) return s;
+    // Cap only the untrusted stretch. Time banked by earlier stretches is real
+    // work and must survive the freeze.
+    const banked = s.durationSeconds ?? 0;
+    const capped = banked + Math.min(
+      Math.max(0, Math.floor((now - activeSince(s)) / 1000)),
       Math.floor(STALE_RUNNING_THRESHOLD_MS / 1000)
     );
     return {
@@ -195,8 +219,27 @@ function freezeStaleRunning(sessions: Session[]): Session[] {
       state: "paused" as const,
       paused: true,
       durationSeconds: capped,
-      frozenAt: s.frozenAt ?? s.startedAt + capped * 1000,
+      frozenAt: s.frozenAt ?? activeSince(s) + (capped - banked) * 1000,
     };
+  });
+}
+
+/**
+ * One-off repair for rows written by the old resume path.
+ *
+ * That path stamped `startedAt` with the resume moment and left an older
+ * `resumedAt` from idle recovery in place. `activeSince` prefers `resumedAt`,
+ * so those rows measure elapsed from a stamp that predates their own start and
+ * bill the gap between the two. Under the old semantics `startedAt` *was* the
+ * last resume, so it is the trustworthy value — drop the stale stamp.
+ *
+ * Correct rows have `resumedAt >= startedAt` and are left untouched.
+ */
+export function repairStaleResumedAt(sessions: Session[]): Session[] {
+  return sessions.map((s) => {
+    if (s.resumedAt == null || s.resumedAt >= s.startedAt) return s;
+    const { resumedAt: _stale, ...rest } = s;
+    return rest as Session;
   });
 }
 
@@ -1079,17 +1122,28 @@ persist((set, get) => ({
     
     set({ isLoading: true, error: null });
     try {
-      const session = await api.sessions.create({
+      const payload = {
         taskId,
         projectId: task.projectId,
         billable: billable ?? project?.billable ?? false,
         startedAt: Date.now(),
         durationSeconds: 0,
         paused: false,
-        state: "running",
+        state: "running" as const,
         isDraft: false,
         notes: [],
-      });
+        timelineVersion: TIMELINE_VERSION,
+      };
+
+      // Offline start must still produce a running timer — the create replays
+      // on reconnect like every other entity.
+      const session = isOnline()
+        ? await api.sessions.create(payload)
+        : (() => {
+            const local = normalizeSession({ ...payload, projectId: payload.projectId ?? "", id: uid() });
+            queueMutation("sessions", "create", local.id, { ...payload });
+            return local;
+          })();
 
       const sessionWithEstimate = {
         ...session,
@@ -1129,6 +1183,7 @@ persist((set, get) => ({
       isDraft: true,
       notes: [],
       estimateMinutes,
+      timelineVersion: TIMELINE_VERSION,
     };
     set({
       sessions: [...get().sessions, session],
@@ -1372,7 +1427,7 @@ persist((set, get) => ({
 
     set({ isLoading: true, error: null });
     try {
-      if (isRemoteId(id)) await api.sessions.update(id, patch);
+      await persistSessionPatch(id, patch);
       set({
         sessions: get().sessions.map((s) =>
           s.id === id ? { ...s, ...patch } : s
@@ -1432,16 +1487,17 @@ persist((set, get) => ({
     if (!session) return;
     const normalized = normalizeSession(session);
     if (normalized.state !== "paused") return;
-    const startedAt = Date.now();
+    // `startedAt` is the immutable first start (session-timeline.ts). The new
+    // running stretch goes in `resumedAt`, or elapsed re-counts the pause.
     const patch = {
       paused: false as const,
       state: "running" as const,
-      startedAt,
+      resumedAt: Date.now(),
       frozenAt: undefined,
     };
     set({ isLoading: true, error: null });
     try {
-      if (isRemoteId(id)) await api.sessions.update(id, patch);
+      await persistSessionPatch(id, patch);
       set({
         sessions: get().sessions.map((s) =>
           s.id === id ? { ...s, ...patch } : s
@@ -1478,7 +1534,7 @@ persist((set, get) => ({
 
     set({ isLoading: true, error: null });
     try {
-      if (isRemoteId(id)) await api.sessions.update(id, patch);
+      await persistSessionPatch(id, patch);
       set({ sessions: get().sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
     } catch (error) {
       handleSessionApiError(id, error, 'Failed to finish session', set, get);
@@ -1497,13 +1553,13 @@ persist((set, get) => ({
     const patch: Partial<Session> = {
       state: "running",
       paused: false,
-      startedAt: Date.now(),
+      resumedAt: Date.now(),
       frozenAt: undefined,
     };
 
     set({ isLoading: true, error: null });
     try {
-      if (isRemoteId(id)) await api.sessions.update(id, patch);
+      await persistSessionPatch(id, patch);
       set({ sessions: get().sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
     } catch (error) {
       handleSessionApiError(id, error, 'Failed to resume session', set, get);
@@ -1539,12 +1595,22 @@ persist((set, get) => ({
     try {
       let updated: Session = { ...normalized, ...patch };
       if (normalized.taskId && normalized.projectId) {
-        if (normalized.id.length < 20) {
-          updated = await api.sessions.create({ ...updated, id: undefined });
+        const isLocal = !isRemoteId(normalized.id);
+        if (!isOnline()) {
+          // Confirming is the moment the work is banked — never lose it to a
+          // dead network. Replay the create/update when the queue flushes.
+          queueMutation(
+            "sessions",
+            isLocal ? "create" : "update",
+            id,
+            (isLocal ? { ...updated, id: undefined } : patch) as Record<string, unknown>
+          );
         } else {
-          updated = await api.sessions.update(id, patch);
+          updated = isLocal
+            ? await api.sessions.create({ ...updated, id: undefined })
+            : await api.sessions.update(id, patch);
+          updated = normalizeSession({ ...updated, state: "confirmed", paused: true, isDraft: false, notes: normalized.notes });
         }
-        updated = normalizeSession({ ...updated, state: "confirmed", paused: true, isDraft: false, notes: normalized.notes });
       }
       set({
         sessions: get().sessions.map((s) => (s.id === id ? updated : s)),
@@ -1574,9 +1640,7 @@ persist((set, get) => ({
     };
     set({ isLoading: true, error: null });
     try {
-      if (isRemoteId(id)) {
-        await api.sessions.update(id, patch);
-      }
+      await persistSessionPatch(id, patch);
       set({
         sessions: get().sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)),
         activeSessionId: null,
@@ -1681,21 +1745,27 @@ persist((set, get) => ({
     const normalized = normalizeSession(session);
     const final = elapsedFor(normalized);
 
+    const patch: Partial<Session> = {
+      durationSeconds: final,
+      endedAt: Date.now(),
+      paused: true,
+      state: "confirmed",
+      isDraft: false,
+    };
+
     set({ isLoading: true, error: null });
     try {
-      let updated = session;
-      if (isRemoteId(id)) {
-        updated = await api.sessions.update(id, {
-          durationSeconds: final,
-          endedAt: Date.now(),
-          paused: true,
-          state: "confirmed",
-          isDraft: false,
-        });
+      // Local-only and offline rows still have to be closed locally, or the row
+      // stays "running" with no endedAt and gets re-adopted as active on reload.
+      let updated = normalizeSession({ ...normalized, ...patch });
+      if (isRemoteId(id) && isOnline()) {
+        updated = normalizeSession({ ...(await api.sessions.update(id, patch)) });
+      } else if (isRemoteId(id)) {
+        queueMutation("sessions", "update", id, patch as Record<string, unknown>);
       }
 
       set({
-        sessions: get().sessions.map((s) => (s.id === id ? normalizeSession(updated) : s)),
+        sessions: get().sessions.map((s) => (s.id === id ? updated : s)),
         activeSessionId: null,
       });
 
@@ -1988,7 +2058,7 @@ persist((set, get) => ({
         .map(normalizeSession)
         .filter((s) => !deletedSessions.has(s.id));
       const merged = mergeSessionLists(remoteSessionsFiltered, get().sessions.filter((s) => !deletedSessions.has(s.id)));
-      const mergedSessions = freezeStaleRunning(merged);
+      const mergedSessions = freezeStaleRunning(repairStaleResumedAt(merged));
       set({ sessions: mergedSessions });
 
       // Check for active session (not ended)
@@ -2033,7 +2103,9 @@ persist((set, get) => ({
         .filter((s) => !deletedSessions.has(s.id));
 
       const sessions = freezeStaleRunning(
-        mergeSessionLists(remoteSessionsFiltered, get().sessions.filter((s) => !deletedSessions.has(s.id)))
+        repairStaleResumedAt(
+          mergeSessionLists(remoteSessionsFiltered, get().sessions.filter((s) => !deletedSessions.has(s.id)))
+        )
       );
 
       const remoteTasksFiltered = applyPendingTaskUpdates(
@@ -2260,7 +2332,7 @@ persist((set, get) => ({
   }),
   onRehydrateStorage: () => (state) => {
     if (!state) return;
-    const sessions = freezeStaleRunning(state.sessions);
+    const sessions = freezeStaleRunning(repairStaleResumedAt(state.sessions));
     state.sessions = sessions;
     const active = sessions.find((s) => s.id === state.activeSessionId);
     if (!active || normalizeSession(active).state === "confirmed") {

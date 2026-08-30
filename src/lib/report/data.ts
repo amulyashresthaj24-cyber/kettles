@@ -7,6 +7,7 @@ import type { DateRange } from "@/lib/report-dates";
 import { eachDayOf } from "@/lib/report-dates";
 import { earningsCents, resolveHourlyRate, type RateSource } from "@/lib/rates";
 import { hasTruthfulTimeline } from "@/lib/session-timeline";
+import { agentNamesIn, agentSecondsIn } from "@/lib/agent-runs";
 
 // ─── Inputs ──────────────────────────────────────────────────────────────────
 
@@ -105,6 +106,10 @@ export interface EnrichedSession {
   rateSource: RateSource;
   endedAt: number;
   startedAt: number;
+  /** Seconds of this session with at least one AI agent running (M3). */
+  agentSeconds: number;
+  /** Display names of agents that touched this session. */
+  agentNames: string[];
 }
 
 /**
@@ -158,6 +163,8 @@ export function selectSessions(src: ReportSource, filters: ReportFilters): Enric
       rateSource: rate.source,
       endedAt: bounds.endedAt,
       startedAt: bounds.startedAt,
+      agentSeconds: agentSecondsIn(s),
+      agentNames: agentNamesIn(s),
     });
   }
   return rows;
@@ -176,12 +183,20 @@ export interface ReportTotals {
   avgSessionSeconds: number;
   billablePct: number;
   tasksCompleted: number;
+  /** Time with an AI agent running, and the remainder worked solo (M3). */
+  agentSeconds: number;
+  soloSeconds: number;
+  agentPct: number;
+  /** Sessions that had any agent activity. */
+  agentSessionCount: number;
 }
 
 export function computeTotals(rows: EnrichedSession[]): ReportTotals {
   let totalSeconds = 0;
   let billableSeconds = 0;
   let earningsCents = 0;
+  let agentSeconds = 0;
+  let agentSessionCount = 0;
   const days = new Set<string>();
   const doneTasks = new Set<string>();
 
@@ -189,6 +204,8 @@ export function computeTotals(rows: EnrichedSession[]): ReportTotals {
     totalSeconds += r.seconds;
     if (r.billable) billableSeconds += r.seconds;
     earningsCents += r.earningsCents;
+    agentSeconds += r.agentSeconds;
+    if (r.agentSeconds > 0) agentSessionCount += 1;
     days.add(new Date(r.endedAt).toDateString());
     if (r.task?.status === "done") doneTasks.add(r.task.id);
   }
@@ -206,6 +223,10 @@ export function computeTotals(rows: EnrichedSession[]): ReportTotals {
     avgSessionSeconds: sessionCount > 0 ? totalSeconds / sessionCount : 0,
     billablePct: totalSeconds > 0 ? (billableSeconds / totalSeconds) * 100 : 0,
     tasksCompleted: doneTasks.size,
+    agentSeconds,
+    soloSeconds: Math.max(0, totalSeconds - agentSeconds),
+    agentPct: totalSeconds > 0 ? (agentSeconds / totalSeconds) * 100 : 0,
+    agentSessionCount,
   };
 }
 
@@ -231,6 +252,8 @@ export interface ProjectRollup {
   earningsCents: number;
   sessionCount: number;
   tasksCompleted: number;
+  /** Time with an AI agent running on this project (M3). */
+  agentSeconds: number;
   /** Effective rate in dollars per hour; 0 when no project or client rate is set. */
   hourlyRate: number;
   rateSource: RateSource;
@@ -256,6 +279,7 @@ export function rollupByProject(rows: EnrichedSession[]): ProjectRollup[] {
         earningsCents: 0,
         sessionCount: 0,
         tasksCompleted: 0,
+        agentSeconds: 0,
         hourlyRate: r.hourlyRate,
         rateSource: r.rateSource,
         budgetDollars: r.project?.budget ?? undefined,
@@ -268,6 +292,7 @@ export function rollupByProject(rows: EnrichedSession[]): ProjectRollup[] {
     entry.seconds += r.seconds;
     if (r.billable) entry.billableSeconds += r.seconds;
     entry.earningsCents += r.earningsCents;
+    entry.agentSeconds += r.agentSeconds;
     entry.sessionCount += 1;
     if (r.task?.status === "done") entry._done.add(r.task.id);
 

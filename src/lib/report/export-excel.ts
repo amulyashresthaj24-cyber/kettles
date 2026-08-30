@@ -103,6 +103,16 @@ function summarySheet(data: ReportData, scope: ExportScope): SheetSpec {
       ["Avg daily time", formatDuration(t.avgDailySeconds), hours(t.avgDailySeconds)],
       ["Avg session", formatDuration(t.avgSessionSeconds), hours(t.avgSessionSeconds)],
       ["Tasks completed", t.tasksCompleted, null],
+      // Attribution rows appear only when an agent actually ran, so reports for
+      // solo work do not carry three rows of zeros.
+      ...(t.agentSeconds > 0
+        ? ([
+            ["AI-assisted time", formatDuration(t.agentSeconds), hours(t.agentSeconds)],
+            ["Solo time", formatDuration(t.soloSeconds), hours(t.soloSeconds)],
+            ["AI-assisted %", `${t.agentPct.toFixed(1)}%`, null],
+            ["Sessions with AI", t.agentSessionCount, null],
+          ] as (string | number | null)[][])
+        : []),
     ],
     widths: [22, 30, 16],
     formats: { 1: CURRENCY_FMT, 2: HOURS_FMT },
@@ -153,7 +163,7 @@ function subRangeSheet(data: ReportData, subRanges: DateRange[]): SheetSpec {
 function projectsSheet(data: ReportData): SheetSpec {
   return {
     rows: [
-      ["Project", "Client", "Hours", "Billable Hours", "Sessions", "Tasks Completed", "Rate (USD/hr)", "Earnings (USD)", "Budget (USD)", "Budget Used %"],
+      ["Project", "Client", "Hours", "Billable Hours", "Sessions", "Tasks Completed", "Rate (USD/hr)", "Earnings (USD)", "Budget (USD)", "Budget Used % (this period)"],
       ...data.projects.map((p) => [
         p.name,
         p.clientName ?? "—",

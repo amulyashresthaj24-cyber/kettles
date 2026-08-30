@@ -60,8 +60,16 @@ export const PROJECT_COLOR_OPTIONS = PROJECT_COLORS.map((c) => ({
   bg: c.bg,
 }));
 
-/** Calendar.readonly needs Google brand verification we do not have yet. */
-export const GOOGLE_CALENDAR_ENABLED = false;
+/**
+ * Calendar.readonly needs Google brand verification. Env-driven so the overlay
+ * can be switched on the moment verification lands, without a code change or a
+ * redeploy of anything but the env var. Stays off unless explicitly enabled —
+ * shipping it unverified shows users Google's "unverified app" warning screen.
+ *
+ * Set NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED=true to turn it on.
+ */
+export const GOOGLE_CALENDAR_ENABLED =
+  process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ENABLED === "true";
 
 export type AlarmSound = "bell" | "chime" | "digital" | "gentle" | "pulse" | "kettle";
 export const ALARM_SOUNDS: { id: AlarmSound; label: string }[] = [
