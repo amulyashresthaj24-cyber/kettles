@@ -7,6 +7,7 @@ import {
   CurrencyDollar,
   Download,
   Plus,
+  Robot,
   ShareNetwork,
   Target,
   TrendUp,
@@ -241,7 +242,7 @@ export default function ReportPage() {
         {/* ── OVERVIEW ─────────────────────────────────────────────────────── */}
         {activeTab === "overview" && (
           <>
-            <div className="grid grid-cols-5 gap-3">
+            <div className={cn("grid gap-3", totals.agentSeconds > 0 ? "grid-cols-6" : "grid-cols-5")}>
               <KpiCard
                 icon={<Clock size={14} className="text-text-faint" />}
                 label="Total Hours"
@@ -277,6 +278,16 @@ export default function ReportPage() {
                 value={totals.tasksCompleted > 0 ? String(totals.tasksCompleted) : "–"}
                 sub="worked on in this period"
               />
+              {/* Only shown once an agent has actually run — an always-present
+                  "0h" card is noise for anyone not working with AI. */}
+              {totals.agentSeconds > 0 && (
+                <KpiCard
+                  icon={<Robot size={14} className="text-accent" />}
+                  label="AI-Assisted"
+                  value={formatDuration(totals.agentSeconds)}
+                  sub={`${totals.agentPct.toFixed(0)}% of total · ${formatDuration(totals.soloSeconds)} solo`}
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-[1fr_320px] gap-3">

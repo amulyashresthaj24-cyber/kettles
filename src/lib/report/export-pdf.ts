@@ -96,6 +96,10 @@ function drawKpiBlock(doc: jsPDF, data: ReportData, topY: number): number {
     ["Active days", String(t.activeDays)],
     ["Avg daily", formatDuration(t.avgDailySeconds) || "0m"],
     ["Billable %", `${t.billablePct.toFixed(0)}%`],
+    // Only when an agent ran — see the Excel exporter for the same rule.
+    ...(t.agentSeconds > 0
+      ? ([["AI-assisted", `${formatDuration(t.agentSeconds)} (${t.agentPct.toFixed(0)}%)`]] as [string, string][])
+      : []),
   ];
 
   let y = topY + 26;

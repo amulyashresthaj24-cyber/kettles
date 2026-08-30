@@ -96,6 +96,85 @@ export function draftFromRun(
   };
 }
 
+// ─── M3: attribution ─────────────────────────────────────────────────────────
+
+/**
+ * Union of the agent segments inside a session, in seconds.
+ *
+ * Two agents running at once is one stretch of supervised time, not two, so
+ * overlapping segments are merged before summing — otherwise a session could
+ * report more agent time than it has time. Segments are clamped to the
+ * session's own window: a run that outlived the timer only counts for the part
+ * that overlapped it, and an unclosed run counts to the session's end.
+ *
+ * Result never exceeds `durationSeconds` — the ledger's wall clock can be wider
+ * than its billed duration (pauses), and attribution must not exceed the total
+ * it is being split out of.
+ */
+export function agentSecondsIn(session: Session): number {
+  const segs = session.agentSegments;
+  if (!segs?.length) return 0;
+
+  const total = Math.max(0, session.durationSeconds ?? 0);
+  if (total === 0) return 0;
+
+  const windowStart = session.startedAt;
+  const windowEnd = session.endedAt ?? session.frozenAt ?? Infinity;
+
+  const spans = segs
+    .map((seg) => ({
+      start: Math.max(seg.startedAt, windowStart),
+      end: Math.min(seg.endedAt ?? windowEnd, windowEnd),
+    }))
+    .filter((sp) => Number.isFinite(sp.start) && Number.isFinite(sp.end) && sp.end > sp.start)
+    .sort((a, b) => a.start - b.start);
+
+  if (!spans.length) return 0;
+
+  let merged = 0;
+  let cur = spans[0];
+  for (const sp of spans.slice(1)) {
+    if (sp.start <= cur.end) {
+      cur = { start: cur.start, end: Math.max(cur.end, sp.end) };
+    } else {
+      merged += cur.end - cur.start;
+      cur = sp;
+    }
+  }
+  merged += cur.end - cur.start;
+
+  return Math.min(total, Math.floor(merged / 1000));
+}
+
+export interface AgentSplit {
+  /** Seconds with at least one agent running. */
+  agentSeconds: number;
+  /** Seconds worked with no agent running. */
+  soloSeconds: number;
+  /** Share of the total that was supervised, 0–100. */
+  agentPct: number;
+}
+
+/** Split one session's billed duration into supervised vs solo. */
+export function splitSessionTime(session: Session): AgentSplit {
+  const total = Math.max(0, session.durationSeconds ?? 0);
+  const agentSeconds = agentSecondsIn(session);
+  return {
+    agentSeconds,
+    soloSeconds: Math.max(0, total - agentSeconds),
+    agentPct: total > 0 ? (agentSeconds / total) * 100 : 0,
+  };
+}
+
+/** Distinct agents that touched a session, as display names, in first-seen order. */
+export function agentNamesIn(session: Session): string[] {
+  const seen = new Set<string>();
+  for (const seg of session.agentSegments ?? []) {
+    seen.add(agentDisplayName(seg.agent));
+  }
+  return Array.from(seen);
+}
+
 /** Pretty agent label for pet copy. */
 export function agentDisplayName(agent: string): string {
   const map: Record<string, string> = {

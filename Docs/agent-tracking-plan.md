@@ -582,15 +582,26 @@ Required cases, and they are the spec:
 
 ---
 
-## 7. M2 / M3 — deferred, specified only to fix the boundary
+## 7. M2 / M3 — status
 
-**M2 — visible state.** Running agents shown on `/timer`, in the mini widget, and in the pet
-card `detail` line. Manual "AI running" toggle as the fallback for agents that cannot be
-hooked (D1). New Tauri command → remember `invoke_handler` (F10). Icons come from
-`src/components/ui/icon.tsx`; do not import an icon library.
+**M2 — visible state. Shipped.** `AgentPresenceBar` renders on `/timer`; `DesktopShell`
+feeds the pet card and mini detail lines from `summarizeLiveAgents` /
+`describeLiveAgents`. The manual "AI running" toggle runs end to end — the bar calls
+`setManualAgentActive` (`lib/desktop.ts`) → `set_manual_agent_active`
+(`agent_bridge.rs:166`), which **is** registered in the `invoke_handler` list
+(`lib.rs:637`), so trap F10 is satisfied. The deferred "N concurrent segments or one
+merged span" UI call was resolved as N — see `listLiveAgentLines`.
 
-**M3 — report attribution.** Human vs agent hours split in `/report` and on shared report
-links, read from `agentSegments`. **No new tables** — M1's payload already carries it.
+A tray menu entry for the manual toggle was never part of the M2 contract and does not
+exist. Worth adding only if people ask for it — the in-app toggle already covers the
+fallback the milestone specified.
+
+**M3 — report attribution. Shipped.** `agentSecondsIn` / `splitSessionTime` in
+`agent-runs.ts` derive the split from `agentSegments`; overlapping concurrent runs are
+merged so two agents at once cannot bill as two stretches, and the result is clamped to
+the session's own billed duration. Surfaced as an "AI-Assisted" KPI on `/report`, in the
+PDF and Excel exports, and on shared links — the last one **opt-in** via the
+`showAgentSplit` disclosure option, default off. **No new tables**, as specified.
 
 ---
 
