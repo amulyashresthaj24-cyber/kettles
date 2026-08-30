@@ -98,11 +98,13 @@ export function ShareReportDialog({
   );
   const [busy, setBusy] = useState(false);
   const [createdUrl, setCreatedUrl] = useState<string | null>(null);
+  const [replacedUrl, setReplacedUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setTab("create");
     setCreatedUrl(null);
+    setReplacedUrl(null);
     setPassword("");
     setOptions(defaultShareOptions(filters.periodMode, periodKey));
     const projectName = filters.projectId
@@ -199,10 +201,20 @@ export function ShareReportDialog({
     try {
       const result = await rotateReportShareToken(share.id);
       const url = `${getPublicShareOrigin()}/share?t=${encodeURIComponent(result.token)}`;
-      await navigator.clipboard.writeText(url);
+      // Rotate already succeeded — always surface the new URL, even if copy fails.
+      setReplacedUrl(url);
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(url);
+        copied = true;
+      } catch {
+        /* clipboard is optional; the URL is shown below */
+      }
       notify({
         title: "Link replaced",
-        description: "New link copied. The old link no longer works.",
+        description: copied
+          ? "New link copied. The old link no longer works."
+          : "Copy the new URL below. The old link no longer works.",
         tone: "success",
       });
     } catch (err) {
@@ -378,6 +390,18 @@ export function ShareReportDialog({
 
         {tab === "manage" && (
           <div className="flex flex-col gap-3 max-h-[360px] overflow-y-auto">
+            {replacedUrl && (
+              <div className="rounded-lg border border-success/30 bg-success/10 p-3 flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-success text-[13px] font-medium">
+                  <CheckCircle size={16} />
+                  New link ready
+                </div>
+                <code className="text-[12px] text-text-secondary break-all">{replacedUrl}</code>
+                <p className="text-[11px] text-text-faint">
+                  The old link no longer works. Copy this URL now — it is shown only once.
+                </p>
+              </div>
+            )}
             {!reportSharesLoaded && (
               <p className="text-[13px] text-text-muted">Loading shares…</p>
             )}

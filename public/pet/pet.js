@@ -422,9 +422,9 @@ async function boot() {
       if (!afk && !dragging && !petting && phase !== "running" && cfg.states.sitting) {
         afk = true;
         applyState("sitting");
-        spawnParticle("≡ƒÆñ");
+        spawnParticle("💤");
         clearInterval(zzzTimer);
-        zzzTimer = setInterval(() => spawnParticle("≡ƒÆñ"), 4000);
+        zzzTimer = setInterval(() => spawnParticle("💤"), 4000);
       }
     }
   }, 10000);
@@ -660,7 +660,7 @@ const CHAT_REPLY_TIMEOUT_MS = 5000;
 // last character, so short lines are not dismissed mid-type.
 const SPEECH_CHAR_MS = 28;
 const SPEECH_PUNCT_PAUSE_MS = 120;
-const SPEECH_PUNCT = new Set([".", "!", "?", "ΓÇª", "ΓÇö", ";", ":"]);
+const SPEECH_PUNCT = new Set([".", "!", "?", "…", "—", ";", ":"]);
 
 let speechRevealTimer = null;
 let speechRevealToken = 0;
@@ -781,7 +781,7 @@ function revealSpeechText(text, { instant = false, onComplete } = {}) {
     let delay = SPEECH_CHAR_MS;
     // Tiny beat after sentence punctuation ΓÇö reads more like dialogue boxes.
     if (SPEECH_PUNCT.has(ch)) delay += SPEECH_PUNCT_PAUSE_MS;
-    else if (ch === "," || ch === "ΓÇö") delay += SPEECH_PUNCT_PAUSE_MS * 0.45;
+    else if (ch === "," || ch === "—") delay += SPEECH_PUNCT_PAUSE_MS * 0.45;
     speechRevealTimer = setTimeout(step, delay);
   };
 
@@ -954,7 +954,7 @@ function requestPetReply({ fromSwitcher = false } = {}) {
   // Soft pending state until the host answers via pet://state.
   if (!fromSwitcher || !lastAiText) {
     cancelSpeechReveal();
-    if (el.speechText) el.speechText.textContent = "ΓÇª";
+    if (el.speechText) el.speechText.textContent = "…";
     el.shell.dataset.speaking = "true";
     if (el.dismissSpeech) el.dismissSpeech.hidden = false;
   }
@@ -1030,13 +1030,13 @@ function onSignal(sig) {
     const n = typeof sig.syncPending === "number" ? sig.syncPending : 0;
     el.syncDot.title =
       st === "blocked"
-        ? `${n || "Some"} change${n === 1 ? "" : "s"} could not be saved ΓÇö open Kettles`
+        ? `${n || "Some"} change${n === 1 ? "" : "s"} could not be saved — open Kettles`
         : st === "offline"
           ? n
-            ? `Offline ┬╖ ${n} change${n === 1 ? "" : "s"} waiting`
+            ? `Offline · ${n} change${n === 1 ? "" : "s"} waiting`
             : "Offline"
           : st === "syncing"
-            ? "SyncingΓÇª"
+            ? "Syncing…"
             : "";
   }
 
@@ -1330,7 +1330,7 @@ function flyKiss() {
   if (!el.shell) return;
   const kiss = document.createElement("span");
   kiss.className = "kiss";
-  kiss.textContent = "≡ƒÆï";
+  kiss.textContent = "💋";
   // start a little above the mascot, with a small random horizontal drift
   const drift = (Math.random() * 28 - 14).toFixed(0);
   kiss.style.setProperty("--kiss-drift", `${drift}px`);
@@ -1350,6 +1350,10 @@ function setCollapsed(next) {
   if (collapsed === next) return;
   collapsed = next;
   el.shell.dataset.collapsed = String(next);
+  if (el.hideToggle) {
+    el.hideToggle.setAttribute("aria-label", next ? "Show timer" : "Hide timer");
+    el.hideToggle.setAttribute("aria-expanded", String(!next));
+  }
   if (next) {
     setState("idle"); // freeze on a calm pose, not mid-stride
   } else {
@@ -1780,7 +1784,7 @@ function spawnParticle(char) {
   if (!el.shell) return;
   const p = document.createElement("span");
   p.className = "particle";
-  p.textContent = char || (Math.random() < 0.5 ? "Γ¥ñ∩╕Å" : "Γ¡É");
+  p.textContent = char || (Math.random() < 0.5 ? "❤️" : "⭐");
   p.style.setProperty("--pdx", `${(Math.random() * 36 - 18).toFixed(0)}px`);
   const mh = parseFloat(getComputedStyle(el.mascot).height) || 150;
   p.style.bottom = `${mh * 0.7}px`;

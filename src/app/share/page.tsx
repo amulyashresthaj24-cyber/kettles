@@ -13,6 +13,7 @@ import {
   TrendUp,
 } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
+import { useNotification } from "@/components/ui/notification";
 import { KettleLoader } from "@/components/KettleLoader";
 import { KpiCard } from "@/components/report/KpiCard";
 import { ReportCard, ReportEmptyState } from "@/components/report/ReportCard";
@@ -85,6 +86,7 @@ function readStoredToken(): string | null {
 }
 
 export default function SharePage() {
+  const { notify } = useNotification();
   const [token, setToken] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
@@ -419,8 +421,32 @@ export default function SharePage() {
               variant="secondary"
               className="gap-1.5"
               onClick={async () => {
-                const { exportExcel } = await import("@/lib/report/export-excel");
-                await exportExcel(data, { scope: "timesheet" });
+                try {
+                  const { exportExcel } = await import("@/lib/report/export-excel");
+                  const result = await exportExcel(data, { scope: "timesheet" });
+                  if (!result.ok) {
+                    if (result.cancelled) {
+                      notify({ title: "Export cancelled", description: "No file was saved.", tone: "info" });
+                    } else {
+                      notify({ title: "Download failed", description: result.error, tone: "error" });
+                    }
+                    return;
+                  }
+                  notify({
+                    title: result.method === "picker" ? "Timesheet saved" : "Download started",
+                    description:
+                      result.method === "picker"
+                        ? `Saved ${result.filename}`
+                        : `${result.filename} — check your Downloads folder.`,
+                    tone: "success",
+                  });
+                } catch (err) {
+                  notify({
+                    title: "Download failed",
+                    description: err instanceof Error ? err.message : "Could not export timesheet.",
+                    tone: "error",
+                  });
+                }
               }}
             >
               <Download size={14} />

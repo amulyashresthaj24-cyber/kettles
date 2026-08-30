@@ -1001,15 +1001,15 @@ function SettingsContent() {
                   tagline: "Default",
                   description: "A friendly desk buddy who reads along while you focus, waves hello, and celebrates finished sessions.",
                   sheet: "/pet/assets/spritesheet.webp",
-                  cols: 8, rows: 9, cellW: 192, cellH: 208,
+                  cols: 8, rows: 11, cellW: 192, cellH: 208,
                 },
                 {
                   id: "female",
                   name: "Female",
                   tagline: "Companion",
                   description: "A friendly desk companion who types while you focus, waves hello, and celebrates finished sessions.",
-                  sheet: "/pet/assets/sprite-2.clean.webp",
-                  cols: 8, rows: 9, cellW: 118, cellH: 197,
+                  sheet: "/pet/assets/sprite-2-v2.clean.webp",
+                  cols: 8, rows: 11, cellW: 192, cellH: 208,
                 },
               ];
 
@@ -1053,6 +1053,8 @@ function SettingsContent() {
                             key={m.id}
                             type="button"
                             onClick={() => setPreferences({ activeMascot: m.id })}
+                            aria-pressed={isSelected}
+                            aria-label={`${m.name} mascot${isSelected ? ", selected" : ""}`}
                             className={cn(
                               "relative flex flex-col gap-3 rounded-xl p-md text-left transition-all border-2",
                               isSelected
@@ -1065,7 +1067,7 @@ function SettingsContent() {
                                 Active
                               </span>
                             )}
-                            <div className="h-28 w-full rounded-lg bg-[#08090a] border border-[#2a2b2c] flex items-end justify-center overflow-hidden pb-2">
+                            <div className="h-28 w-full rounded-lg bg-base border border-border-subtle flex items-end justify-center overflow-hidden pb-2">
                               <div
                                 aria-hidden
                                 style={{
