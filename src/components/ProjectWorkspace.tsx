@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/icon";
 import type { Client, Project, ProjectStatus, ProjectColor, Session, Task, TaskStatus } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
+import { budgetBarClass, lifetimeBudgetHealth } from "@/lib/budget";
 import { earningsCents, formatHourlyRate, parseRateInput, resolveHourlyRate } from "@/lib/rates";
 import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -529,8 +530,14 @@ function BillingPanel({
     0
   );
   const earnedCents = earningsCents(billableSeconds, rate.dollarsPerHour);
-  const budgetUsedPct =
-    project.budget && project.budget > 0 ? (earnedCents / 100 / project.budget) * 100 : null;
+  const budgetHealth =
+    project.budget && project.budget > 0
+      ? lifetimeBudgetHealth({
+          budgetDollars: project.budget,
+          earnedCents,
+          dollarsPerHour: rate.dollarsPerHour,
+        })
+      : null;
 
   const startEditing = () => {
     setDraft(project.hourlyRate != null && project.hourlyRate > 0 ? String(project.hourlyRate) : "");
@@ -648,20 +655,45 @@ function BillingPanel({
           <DetailRow
             icon={<Target size={15} />}
             label="Budget"
-            value={
-              project.budget
-                ? `${formatCurrency(project.budget)}${budgetUsedPct != null ? ` · ${budgetUsedPct.toFixed(0)}% used` : ""}`
-                : "Not set"
-            }
+            value={project.budget ? formatCurrency(project.budget) : "Not set"}
           />
         </div>
 
-        {budgetUsedPct != null && (
-          <div className="h-2 overflow-hidden rounded-full bg-surface-mid">
-            <div
-              className={cn("h-full rounded-full", budgetUsedPct > 100 ? "bg-error" : "bg-success")}
-              style={{ width: `${Math.min(100, budgetUsedPct)}%` }}
-            />
+        {budgetHealth && (
+          <div className="space-y-sm rounded-md border border-border-subtle bg-canvas p-md">
+            <p className="text-xs font-medium text-text-muted">Lifetime budget</p>
+            <div className="grid grid-cols-2 gap-md">
+              <BudgetStat label="Spent" value={formatCurrency(budgetHealth.spentDollars)} />
+              <BudgetStat label="Used" value={`${budgetHealth.usedPct.toFixed(0)}%`} />
+              <BudgetStat
+                label="Remaining"
+                value={
+                  budgetHealth.remainingDollars < 0
+                    ? `${formatCurrency(Math.abs(budgetHealth.remainingDollars))} over`
+                    : formatCurrency(budgetHealth.remainingDollars)
+                }
+              />
+              <BudgetStat
+                label="Hours left"
+                value={
+                  budgetHealth.hoursLeft == null
+                    ? "Add a rate"
+                    : formatHoursLeft(budgetHealth.hoursLeft)
+                }
+              />
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-surface-mid">
+              <div
+                className={cn("h-full rounded-full", budgetBarClass(budgetHealth.status))}
+                style={{ width: `${Math.min(100, budgetHealth.usedPct)}%` }}
+              />
+            </div>
+            {budgetHealth.status === "warning" && (
+              <p className="text-xs text-warning">Approaching budget</p>
+            )}
+            {budgetHealth.status === "over" && (
+              <p className="text-xs text-error">Over budget</p>
+            )}
           </div>
         )}
 
@@ -739,6 +771,22 @@ function ProgressRow({
       </div>
     </div>
   );
+}
+
+function BudgetStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs text-text-muted">{label}</p>
+      <p className="truncate text-sm font-medium text-text-primary" title={value}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function formatHoursLeft(hours: number) {
+  if (hours <= 0) return "0h";
+  return formatDuration(Math.round(hours * 3600));
 }
 
 function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {

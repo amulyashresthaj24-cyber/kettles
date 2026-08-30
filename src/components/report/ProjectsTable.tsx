@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CaretDown, CheckCircle, Circle } from "@/components/ui/icon";
 import { formatDuration, formatCurrency } from "@/lib/format";
+import { budgetBarClass, budgetHealthStatus } from "@/lib/budget";
 import { formatHourlyRate } from "@/lib/rates";
 import { cn } from "@/lib/utils";
 import type { ProjectRollup, ReportTotals } from "@/lib/report/data";
@@ -186,11 +187,13 @@ function BudgetCell({ budgetDollars, usedPct }: { budgetDollars?: number; usedPc
   if (!budgetDollars || usedPct === undefined) {
     return <span className="text-[12px] text-text-faint">–</span>;
   }
-  const over = usedPct > 100;
+  const status = budgetHealthStatus(usedPct);
+  const tone =
+    status === "over" ? "text-error" : status === "warning" ? "text-warning" : "text-text-muted";
   return (
     <div className="flex flex-col gap-1 pr-2">
       <div className="flex items-center justify-between">
-        <span className={cn("text-[11px] tabular-nums", over ? "text-error" : "text-text-muted")}>
+        <span className={cn("text-[11px] tabular-nums", tone)}>
           {usedPct.toFixed(0)}%
         </span>
         <span className="text-[11px] text-text-faint tabular-nums">
@@ -199,7 +202,7 @@ function BudgetCell({ budgetDollars, usedPct }: { budgetDollars?: number; usedPc
       </div>
       <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-mid)" }}>
         <div
-          className={cn("h-full rounded-full", over ? "bg-error" : "bg-success")}
+          className={cn("h-full rounded-full", budgetBarClass(status))}
           style={{ width: `${Math.min(100, usedPct)}%` }}
         />
       </div>
