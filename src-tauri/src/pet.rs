@@ -51,12 +51,14 @@ pub const PET_H: f64 = 500.0;
 
 static TRACKING: AtomicBool = AtomicBool::new(false);
 
+#[cfg(target_os = "windows")]
 #[repr(C)]
 struct POINT {
     x: i32,
     y: i32,
 }
 
+#[cfg(target_os = "windows")]
 extern "system" {
     fn GetCursorPos(lpPoint: *mut POINT) -> i32;
     fn GetSystemMetrics(index: i32) -> i32;
@@ -64,7 +66,9 @@ extern "system" {
 
 // SM_C[XY]SCREEN — PRIMARY monitor size (physical px). The primary monitor is
 // always anchored at (0,0) in Windows screen coords.
+#[cfg(target_os = "windows")]
 const SM_CXSCREEN: i32 = 0;
+#[cfg(target_os = "windows")]
 const SM_CYSCREEN: i32 = 1;
 
 /// (origin_x, origin_y, width, height) of the PRIMARY monitor, physical px.
@@ -73,6 +77,7 @@ const SM_CYSCREEN: i32 = 1;
 /// always-on-top WebView2 window that large (e.g. 4480x1440 across mixed-height
 /// monitors) fails to composite — it renders fully invisible — and the
 /// bottom-anchored mascot falls off shorter screens. Keep it on one monitor.
+#[cfg(target_os = "windows")]
 fn primary_screen() -> (i32, i32, i32, i32) {
     unsafe {
         let w = GetSystemMetrics(SM_CXSCREEN);
@@ -83,6 +88,14 @@ fn primary_screen() -> (i32, i32, i32, i32) {
             (0, 0, w, h)
         }
     }
+}
+
+// Non-Windows builds (used for local Linux dev/testing of the overlay) have no
+// Win32 screen-metrics API. The desktop app ships on Windows, so fall back to a
+// sensible default primary-monitor size to keep the module portable.
+#[cfg(not(target_os = "windows"))]
+fn primary_screen() -> (i32, i32, i32, i32) {
+    (0, 0, 1920, 1080)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -228,6 +241,11 @@ pub fn pet_init(app: &AppHandle) -> Result<(), String> {
     let y = (ph as f64) - (PET_H * scale) - margin;
     let _ = win.set_position(PhysicalPosition::new(x.max(0.0) as i32, y.max(0.0) as i32));
 
+    // Windows applies click-through to the still-hidden overlay here. On Linux
+    // (dev/test) the GTK window isn't realized until it's shown, and tao panics
+    // trying to grab the underlying gdk::Window — so there it's applied in
+    // pet_open after the window is visible instead.
+    #[cfg(target_os = "windows")]
     let _ = win.set_ignore_cursor_events(true);
     log::info!("pet_init: pet overlay window created ({PET_W}x{PET_H} @ {x},{y})");
     Ok(())
@@ -248,6 +266,10 @@ pub fn pet_open(app: AppHandle, _x: Option<f64>, _y: Option<f64>) -> Result<(), 
         log::info!("showing pet overlay window");
         win.show().map_err(|e| e.to_string())?;
         let _ = win.set_always_on_top(true);
+        // On non-Windows the overlay isn't realized until shown, so apply
+        // click-through now (see pet_init). No-op-safe on an already-set window.
+        #[cfg(not(target_os = "windows"))]
+        let _ = win.set_ignore_cursor_events(true);
     }
     Ok(())
 }
@@ -387,6 +409,7 @@ pub fn pet_set_clickthrough(app: AppHandle, enabled: bool) -> Result<(), String>
 /// pet window subtracts its own outer position + divides by devicePixelRatio to
 /// get window-relative px. No Tauri monitor calls here (those corrupt the heap
 /// from a background thread).
+#[cfg(target_os = "windows")]
 fn cursor_pos() -> Result<CursorPos, String> {
     let mut pt = POINT { x: 0, y: 0 };
     unsafe {
@@ -399,6 +422,14 @@ fn cursor_pos() -> Result<CursorPos, String> {
             Err("Failed to get cursor position".into())
         }
     }
+}
+
+// Global cursor tracking relies on the Win32 `GetCursorPos` API. On non-Windows
+// dev/test builds there is no equivalent here, so report unavailable — the pet
+// tracking loop simply idles without emitting cursor updates.
+#[cfg(not(target_os = "windows"))]
+fn cursor_pos() -> Result<CursorPos, String> {
+    Err("cursor tracking is only supported on Windows".into())
 }
 
 /// Start or stop the global cursor tracking thread. The thread only does a bare
