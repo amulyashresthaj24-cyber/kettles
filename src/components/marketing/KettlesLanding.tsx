@@ -599,42 +599,44 @@ export function KettlesLanding() {
             </button>
           </div>
         </div>
-
-        {navOpen && (
-          <>
-            <button
-              type="button"
-              aria-label="Close menu"
-              className="fixed inset-0 z-40 bg-black/55 md:hidden"
-              onClick={() => setNavOpen(false)}
-            />
-            <div id="k-mobile-nav" className="relative z-50 mx-auto mt-2 w-full max-w-[420px] rounded-2xl border border-white/10 bg-[var(--k-bg2)] p-3 text-white shadow-2xl md:hidden">
-              <nav className="flex flex-col" aria-label="Mobile">
-                {NAV_LINKS.map(([l, h]) => (
-                  <Link
-                    key={h}
-                    href={h}
-                    onClick={() => setNavOpen(false)}
-                    className="rounded-xl px-3 py-2.5 text-[15px] font-medium text-white/70 hover:bg-white/5 hover:text-white"
-                  >
-                    {l}
-                  </Link>
-                ))}
-                <Link href="/auth" onClick={() => setNavOpen(false)} className="mt-1 rounded-xl px-3 py-2.5 text-[15px] font-medium text-white/70 hover:bg-white/5 hover:text-white">
-                  Sign in
-                </Link>
-                <Link
-                  href="/auth"
-                  onClick={() => setNavOpen(false)}
-                  className="mt-2 inline-flex items-center justify-center rounded-full bg-[var(--k-accent)] px-4 py-2.5 text-[14px] font-semibold text-white"
-                >
-                  Start brewing — free
-                </Link>
-              </nav>
-            </div>
-          </>
-        )}
       </header>
+
+      {navOpen && (
+        <div
+          id="k-mobile-nav"
+          className="fixed inset-0 z-[45] flex flex-col bg-[var(--k-bg)]/97 px-4 pt-[72px] md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu"
+          onClick={() => setNavOpen(false)}
+        >
+          <nav
+            className="mx-auto w-full max-w-[420px] rounded-2xl border border-white/10 bg-[var(--k-bg2)] p-3 text-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {NAV_LINKS.map(([l, h]) => (
+              <Link
+                key={h}
+                href={h}
+                onClick={() => setNavOpen(false)}
+                className="block rounded-xl px-3 py-2.5 text-[15px] font-medium text-white/70 hover:bg-white/5 hover:text-white"
+              >
+                {l}
+              </Link>
+            ))}
+            <Link href="/auth" onClick={() => setNavOpen(false)} className="mt-1 block rounded-xl px-3 py-2.5 text-[15px] font-medium text-white/70 hover:bg-white/5 hover:text-white">
+              Sign in
+            </Link>
+            <Link
+              href="/auth"
+              onClick={() => setNavOpen(false)}
+              className="mt-2 inline-flex w-full items-center justify-center rounded-full bg-[var(--k-accent)] px-4 py-2.5 text-[14px] font-semibold text-white"
+            >
+              Start brewing — free
+            </Link>
+          </nav>
+        </div>
+      )}
 
       <main id="top">
         <section className="relative isolate z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1240px] flex-col items-center justify-between overflow-x-clip px-6 pb-0 pt-[120px] text-center">
