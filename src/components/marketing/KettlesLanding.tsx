@@ -604,7 +604,8 @@ export function KettlesLanding() {
       {navOpen && (
         <div
           id="k-mobile-nav"
-          className="fixed inset-0 z-[45] flex flex-col bg-[var(--k-bg)]/97 px-4 pt-[72px] md:hidden"
+          className="fixed inset-0 z-[45] flex flex-col px-4 pt-[72px] md:hidden"
+          style={{ backgroundColor: "var(--k-bg)" }}
           role="dialog"
           aria-modal="true"
           aria-label="Menu"
