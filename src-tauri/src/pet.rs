@@ -424,17 +424,88 @@ fn cursor_pos() -> Result<CursorPos, String> {
     }
 }
 
-// Global cursor tracking relies on the Win32 `GetCursorPos` API. On non-Windows
-// dev/test builds there is no equivalent here, so report unavailable — the pet
-// tracking loop simply idles without emitting cursor updates.
-#[cfg(not(target_os = "windows"))]
+// Linux global cursor position via X11 `XQueryPointer` on the root window,
+// returning physical screen px (matches the Windows contract). The X11 display
+// is opened once per tracking thread and cached. This keeps the pet's
+// cursor-follow ("look direction") poses working when running on Linux.
+#[cfg(target_os = "linux")]
+mod linux_cursor {
+    use std::cell::Cell;
+    use std::os::raw::{c_char, c_int, c_uint, c_ulong};
+
+    type Display = std::ffi::c_void;
+    type Window = c_ulong;
+
+    #[link(name = "X11")]
+    extern "C" {
+        fn XOpenDisplay(name: *const c_char) -> *mut Display;
+        fn XDefaultRootWindow(display: *mut Display) -> Window;
+        #[allow(clippy::too_many_arguments)]
+        fn XQueryPointer(
+            display: *mut Display,
+            w: Window,
+            root_return: *mut Window,
+            child_return: *mut Window,
+            root_x_return: *mut c_int,
+            root_y_return: *mut c_int,
+            win_x_return: *mut c_int,
+            win_y_return: *mut c_int,
+            mask_return: *mut c_uint,
+        ) -> c_int;
+    }
+
+    thread_local! {
+        static DISPLAY: Cell<*mut Display> = const { Cell::new(std::ptr::null_mut()) };
+    }
+
+    pub fn query() -> Option<(f64, f64)> {
+        DISPLAY.with(|slot| {
+            let mut dpy = slot.get();
+            if dpy.is_null() {
+                dpy = unsafe { XOpenDisplay(std::ptr::null()) };
+                if dpy.is_null() {
+                    return None;
+                }
+                slot.set(dpy);
+            }
+            unsafe {
+                let root = XDefaultRootWindow(dpy);
+                let (mut root_ret, mut child_ret): (Window, Window) = (0, 0);
+                let (mut rx, mut ry, mut wx, mut wy): (c_int, c_int, c_int, c_int) = (0, 0, 0, 0);
+                let mut mask: c_uint = 0;
+                let ok = XQueryPointer(
+                    dpy, root, &mut root_ret, &mut child_ret, &mut rx, &mut ry, &mut wx, &mut wy,
+                    &mut mask,
+                );
+                if ok != 0 {
+                    Some((rx as f64, ry as f64))
+                } else {
+                    None
+                }
+            }
+        })
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn cursor_pos() -> Result<CursorPos, String> {
-    Err("cursor tracking is only supported on Windows".into())
+    match linux_cursor::query() {
+        Some((x, y)) => Ok(CursorPos { x, y }),
+        None => Err("Failed to get cursor position".into()),
+    }
+}
+
+// Other non-Windows, non-Linux targets have no cursor source wired up here, so
+// the tracking loop simply idles without emitting cursor updates.
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+fn cursor_pos() -> Result<CursorPos, String> {
+    Err("cursor tracking is not supported on this platform".into())
 }
 
 /// Start or stop the global cursor tracking thread. The thread only does a bare
-/// Win32 `GetCursorPos` + `emit_to` (both thread-safe) — no Manager/monitor
-/// calls, which are main-thread-only on Windows.
+/// platform cursor query (Win32 `GetCursorPos` on Windows, X11 `XQueryPointer`
+/// on Linux) + `emit_to` (both thread-safe) — no Manager/monitor calls, which
+/// are main-thread-only on Windows.
 #[tauri::command]
 pub fn pet_tracking(app: AppHandle, enabled: bool) -> Result<(), String> {
     if !enabled {
