@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-08-31
+
 Session-timer correctness, offline persistence, AI attribution in reports, and dashboard budget alerts. Lifetime budget health on the project page (80% warning bar, share replace/export) already landed in PR #3; this branch keeps that live `BillingPanel` and adds dashboard banners on the same thresholds.
 
 ### Fixed
@@ -20,6 +22,7 @@ Session-timer correctness, offline persistence, AI attribution in reports, and d
 - Shared report links can disclose the AI-assisted split via a new `showAgentSplit` option, **off by default** — the payload carries no agent segments unless the owner opts in.
 - Session lifecycle test coverage (`store-sessions.test.ts`). The store held the timer's money math and had none; the resume bug above shipped undetected because of it.
 - **Dashboard budget alerts.** Projects at 80% or over surface as a banner on the dashboard (nothing renders while every budget is healthy). Uses the same lifetime health helpers as the project `BillingPanel` — 80% warning, 100% over — so the two surfaces cannot disagree. Archived projects are excluded.
+- **Desktop pet builds and runs on Linux for local development.** The pet overlay module's Win32-only cursor/screen calls (`GetCursorPos`, `GetSystemMetrics`) are guarded behind `#[cfg(target_os = "windows")]` with fallbacks, overlay click-through is deferred until the window is shown on non-Windows (avoiding a `tao` panic), and an X11 `XQueryPointer` path lets the mascot follow the cursor on Linux. Windows behavior is byte-identical; this only unblocks building/running the Tauri app on Linux (e.g. cloud dev environments).
 
 ### Changed
 
