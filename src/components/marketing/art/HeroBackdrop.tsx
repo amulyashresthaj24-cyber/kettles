@@ -7,7 +7,6 @@ export function HeroBackdrop({ className, ...props }: HeroBackdropProps) {
   const instanceId = useId().replace(/:/g, "");
   const washId = `hero-wash-${instanceId}`;
   const glowId = `hero-glow-${instanceId}`;
-  const gridId = `hero-grid-${instanceId}`;
 
   return (
     <svg
@@ -28,10 +27,6 @@ export function HeroBackdrop({ className, ...props }: HeroBackdropProps) {
           <stop offset="0" stopColor="var(--accent)" stopOpacity="0.2" />
           <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
         </radialGradient>
-        <pattern id={gridId} width="52" height="52" patternUnits="userSpaceOnUse">
-          <path d="M 52 0 L 0 0 0 52" stroke="var(--border-subtle)" strokeWidth="1" />
-          <circle cx="0" cy="0" r="1.5" fill="var(--accent)" fillOpacity="0.22" />
-        </pattern>
       </defs>
 
       <path
@@ -55,7 +50,6 @@ export function HeroBackdrop({ className, ...props }: HeroBackdropProps) {
         strokeWidth="1"
         strokeLinecap="round"
       />
-      <rect x="0" y="0" width="1440" height="760" fill={`url(#${gridId})`} fillOpacity="0.52" />
       <circle cx="1224" cy="430" r="7" fill="var(--accent)" fillOpacity="0.32" />
       <circle cx="1262" cy="393" r="3" fill="var(--accent-hover)" fillOpacity="0.42" />
       <circle cx="183" cy="224" r="5" fill="var(--surface-raised)" stroke="var(--border)" strokeWidth="1" />

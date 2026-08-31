@@ -155,7 +155,7 @@ export const BeamsBackground = forwardRef<HTMLDivElement, AnimatedGradientBackgr
             <div
                 ref={ref}
                 className={cn(
-                    "relative min-h-screen w-full overflow-hidden",
+                    "relative min-h-screen w-full overflow-visible",
                     theme === "light" ? "bg-white" : "bg-neutral-950",
                     className
                 )}

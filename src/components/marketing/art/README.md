@@ -4,7 +4,7 @@ Token-driven decorative SVGs for the Kettles marketing page. Every component acc
 
 | Component | Landing placement | Purpose |
 | --- | --- | --- |
-| `HeroBackdrop` | Hero | A full-bleed soft wash, sparse grid, and asymmetric contour lines behind the headline and product preview. |
+| `HeroBackdrop` | Hero | A full-bleed soft wash and asymmetric contour lines behind the headline and product preview. |
 | `SteamMotif` | Hero and small brand moments | The signature rising steam curl. Its `steam-motif__plume`, `steam-motif__curl`, and `steam-motif__droplet` classes are stable animation hooks. |
 | `FocusRingArt` | Timer / focus section | A restrained progress ring that represents a task-linked focus brew. |
 | `TaskStackArt` | Task workflow section | Staggered task cards moving from selection to completion. |
