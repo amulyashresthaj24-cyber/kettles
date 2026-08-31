@@ -296,6 +296,13 @@ export function KettlesLanding() {
   const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
+    document.body.style.overflow = navOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [navOpen]);
+
+  useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -541,7 +548,7 @@ export function KettlesLanding() {
     <BeamsBackground ref={rootRef} className="kettles min-h-[100dvh] bg-transparent" intensity="strong">
       <header
         id="k-nav"
-        className="fixed top-0 left-1/2 z-50 w-full -translate-x-1/2 px-4 pt-0 transition-transform duration-300 ease-[var(--k-ease)] md:w-auto md:px-0 [&.k-nav-hide]:-translate-y-[110%]"
+        className="fixed top-0 inset-x-0 z-50 w-full px-4 pt-0 transition-transform duration-300 ease-[var(--k-ease)] [&.k-nav-hide]:-translate-y-[110%]"
       >
         <div className="k-nav-shell relative mx-auto flex h-[58px] items-center justify-between gap-6 rounded-b-2xl border-x border-b border-white/15 bg-[var(--k-bg2)] px-5 text-white shadow-[0_12px_30px_-10px_rgba(0,0,0,0.45)] md:min-w-[720px] md:rounded-b-[24px] md:px-6 md:gap-8 lg:min-w-[860px]">
           <div
@@ -594,30 +601,38 @@ export function KettlesLanding() {
         </div>
 
         {navOpen && (
-          <div id="k-mobile-nav" className="mx-auto mt-2 w-full max-w-[420px] rounded-2xl border border-white/10 bg-[var(--k-bg2)] p-3 text-white shadow-2xl md:hidden">
-            <nav className="flex flex-col" aria-label="Mobile">
-              {NAV_LINKS.map(([l, h]) => (
-                <Link
-                  key={h}
-                  href={h}
-                  onClick={() => setNavOpen(false)}
-                  className="rounded-xl px-3 py-2.5 text-[15px] font-medium text-white/70 hover:bg-white/5 hover:text-white"
-                >
-                  {l}
+          <>
+            <button
+              type="button"
+              aria-label="Close menu"
+              className="fixed inset-0 z-40 bg-black/55 md:hidden"
+              onClick={() => setNavOpen(false)}
+            />
+            <div id="k-mobile-nav" className="relative z-50 mx-auto mt-2 w-full max-w-[420px] rounded-2xl border border-white/10 bg-[var(--k-bg2)] p-3 text-white shadow-2xl md:hidden">
+              <nav className="flex flex-col" aria-label="Mobile">
+                {NAV_LINKS.map(([l, h]) => (
+                  <Link
+                    key={h}
+                    href={h}
+                    onClick={() => setNavOpen(false)}
+                    className="rounded-xl px-3 py-2.5 text-[15px] font-medium text-white/70 hover:bg-white/5 hover:text-white"
+                  >
+                    {l}
+                  </Link>
+                ))}
+                <Link href="/auth" onClick={() => setNavOpen(false)} className="mt-1 rounded-xl px-3 py-2.5 text-[15px] font-medium text-white/70 hover:bg-white/5 hover:text-white">
+                  Sign in
                 </Link>
-              ))}
-              <Link href="/auth" onClick={() => setNavOpen(false)} className="mt-1 rounded-xl px-3 py-2.5 text-[15px] font-medium text-white/70 hover:bg-white/5 hover:text-white">
-                Sign in
-              </Link>
-              <Link
-                href="/auth"
-                onClick={() => setNavOpen(false)}
-                className="mt-2 inline-flex items-center justify-center rounded-full bg-[var(--k-accent)] px-4 py-2.5 text-[14px] font-semibold text-white"
-              >
-                Start brewing — free
-              </Link>
-            </nav>
-          </div>
+                <Link
+                  href="/auth"
+                  onClick={() => setNavOpen(false)}
+                  className="mt-2 inline-flex items-center justify-center rounded-full bg-[var(--k-accent)] px-4 py-2.5 text-[14px] font-semibold text-white"
+                >
+                  Start brewing — free
+                </Link>
+              </nav>
+            </div>
+          </>
         )}
       </header>
 
