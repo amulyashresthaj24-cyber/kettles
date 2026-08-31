@@ -110,14 +110,14 @@ export function PetShowcase() {
         <div className="k-reveal mx-auto max-w-[760px] text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-[var(--k-line2)] bg-[var(--k-card)] px-3.5 py-1.5 text-[12.5px] font-medium text-[var(--k-accent2)]">
             <Desktop size={15} weight="bold" />
-            Tauri Overlay Window
+            Desktop companion
           </span>
-          <h2 className="mt-5 text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">
+          <h2 className="mt-5 text-[clamp(32px,3.8vw,48px)] font-semibold tracking-[-0.03em] text-[var(--k-ink)]">
             An overlay companion on your desktop.
           </h2>
           <p className="mx-auto mt-4 max-w-[58ch] text-[17px] leading-relaxed text-[var(--k-muted)]">
-            Flowmate&apos;s pet is an always-on-top overlay window that floats above your editor and design tools.
-            It reacts to your timer lifecycle, accepts mouse pokes, and displays quick action chips.
+            Your kettle floats above the editor and stays on top while you work.
+            It reacts to the timer, accepts a poke, and offers a few quiet chips when a brew is done.
           </p>
         </div>
 
@@ -132,7 +132,7 @@ export function PetShowcase() {
                   <h3 className="text-[18px] font-semibold text-[var(--k-ink)]">Timer Reactions</h3>
                 </div>
                 <span className="k-mono text-[12px] font-medium text-[var(--k-faint)]">
-                  Event: {activeBehavior.event}
+                  {activeBehavior.trigger}
                 </span>
               </div>
 
@@ -195,10 +195,10 @@ export function PetShowcase() {
               {activeBehavior.hasExtend && (
                 <div className="mt-4 border-t border-[var(--k-line)] pt-3">
                   <span className="text-[12px] font-medium text-[var(--k-faint)]">
-                    Timer Complete Options (PetSignal.showExtend):
+                    When the brew is done
                   </span>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {["+5m", "+10m", "+25m", "Finish"].map((chip) => (
+                    {["+5 min", "+10 min", "+25 min", "Finish"].map((chip) => (
                       <span
                         key={chip}
                         className="rounded-md border border-[var(--k-line2)] bg-[var(--k-card)] px-2.5 py-1 text-[12px] font-medium text-[var(--k-ink2)]"
@@ -216,9 +216,9 @@ export function PetShowcase() {
           <div className="flex flex-col gap-[20px] lg:col-span-5">
             {/* Native Window Traits Card */}
             <div className="k-reveal rounded-[24px] border border-[var(--k-line)] bg-[var(--k-card)] p-7 flex-1">
-              <h3 className="text-[18px] font-semibold text-[var(--k-ink)]">Desktop Window Capabilities</h3>
-              <p className="mt-2 text-[14.5px] text-[var(--k-muted)] leading-relaxed">
-                Integrated directly with the host Tauri process for unobtrusive background operation.
+              <h3 className="text-[18px] font-semibold text-[var(--k-ink)]">Always on top, never in the way</h3>
+              <p className="mt-2 text-[14.5px] leading-relaxed text-[var(--k-muted)]">
+                A small native window that lives beside your work — not another tab to lose.
               </p>
 
               <ul className="mt-6 space-y-4 text-[14px]">
@@ -227,8 +227,8 @@ export function PetShowcase() {
                     <Desktop size={16} weight="bold" />
                   </div>
                   <div>
-                    <span className="font-semibold text-[var(--k-ink)]">Always-On-Top Overlay</span>
-                    <p className="text-[13px] text-[var(--k-muted)]">Pins above code editors, terminals, and design tools via petOpen.</p>
+                    <span className="font-semibold text-[var(--k-ink)]">Always-on-top overlay</span>
+                    <p className="text-[13px] text-[var(--k-muted)]">Pins above code editors, terminals, and design tools.</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
@@ -236,8 +236,8 @@ export function PetShowcase() {
                     <Cursor size={16} weight="bold" />
                   </div>
                   <div>
-                    <span className="font-semibold text-[var(--k-ink)]">Click-Through Toggle</span>
-                    <p className="text-[13px] text-[var(--k-muted)]">Enable petSetClickthrough for zero mouse obstruction while typing.</p>
+                    <span className="font-semibold text-[var(--k-ink)]">Click-through when you need it</span>
+                    <p className="text-[13px] text-[var(--k-muted)]">Let clicks pass through so the kettle never blocks a cursor.</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
@@ -245,8 +245,8 @@ export function PetShowcase() {
                     <Sparkle size={16} weight="bold" />
                   </div>
                   <div>
-                    <span className="font-semibold text-[var(--k-ink)]">Direct Poke Reactions</span>
-                    <p className="text-[13px] text-[var(--k-muted)]">Hover acknowledges, single click waves, and double click jumps.</p>
+                    <span className="font-semibold text-[var(--k-ink)]">Poke it</span>
+                    <p className="text-[13px] text-[var(--k-muted)]">Hover for a nod, click to wave, double-click to jump.</p>
                   </div>
                 </li>
               </ul>
@@ -283,13 +283,13 @@ export function PetShowcase() {
             <div className="lg:col-span-5">
               <div className="inline-flex items-center gap-2 rounded-full border border-[var(--k-line2)] bg-[var(--k-bg2)] px-3 py-1 text-[12.5px] font-medium text-[var(--k-accent2)]">
                 <ChatTeardropText size={14} weight="bold" />
-                PetSignal.quote &amp; quoteKind
+                Quiet prompts
               </div>
               <h3 className="mt-4 text-[22px] font-semibold tracking-[-0.02em] text-[var(--k-ink)]">
-                Contextual Speech Bubbles
+                Speech bubbles, not alerts
               </h3>
               <p className="mt-2 text-[15px] leading-relaxed text-[var(--k-muted)]">
-                The pet communicates status, break reminders, and task prompts using floating speech bubbles styled by quote kind.
+                Status, break reminders, and task prompts land as a small bubble — never a red banner.
               </p>
 
               <div className="mt-6 flex flex-col gap-2.5">
@@ -310,7 +310,7 @@ export function PetShowcase() {
                         <div className="flex items-center gap-2 text-[13.5px] font-semibold text-[var(--k-ink)]">
                           <span>{q.label}</span>
                           <span className="k-mono text-[11px] font-normal text-[var(--k-faint)]">
-                            (quoteKind: &quot;{q.kind}&quot;)
+                            {q.kind}
                           </span>
                         </div>
                         <p className="mt-0.5 text-[13px] text-[var(--k-muted)]">{q.detail}</p>
@@ -328,7 +328,7 @@ export function PetShowcase() {
                 {/* Speech Bubble */}
                 <div className="relative mb-4 w-full max-w-[340px] rounded-2xl border border-[var(--k-line2)] bg-[var(--k-card)] p-4 shadow-xl">
                   <div className="flex items-center justify-between border-b border-[var(--k-line)] pb-2 text-[12px] font-medium text-[var(--k-accent2)]">
-                    <span>Flowmate Pet</span>
+                    <span>Kettles</span>
                     <span className="k-mono uppercase text-[10.5px] text-[var(--k-faint)]">{activeQuote.kind}</span>
                   </div>
                   <p className="mt-2 text-[14.5px] font-medium leading-normal text-[var(--k-ink)]">

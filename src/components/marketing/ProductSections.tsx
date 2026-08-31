@@ -52,13 +52,13 @@ export function Chip({
     neutral: "border-[var(--k-line2)] bg-[var(--k-card2)] text-[var(--k-ink2)]",
     accent: "border-[var(--k-tint2)] bg-[var(--k-tint)] text-[var(--k-accent2)]",
     ok: "border-[color:rgba(16,185,129,0.22)] bg-[color:rgba(16,185,129,0.1)] text-[var(--k-ok)]",
-    warn: "border-[color:rgba(245,158,11,0.22)] bg-[color:rgba(245,158,11,0.1)] text-[var(--k-c5)]",
+    warn: "border-[color:rgba(51,133,255,0.22)] bg-[color:rgba(51,133,255,0.1)] text-[var(--k-accent2)]",
   };
   const dotColor: Record<string, string> = {
     neutral: "var(--k-muted)",
     accent: "var(--k-accent2)",
     ok: "var(--k-ok)",
-    warn: "var(--k-c5)",
+    warn: "var(--k-accent2)",
   };
   return (
     <span
@@ -89,7 +89,7 @@ function FeatureCard({
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-2.5 text-[var(--k-ink)]">
           <span className="text-[var(--k-accent2)] k-pulse-icon">{icon}</span>
-          <h3 className="text-[15px] font-semibold text-[#e2e4e9]">{title}</h3>
+          <h3 className="text-[15px] font-semibold text-[var(--k-ink)]">{title}</h3>
         </div>
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 rounded-[6px] border border-[var(--k-line2)] px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--k-muted)]">
@@ -219,7 +219,7 @@ export function DeepDiveFeatures() {
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--k-bg2)]">
                     <i
                       className="block h-full rounded-full transition-all duration-300"
-                      style={{ width: `${pct}%`, background: tone === "ok" ? "var(--k-ok)" : "var(--k-c5)" }}
+                      style={{ width: `${pct}%`, background: tone === "ok" ? "var(--k-ok)" : "var(--k-accent2)" }}
                     />
                   </span>
                   <span className="k-mono w-[64px] flex-none text-right text-[11.5px] text-[var(--k-faint)]">{est}</span>
@@ -283,7 +283,7 @@ export function WorkflowPreview() {
         <ContainerScroll
           titleComponent={
             <div className="mx-auto mb-2 max-w-[740px] px-6 text-center">
-              <h2 className="k-reveal text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">
+              <h2 className="k-reveal text-[clamp(32px,3.8vw,48px)] font-semibold tracking-[-0.03em] text-[var(--k-ink)]">
                 The whole day, in one calm view.
               </h2>
               <p className="k-reveal mx-auto mt-5 max-w-[56ch] text-[17px] leading-relaxed text-[var(--k-muted)]">

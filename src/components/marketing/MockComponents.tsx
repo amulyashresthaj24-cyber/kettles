@@ -1,27 +1,17 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Checks, ArrowClockwise, PencilSimple, Archive, Trash, Spinner } from "@/components/ui/icon";
-import { Badge } from "@/components/ui/badge";
 import type { Task } from "@/lib/types";
 import { useEffect, useState } from "react";
 
 const STATUS_DOT: Record<string, string> = {
-  todo: "bg-emerald-500",
-  doing: "bg-amber-400",
-  done: "bg-blue-500",
-};
-
-const URGENCY_BADGE_VARIANT: Record<string, "error" | "warning" | "accent" | "raised"> = {
-  urgent: "error",
-  high: "warning",
-  normal: "accent",
-  low: "raised",
+  todo: "bg-[var(--k-line3)]",
+  doing: "bg-[var(--k-accent2)]",
+  done: "bg-[var(--k-ok)]",
 };
 
 export function MockTaskCard({ task, isActive = false }: { task: Task; isActive?: boolean }) {
   const isDone = task.status === "done";
-  const urgencyLabel = task.urgency.charAt(0).toUpperCase() + task.urgency.slice(1);
 
   return (
     <div
@@ -150,7 +140,7 @@ export function FloatingMockDashboard() {
 }
 
 // ----- Hero Redesign Flanking Cards (Linkd reference) ---------------------
-import { User, Clock, Terminal, Globe, Lock, Shield, Cpu, CalendarBlank, Key, Crosshair, Tag, Plus, CheckCircle, Pause, Stop, ChartBar } from "@phosphor-icons/react";
+import { CalendarBlank, CheckCircle, Crosshair, Key, Pause, Plus, Stop, ChartBar } from "@phosphor-icons/react";
 
 export function HeroVisuals() {
   return (
@@ -169,7 +159,7 @@ export function HeroVisuals() {
             <div className="rounded-[14px] border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] p-3.5 flex flex-col gap-2.5">
               <div className="flex items-start justify-between gap-2">
                 <span className="text-[12.5px] font-medium text-[var(--k-ink2)] leading-snug">Landing Page Redesign</span>
-                <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0 mt-1 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+                <span className="k-live-dot mt-1 shrink-0" />
               </div>
               <div className="flex gap-1.5">
                 <span className="h-1.5 w-5 rounded-full bg-[#0066ff]" />
@@ -210,25 +200,28 @@ export function HeroVisuals() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-56 bg-[#0066ff]/10 rounded-full blur-[50px] opacity-60 pointer-events-none" />
         
         <div className="flex flex-col items-center relative z-10">
-          <span className="inline-flex items-center gap-2 rounded-full bg-[var(--k-surface-soft)] px-3.5 py-1.5 text-[11.5px] font-medium text-[var(--k-muted)] border border-[var(--k-hairline)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)] animate-pulse" />
-            POMODORO RUNNING
+          <span className="inline-flex items-center gap-2 rounded-full border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] px-3.5 py-1.5 text-[11.5px] font-medium tracking-[0.08em] text-[var(--k-muted)]">
+            <span className="k-live-dot" />
+            BREW RUNNING
           </span>
           <h3 className="text-[26px] font-bold mt-5 text-[var(--k-ink)] tracking-tight">Landing Page Redesign</h3>
           <p className="text-[14px] text-[var(--k-muted)] mt-2">Session 2 of 4</p>
         </div>
 
         <div className="my-8 relative z-10">
-          <span className="k-mono text-[64px] font-bold tracking-tight text-[var(--k-ink)] drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]">
-            24:59
+          <span id="k-heroTimer" className="k-mono text-[64px] font-semibold tracking-tight text-[var(--k-ink)] drop-shadow-[0_0_20px_rgba(51,133,255,0.18)]">
+            25:00
           </span>
+          <div className="mx-auto mt-4 h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-[var(--k-surface-soft)]">
+            <div id="k-heroMeter" className="h-full w-full rounded-full bg-[var(--k-accent)]" />
+          </div>
         </div>
 
         <div className="flex justify-center gap-3 mb-2 relative z-10">
-          <button className="h-11 w-11 rounded-full bg-[var(--k-surface-soft)] border border-[var(--k-hairline2)] flex items-center justify-center text-[var(--k-ink)] hover:bg-[var(--k-tint)] transition-colors shadow-lg">
+          <button type="button" tabIndex={-1} aria-hidden className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--k-hairline2)] bg-[var(--k-surface-soft)] text-[var(--k-ink)] shadow-lg transition-colors hover:bg-[var(--k-tint)]">
             <Pause size={16} weight="fill" />
           </button>
-          <button className="h-11 w-11 rounded-full bg-[var(--k-surface-soft)] border border-[var(--k-hairline2)] flex items-center justify-center text-[#ff4b4b] hover:bg-[var(--k-tint)] transition-colors shadow-lg">
+          <button type="button" tabIndex={-1} aria-hidden className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--k-hairline2)] bg-[var(--k-surface-soft)] text-[var(--k-ink2)] shadow-lg transition-colors hover:bg-[var(--k-tint)]">
             <Stop size={16} weight="fill" />
           </button>
         </div>
@@ -266,7 +259,7 @@ export function HeroVisuals() {
           </div>
           <div className="text-right">
             <div className="text-[11px] text-[var(--k-muted)] font-medium">Billable</div>
-            <div className="text-[16px] font-bold text-emerald-400 mt-0.5 tracking-tight">$2,850</div>
+            <div className="mt-0.5 text-[16px] font-semibold tracking-tight text-[var(--k-ok)]">$2,850</div>
           </div>
         </div>
       </div>
@@ -352,10 +345,10 @@ export function MockCreateTaskModal() {
           <Key size={14} className="text-[var(--k-muted)]" /> Passcode Lock
         </div>
         <div className="flex items-center gap-2 rounded-lg bg-[var(--k-bg2)] border border-[var(--k-line2)] px-3.5 py-2 text-[12px] font-medium text-[var(--k-ink2)]">
-          <Crosshair size={14} className="text-indigo-400" /> Billing Rate ($90/hr)
+          <Crosshair size={14} className="text-[var(--k-accent2)]" /> Billing Rate ($90/hr)
         </div>
         <div className="flex items-center gap-2 rounded-lg bg-[var(--k-bg2)] border border-[var(--k-line2)] px-3.5 py-2 text-[12px] font-medium text-[var(--k-ink2)]">
-          <CalendarBlank size={14} className="text-rose-400" /> Target Date (Today)
+          <CalendarBlank size={14} className="text-[var(--k-steam)]" /> Target Date (Today)
         </div>
         
         {/* Action Button */}
