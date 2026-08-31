@@ -640,48 +640,50 @@ export function KettlesLanding() {
       )}
 
       <main id="top">
-        <section className="relative isolate z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1240px] flex-col items-center justify-between overflow-x-clip px-6 pb-0 pt-[120px] text-center">
-          <HeroBackdrop className="k-hero-backdrop pointer-events-none absolute inset-y-0 left-1/2 z-0 h-full w-screen max-w-[100vw] -translate-x-1/2" />
-          <div className="relative z-10 flex flex-1 flex-col items-center justify-center">
-            <div className="k-reveal">
-              <Eyebrow>Task-linked time tracking</Eyebrow>
+        <section className="relative isolate z-10 w-full pt-[120px] pb-16 text-center">
+          <HeroBackdrop className="k-hero-backdrop pointer-events-none absolute inset-0 z-0 h-full w-full" />
+          <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-184px)] w-full max-w-[1240px] flex-col items-center justify-between px-6">
+            <div className="flex flex-1 flex-col items-center justify-center">
+              <div className="k-reveal">
+                <Eyebrow>Task-linked time tracking</Eyebrow>
+              </div>
+              <h1 className="k-reveal mt-5 max-w-[18ch] text-[clamp(44px,6.6vw,76px)] font-semibold leading-[1.02] tracking-[-0.04em]">
+                Put the kettle on. Get to work.
+              </h1>
+              <p className="k-reveal mt-6 max-w-[52ch] text-[clamp(17px,1.5vw,20px)] leading-[1.55] text-[var(--k-muted)]">
+                Task-linked time tracking that turns deep work into a cozy daily ritual — every minute brews into an accurate, billable record.
+              </p>
+              <div className="k-reveal mt-8 flex flex-col items-center gap-3 sm:flex-row">
+                <PrimaryBtn href="/auth" big magnet>
+                  Start brewing — free
+                </PrimaryBtn>
+                <PrimaryBtn href="/auth" big variant="ghost">
+                  Try the web app
+                </PrimaryBtn>
+              </div>
+              <div className="k-reveal mt-5 flex flex-wrap items-center justify-center gap-2 text-[13px] text-[var(--k-faint)]">
+                <span className="inline-flex items-center gap-1.5">
+                  {(["c1", "c2", "c3", "c4"] as const).map((c) => (
+                    <i key={c} className="inline-block h-2 w-2 rounded-full" style={{ background: DOT[c] }} />
+                  ))}
+                </span>
+                <span>Free in beta · no card · no client limits</span>
+              </div>
             </div>
-            <h1 className="k-reveal mt-5 max-w-[18ch] text-[clamp(44px,6.6vw,76px)] font-semibold leading-[1.02] tracking-[-0.04em]">
-              Put the kettle on. Get to work.
-            </h1>
-            <p className="k-reveal mt-6 max-w-[52ch] text-[clamp(17px,1.5vw,20px)] leading-[1.55] text-[var(--k-muted)]">
-              Task-linked time tracking that turns deep work into a cozy daily ritual — every minute brews into an accurate, billable record.
-            </p>
-            <div className="k-reveal mt-8 flex flex-col items-center gap-3 sm:flex-row">
-              <PrimaryBtn href="/auth" big magnet>
-                Start brewing — free
-              </PrimaryBtn>
-              <PrimaryBtn href="/auth" big variant="ghost">
-                Try the web app
-              </PrimaryBtn>
-            </div>
-            <div className="k-reveal mt-5 flex flex-wrap items-center justify-center gap-2 text-[13px] text-[var(--k-faint)]">
-              <span className="inline-flex items-center gap-1.5">
-                {(["c1", "c2", "c3", "c4"] as const).map((c) => (
-                  <i key={c} className="inline-block h-2 w-2 rounded-full" style={{ background: DOT[c] }} />
-                ))}
-              </span>
-              <span>Free in beta · no card · no client limits</span>
-            </div>
-          </div>
 
-          <div className="k-reveal relative z-10 mt-12 flex w-full justify-center" data-parallax>
-            <div data-parallax-inner className="w-full">
-              <HeroVisuals />
-            </div>
-            <div className="pointer-events-none absolute bottom-4 right-[clamp(0rem,4vw,3.5rem)] z-20">
-              <SteamMotif className="k-hero-steam pointer-events-none absolute -right-5 bottom-12 z-0 h-24 w-auto" />
-              <LandingPet scale={0.58} className="pointer-events-auto relative z-10" />
+            <div className="k-reveal relative z-10 mt-12 flex w-full justify-center" data-parallax>
+              <div data-parallax-inner className="w-full">
+                <HeroVisuals />
+              </div>
+              <div className="pointer-events-none absolute bottom-4 right-[clamp(0rem,4vw,3.5rem)] z-20">
+                <SteamMotif className="k-hero-steam pointer-events-none absolute -right-5 bottom-12 z-0 h-24 w-auto" />
+                <LandingPet scale={0.58} className="pointer-events-auto relative z-10" />
+              </div>
             </div>
           </div>
         </section>
 
-        <section id="how" className="relative z-20 -mt-10 border-t border-[var(--k-line)] bg-[var(--k-bg)] py-[120px]">
+        <section id="how" className="relative z-20 border-t border-[var(--k-line)] bg-[var(--k-bg)] py-[120px]">
           <div className="mx-auto max-w-[1180px] px-6">
             <div className="k-reveal mb-8 text-left">
               <Eyebrow>The ritual</Eyebrow>

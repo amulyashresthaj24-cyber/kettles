@@ -147,7 +147,7 @@ export function HeroVisuals() {
     <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-12 items-start w-full max-w-[1240px] px-6">
 
       {/* Left Card: Task Queue / Kanban */}
-      <div className="k-card-fade lg:col-span-3 lg:mt-12 rounded-[24px] border border-[var(--k-hairline)] bg-[var(--k-card)] p-6 text-left shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] min-h-[330px] flex flex-col justify-between overflow-hidden k-interactive-card">
+      <div className="lg:col-span-3 lg:mt-12 rounded-[24px] border border-[var(--k-hairline)] bg-[var(--k-card)] p-6 text-left shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] min-h-[330px] flex flex-col justify-between overflow-hidden k-interactive-card">
         <div>
           <div className="flex items-center gap-2.5 mb-5">
             <CheckCircle size={18} weight="fill" className="text-[#0066ff]" />
@@ -195,7 +195,7 @@ export function HeroVisuals() {
       </div>
 
       {/* Center Card: Active Pomodoro / Kettle tracking visual */}
-      <div className="k-card-fade lg:col-span-6 self-start -translate-y-[10px] rounded-[24px] border border-[var(--k-hairline)] bg-[var(--k-card)] p-10 text-center shadow-[0_30px_70px_-20px_rgba(0,0,0,0.9)] min-h-[300px] flex flex-col justify-between relative overflow-hidden k-interactive-card">
+      <div className="lg:col-span-6 self-start -translate-y-[10px] rounded-[24px] border border-[var(--k-hairline)] bg-[var(--k-card)] p-10 text-center shadow-[0_30px_70px_-20px_rgba(0,0,0,0.9)] min-h-[300px] flex flex-col justify-between relative overflow-hidden k-interactive-card">
         {/* Glow behind timer */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-56 bg-[#0066ff]/10 rounded-full blur-[50px] opacity-60 pointer-events-none" />
         
@@ -228,7 +228,7 @@ export function HeroVisuals() {
       </div>
 
       {/* Right Card: Analytics & Reporting */}
-      <div className="k-card-fade lg:col-span-3 lg:mt-12 rounded-[24px] border border-[var(--k-hairline)] bg-[var(--k-card)] p-6 text-left shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] min-h-[330px] flex flex-col justify-between overflow-hidden k-interactive-card">
+      <div className="lg:col-span-3 lg:mt-12 rounded-[24px] border border-[var(--k-hairline)] bg-[var(--k-card)] p-6 text-left shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] min-h-[330px] flex flex-col justify-between overflow-hidden k-interactive-card">
         <div>
           <div className="flex items-center gap-2.5 mb-5">
             <ChartBar size={18} weight="fill" className="text-[#0066ff]" />

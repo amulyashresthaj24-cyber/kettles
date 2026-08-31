@@ -53,7 +53,6 @@
   letter-spacing: -0.011em;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  overflow-x: clip;
 }
 
 .kettles ::selection { background: var(--k-accent); color: #fff; }
@@ -330,13 +329,6 @@ button.landing-pet { cursor: pointer; }
 /* ---------- premium card interactions & animations ---------- */
 .kettles {
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* Per-card bottom fade — each card dissolves into the dark page individually,
-   instead of a single outer mask dimming all the card bottoms + badges. */
-.k-card-fade {
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 80%, transparent 100%);
-          mask-image: linear-gradient(180deg, #000 0%, #000 80%, transparent 100%);
 }
 
 .k-interactive-card {
