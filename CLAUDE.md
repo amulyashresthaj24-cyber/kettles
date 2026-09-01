@@ -129,7 +129,7 @@ npm run validate:pet         # pet atlas geometry vs live config
 | [`Docs/release.md`](Docs/release.md) | Web + desktop release channels |
 | [`Docs/pet-design-system.md`](Docs/pet-design-system.md) | Pet rules — moments, budget, animation vocabulary, tokens. **Read before any pet change.** |
 | [`Docs/pet-mascot-kit.md`](Docs/pet-mascot-kit.md) | Pet sprite contract; kit assets in `Docs/pet-kit/` |
-| [`Docs/marketing/`](Docs/marketing/) | Landing PRD, brand assets, build brief |
+| [`Docs/marketing/`](Docs/marketing/) | GTM plan, landing PRD, brand assets, build brief |
 
 There is **no database schema doc** — the old one drifted and was deleted. Source of truth is
 `supabase/migrations/` plus the edge functions. Sessions persist through a `data` JSONB column
