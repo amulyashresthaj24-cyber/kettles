@@ -27,8 +27,18 @@
   --k-ink-blue:  #9cc4ff;
   --k-tint:      rgba(0,102,255,0.12);
   --k-tint2:     rgba(0,102,255,0.26);
+  /* pre-mixed accent tints — Tailwind can't apply a /opacity modifier to a
+     var() arbitrary value, so decorative washes use these directly */
+  --k-wash-05:   rgba(51,133,255,0.05);
+  --k-wash-10:   rgba(51,133,255,0.10);
+  --k-wash-20:   rgba(51,133,255,0.20);
   --k-c1:#14b8a6; --k-c2:#6366f1; --k-c3:#ec4899; --k-c4:#3385ff; --k-c5:#f59e0b;
   --k-ok:        #10b981;
+  --k-danger:    #ff4b4b;
+  /* the floating nav pill is deliberately dark in BOTH themes, so it needs a
+     surface that does not flip — it was on --k-bg2, which left white text on
+     a near-white pill in light mode. */
+  --k-nav-surface: #0e0f10;
   --k-ease:      cubic-bezier(0.16, 1, 0.3, 1);
 
   /* semantic surface/ink tokens — the "white-on-dark" literals map here so a
@@ -39,9 +49,24 @@
   --k-hairline:     rgba(255,255,255,0.06); /* border-white/5 */
   --k-hairline2:    rgba(255,255,255,0.10); /* border-white/10 */
 
-  /* Standardized rhythm & surface scale tokens */
-  --k-section-py:   120px;
-  --k-strip-py:     64px;
+  /* deep-blue chip gradient used by the mock UI cards, and the two ribbon
+     blues + the review-star gold. These were baked as literals in the TSX,
+     which meant they never flipped in light mode. */
+  --k-chip-1:       #05080d;
+  --k-chip-2:       #061733;
+  --k-chip-3:       #072a63;
+  --k-chip-grad:    linear-gradient(135deg, var(--k-chip-1) 0%, var(--k-chip-2) 50%, var(--k-chip-3) 100%);
+  --k-accent-deep:  #0047b3;
+  --k-accent-deeper:#002b6b;
+  --k-star:         #f5a623;
+  --k-spout:        #5b5bf5;
+  --k-well:         #0a0a0a;
+  --k-well-line:    rgba(0,0,0,0.85);
+
+  /* Standardized rhythm & surface scale tokens.
+     Fluid so a phone doesn't eat 240px of dead space per section. */
+  --k-section-py:   clamp(72px, 8.5vw, 128px);
+  --k-strip-py:     clamp(48px, 5vw, 72px);
   --k-radius-card:  24px;
   --k-radius-inner: 16px;
 
@@ -58,6 +83,50 @@
 .kettles ::selection { background: var(--k-accent); color: #fff; }
 .kettles *:focus-visible { outline: 2px solid var(--k-accent2); outline-offset: 3px; border-radius: 8px; }
 .k-mono { font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace; font-feature-settings: "tnum" 1; letter-spacing: -0.02em; }
+
+/* ==========================================================================
+   TYPE SCALE + SECTION RHYTHM
+   The page had drifted to five ad-hoc heading clamps and six body sizes.
+   These four classes are the whole scale — use them, don't invent clamps.
+   ========================================================================== */
+.kettles .k-h2 {
+  font-size: clamp(30px, 3.6vw, 46px);
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.033em;
+  color: var(--k-ink);
+}
+.kettles .k-h3 {
+  font-size: clamp(19px, 1.7vw, 23px);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--k-ink);
+}
+.kettles .k-h4 {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.012em;
+  color: var(--k-ink);
+}
+.kettles .k-lede {
+  font-size: clamp(15.5px, 1.25vw, 17px);
+  line-height: 1.62;
+  color: var(--k-muted);
+  max-width: 56ch;
+}
+.kettles .k-body {
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: var(--k-muted);
+}
+
+/* section shells — one rhythm token, not 120px sprinkled nine times */
+.kettles .k-section { padding-top: var(--k-section-py); padding-bottom: var(--k-section-py); }
+.kettles .k-strip   { padding-top: var(--k-strip-py);   padding-bottom: var(--k-strip-py); }
+
+
 
 .k-reveal { opacity: 0; filter: blur(12px); transform: scale(1.08); transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), filter 1.2s cubic-bezier(0.16, 1, 0.3, 1); }
 .k-reveal.k-in { opacity: 1; filter: blur(0px); transform: scale(1); }
@@ -408,7 +477,7 @@ button.landing-pet { cursor: pointer; }
   .kettles *, .kettles *::before, .kettles *::after {
     animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important;
   }
-  .k-reveal, .k-stagger > * { opacity: 1 !important; transform: none !important; }
+  .k-reveal, .k-stagger > * { opacity: 1 !important; transform: none !important; filter: none !important; }
   .k-steam path { opacity: .3; }
   .k-interactive-card:hover { transform: none !important; box-shadow: none !important; }
   .k-interactive-card:hover .k-pulse-icon { animation: none !important; }
@@ -582,6 +651,14 @@ button.landing-pet { cursor: pointer; }
   --k-surface-soft: #f2f4f7;
   --k-hairline:     rgba(0,0,0,0.06);
   --k-hairline2:    rgba(0,0,0,0.10);
+
+  /* the mock-UI chips stay a deep blue in both themes (they represent the
+     product's dark chrome) but lift enough to read against a white page */
+  --k-chip-1:       #0b1220;
+  --k-chip-2:       #10254d;
+  --k-chip-3:       #123a80;
+  --k-well:         #101418;
+  --k-well-line:    rgba(0,0,0,0.35);
 
   background: linear-gradient(180deg, #ffffff 0%, #f6f7f9 50%, #eef1f5 100%);
   color: var(--k-ink);

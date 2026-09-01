@@ -62,7 +62,7 @@ export function Chip({
   };
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-medium ${tones[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${tones[tone]} ${className}`}
     >
       {dot && <span className="h-1.5 w-1.5 rounded-full" style={{ background: dotColor[tone] }} />}
       {children}
@@ -89,10 +89,10 @@ function FeatureCard({
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-2.5 text-[var(--k-ink)]">
           <span className="text-[var(--k-accent2)] k-pulse-icon">{icon}</span>
-          <h3 className="text-[15px] font-semibold text-[#e2e4e9]">{title}</h3>
+          <h3 className="k-h4">{title}</h3>
         </div>
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 rounded-[6px] border border-[var(--k-line2)] px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--k-muted)]">
+          <span className="flex items-center gap-1.5 rounded-[6px] border border-[var(--k-line2)] px-2.5 py-1.5 text-[11px] font-medium text-[var(--k-muted)]">
             {badge ?? "Last Month"} <CaretRight size={10} className="rotate-90" />
           </span>
           <span className="grid h-[28px] w-[28px] place-items-center rounded-[6px] border border-[var(--k-line2)] text-[var(--k-muted)]">
@@ -222,7 +222,7 @@ export function DeepDiveFeatures() {
                       style={{ width: `${pct}%`, background: tone === "ok" ? "var(--k-ok)" : "var(--k-c5)" }}
                     />
                   </span>
-                  <span className="k-mono w-[64px] flex-none text-right text-[11.5px] text-[var(--k-faint)]">{est}</span>
+                  <span className="k-mono w-[64px] flex-none text-right text-[11px] text-[var(--k-faint)]">{est}</span>
                 </div>
               </div>
             ))}
@@ -258,7 +258,7 @@ export function DeepDiveFeatures() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium text-[var(--k-ink)]">{t as string}</p>
-                    <p className="truncate text-[11.5px] text-[var(--k-muted)]">{d as string}</p>
+                    <p className="truncate text-[11px] text-[var(--k-muted)]">{d as string}</p>
                   </div>
                   <span className="k-mono flex-none text-[11px] text-[var(--k-faint)]">{time as string}</span>
                 </div>

@@ -3,18 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { HeroVisuals } from "@/components/marketing/MockComponents";
 import { WorkflowPreview } from "@/components/marketing/ProductSections";
 import { LandingPet } from "@/components/marketing/LandingPet";
 import { PetShowcase } from "@/components/marketing/PetShowcase";
-import {
-  FocusRingArt,
-  HeroBackdrop,
-  SectionDivider,
-  SteamMotif,
-  TaskStackArt,
-} from "@/components/marketing/art";
+import { SteamMotif } from "@/components/marketing/art";
 import { BeamsBackground } from "@/components/ui/beams-background";
 import DisplayCards from "@/components/ui/display-cards";
 import {
@@ -67,8 +60,8 @@ function Kettle({
   steam?: boolean;
   lost?: boolean;
 }) {
-  const body = tone === "accent" ? "#0066ff" : "#85c2ff";
-  const spout = tone === "accent" ? "#5b5bf5" : "#3385ff";
+  const body = tone === "accent" ? "var(--k-accent)" : "var(--k-steam)";
+  const spout = tone === "accent" ? "var(--k-spout)" : "var(--k-accent2)";
   return (
     <div className={`relative inline-flex flex-col items-center ${lost ? "k-lost grayscale-[.55] brightness-90" : ""}`}>
       {lost && (
@@ -76,9 +69,9 @@ function Kettle({
       )}
       {steam && !lost && (
         <svg className="k-steam -mb-1.5" width={size * 0.42} height={size * 0.38} viewBox="0 0 44 40" fill="none" aria-hidden>
-          <path className="s1" d="M13 38 C9 29 18 24 13 15 C10 8 13 3 13 3" stroke="#85c2ff" strokeWidth="2.6" strokeLinecap="round" />
-          <path className="s2" d="M24 38 C29 29 20 24 24 15 C28 8 24 3 24 3" stroke="#85c2ff" strokeWidth="2.6" strokeLinecap="round" />
-          <path className="s3" d="M34 38 C30 30 38 24 34 16 C31 9 34 4 34 4" stroke="#85c2ff" strokeWidth="2.6" strokeLinecap="round" />
+          <path className="s1" d="M13 38 C9 29 18 24 13 15 C10 8 13 3 13 3" stroke="var(--k-steam)" strokeWidth="2.6" strokeLinecap="round" />
+          <path className="s2" d="M24 38 C29 29 20 24 24 15 C28 8 24 3 24 3" stroke="var(--k-steam)" strokeWidth="2.6" strokeLinecap="round" />
+          <path className="s3" d="M34 38 C30 30 38 24 34 16 C31 9 34 4 34 4" stroke="var(--k-steam)" strokeWidth="2.6" strokeLinecap="round" />
         </svg>
       )}
       <svg className="k-pot" width={size} height={size} viewBox="22 17 85 86" fill="none" aria-hidden>
@@ -114,10 +107,6 @@ function Wordmark({ className = "" }: { className?: string }) {
 }
 
 // ----- shared atoms --------------------------------------------------------
-function Eyebrow(_props: { children: React.ReactNode }) {
-  return null;
-}
-
 function PrimaryBtn({ href, children, magnet = false, big = false, solid = false, id }: { href: string; children: React.ReactNode; magnet?: boolean; big?: boolean; solid?: boolean; id?: string }) {
   if (solid) {
     return (
@@ -128,7 +117,7 @@ function PrimaryBtn({ href, children, magnet = false, big = false, solid = false
         className={`k-press ${magnet ? "k-magnet" : ""} group inline-flex items-center justify-center gap-2 rounded-full bg-[var(--k-accent)] font-semibold text-white shadow-[0_14px_30px_-14px_rgba(0,102,255,0.55)] hover:bg-[var(--k-accent-h)] transition-all duration-200 whitespace-nowrap shrink-0 ${big ? "px-7 py-3.5 text-[16px]" : "px-5 py-2.5 text-[14px]"}`}
       >
         <span>{children}</span>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={`transform transition-transform duration-200 group-hover:translate-x-1 shrink-0 ${big ? "h-4.5 w-4.5" : "h-4 w-4"}`}>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={`transform transition-transform duration-200 group-hover:translate-x-1 shrink-0 ${big ? "h-[18px] w-[18px]" : "h-4 w-4"}`}>
           <path d="M13.75 8.125L17.5 11.875L13.75 15.625" />
           <path d="M2.5 4.375C2.5 6.36412 3.29018 8.27178 4.6967 9.6783C6.10322 11.0848 8.01088 11.875 10 11.875H17.5" />
         </svg>
@@ -140,7 +129,7 @@ function PrimaryBtn({ href, children, magnet = false, big = false, solid = false
       id={id}
       href={href}
       data-magnet={magnet ? "" : undefined}
-      className={`k-press ${magnet ? "k-magnet" : ""} group inline-flex items-center justify-center gap-1.5 font-semibold text-[var(--k-accent2)] hover:text-[var(--k-accent)] transition-all duration-200 whitespace-nowrap shrink-0 ${big ? "text-[18px] py-1" : "text-[14.5px] py-1"}`}
+      className={`k-press ${magnet ? "k-magnet" : ""} group inline-flex items-center justify-center gap-1.5 font-semibold text-[var(--k-accent2)] hover:text-[var(--k-accent)] transition-all duration-200 whitespace-nowrap shrink-0 ${big ? "text-[18px] py-1" : "text-[15px] py-1"}`}
     >
       <span>{children}</span>
       <svg
@@ -579,17 +568,17 @@ export function KettlesLanding() {
       >
         {/* Nav pill stays dark in both themes — a deliberate high-contrast
             floating bar over the light page (see design ref). */}
-        <div className="relative mx-auto bg-[var(--k-bg2)] text-white h-[58px] rounded-b-2xl md:rounded-b-[24px] flex items-center justify-between px-6 gap-8 shadow-[0_12px_30px_-10px_rgba(0,0,0,0.45)] border-x border-b border-white/15 md:min-w-[720px] lg:min-w-[840px]">
+        <div className="relative mx-auto bg-[var(--k-nav-surface)] text-white h-[58px] rounded-b-2xl md:rounded-b-[24px] flex items-center justify-between px-6 gap-8 shadow-[0_12px_30px_-10px_rgba(0,0,0,0.45)] border-x border-b border-white/15 md:min-w-[720px] lg:min-w-[840px]">
           {/* Left inverse corner */}
           <div
             className="hidden md:block w-6 h-6 absolute top-0 right-full pointer-events-none"
-            style={{ background: "radial-gradient(circle at left bottom, transparent 23px, rgba(255,255,255,0.15) 23px, rgba(255,255,255,0.15) 24px, var(--k-bg2) 24px)" }}
+            style={{ background: "radial-gradient(circle at left bottom, transparent 23px, rgba(255,255,255,0.15) 23px, rgba(255,255,255,0.15) 24px, var(--k-nav-surface) 24px)" }}
           />
 
           {/* Right inverse corner */}
           <div
             className="hidden md:block w-6 h-6 absolute top-0 left-full pointer-events-none"
-            style={{ background: "radial-gradient(circle at right bottom, transparent 23px, rgba(255,255,255,0.15) 23px, rgba(255,255,255,0.15) 24px, var(--k-bg2) 24px)" }}
+            style={{ background: "radial-gradient(circle at right bottom, transparent 23px, rgba(255,255,255,0.15) 23px, rgba(255,255,255,0.15) 24px, var(--k-nav-surface) 24px)" }}
           />
 
           {/* Logo / Link */}
@@ -648,65 +637,75 @@ export function KettlesLanding() {
 
       <main id="top">
         {/* ===================== HERO (Centered layout + flanking visual cards) ===================== */}
-        <section className="relative isolate z-10 mx-auto flex min-h-[100dvh] flex-col items-center justify-between px-6 pb-0 pt-[120px] text-center w-full max-w-[1240px] overflow-x-clip">
-          <HeroBackdrop className="k-hero-backdrop pointer-events-none absolute inset-y-0 left-1/2 z-0 h-full w-screen max-w-[100vw] -translate-x-1/2" />
-          {/* Text + CTA group (pinned toward the top, vertically centered in the remaining space) */}
+        <section className="relative isolate z-10 mx-auto flex min-h-[100dvh] w-full max-w-[1240px] flex-col items-center justify-between overflow-x-clip px-6 pb-0 pt-[clamp(104px,13vh,146px)] text-center">
+          {/* Copy sits centred with the product cards banded underneath.
+              Spacing beat inside the copy group stays uneven on purpose:
+              headline and lede bind close, then a generous break to the CTA. */}
           <div className="relative z-10 flex flex-1 flex-col items-center justify-center">
-            <h1 className="k-reveal text-[clamp(44px,6.5vw,76px)] font-bold leading-[1.01] tracking-[-0.04em] max-w-[20ch]">
-              Time tracking that does <br className="hidden sm:inline" />
-              the remembering for you.
+            <h1 className="k-reveal text-[clamp(38px,5.4vw,66px)] font-bold leading-[1.03] tracking-[-0.038em] text-balance max-w-[19ch]">
+              Time tracking that does the remembering for you.
             </h1>
-            <p className="k-reveal mt-6 max-w-[50ch] text-[clamp(17px,1.5vw,20px)] leading-[1.5] text-[var(--k-muted)]">
-              Pick a task, hit start. Every minute locks to the work. <br className="hidden sm:block" />
-              Your weekly report stays accurate and invoice-ready, automatically.
+            <p className="k-reveal mt-5 max-w-[52ch] text-[clamp(16px,1.35vw,19px)] leading-[1.55] text-[var(--k-muted)] text-pretty">
+              Pick a task, hit start. Every minute locks to the work. Your weekly
+              report stays accurate and invoice-ready, automatically.
             </p>
-            <div className="k-reveal mt-8 flex flex-col items-center gap-3">
-              <PrimaryBtn href="/auth" big magnet>
-                Start free
-              </PrimaryBtn>
+            <div className="k-reveal mt-11 flex flex-col items-center gap-3.5">
+              <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-5">
+                <PrimaryBtn href="/auth" big magnet solid>
+                  Start free
+                </PrimaryBtn>
+                <Link
+                  href="#how"
+                  className="k-press inline-flex items-center gap-1.5 text-[15px] font-medium text-[var(--k-muted)] transition-colors hover:text-[var(--k-ink)]"
+                >
+                  See how it works
+                  <ArrowRight size={16} weight="bold" />
+                </Link>
+              </div>
               <span className="text-[13px] text-[var(--k-faint)]">No card required · free to start</span>
             </div>
           </div>
 
-          {/* Visual flanking cards — anchored to the hero bottom so the next
-              section's overlap stays consistent across viewport heights. */}
+          {/* Card band anchored to the hero bottom so the next section's
+              overlap stays consistent across viewport heights. */}
           <div className="k-reveal relative z-10 mt-12 flex w-full justify-center">
             <HeroVisuals />
-            <div className="pointer-events-none absolute bottom-4 right-[clamp(0rem,4vw,3.5rem)] z-20">
+            {/* Parked over the task card's empty lower half — on the right it
+                landed on the analytics card's billable figure. */}
+            <div className="pointer-events-none absolute bottom-4 left-[clamp(0rem,5vw,4.5rem)] z-20">
               <SteamMotif className="k-hero-steam pointer-events-none absolute -right-5 bottom-12 z-0 h-24 w-auto" />
               <LandingPet scale={0.58} className="pointer-events-auto relative z-10" />
             </div>
           </div>
         </section>
 
-
-
-
         {/* ===================== HOW IT WORKS (Bento Grid) ===================== */}
-        <section id="how" className="relative z-20 -mt-10 py-[120px] bg-[var(--k-bg)] border-t border-[var(--k-line)]">
+        <section id="how" className="relative z-20 -mt-10 k-section bg-[var(--k-bg)] border-t border-[var(--k-line)]">
           <div className="mx-auto max-w-[1180px] px-6">
-            <div className="k-reveal text-left mb-12">
-              <h2 className="text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">Three steps. One honest record.</h2>
-              <p className="mt-4 text-[17px] leading-relaxed text-[var(--k-muted)] max-w-[56ch]">
+            <div className="k-reveal mb-12 max-w-[46ch] text-left">
+              <h2 className="k-h2">Three steps. One honest record.</h2>
+              <p className="mt-4 k-lede">
                 No stopwatch guesswork. Pick the task, let the kettle boil, and the time locks itself to the work.
               </p>
             </div>
             
-            <div className="k-reveal grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Asymmetric bento: a wide opener, a narrow middle beat, and a
+                full-width closer that reads horizontally. Collapses to a
+                single column below md. */}
+            <div className="k-reveal grid grid-cols-1 gap-6 md:grid-cols-12">
               {/* Card 1: Pick a task */}
-              <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1">
-                <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-gradient-to-br from-[#3385ff]/20 via-[#0066ff]/10 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className="relative h-full flex flex-col justify-between bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] min-h-[340px]">
-                  <TaskStackArt className="k-step-art pointer-events-none absolute -right-10 -top-7 z-0 w-[min(16rem,78%)]" />
-                  <div className="relative z-10 h-40 w-full flex items-center justify-center">
+              <div className="group relative md:col-span-7 rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1">
+                <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-gradient-to-br from-[var(--k-wash-20)] via-[var(--k-wash-10)] to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative h-full flex flex-col justify-between bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] min-h-[320px]">
+                  <div className="relative z-10 flex w-full flex-1 items-center justify-center py-2">
                     {/* Floating Cards Graphic */}
                     <div className="relative w-40 h-32">
-                      <div className="absolute top-4 left-0 w-24 h-28 rounded-xl border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] transform -rotate-6 shadow-2xl transition-transform duration-500 group-hover:-rotate-12 group-hover:-translate-x-2 flex flex-col gap-2 p-3">
+                      <div className="absolute top-4 left-0 w-24 h-28 rounded-xl border border-white/10 bg-[image:var(--k-chip-grad)] transform -rotate-6 shadow-2xl transition-transform duration-500 group-hover:-rotate-12 group-hover:-translate-x-2 flex flex-col gap-2 p-3">
                         <div className="w-10 h-1 rounded-full bg-white/20" />
                         <div className="w-16 h-1 rounded-full bg-white/10" />
                         <div className="w-12 h-1 rounded-full bg-white/10" />
                       </div>
-                      <div className="absolute top-0 left-8 w-28 h-32 rounded-xl border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-2xl transition-transform duration-500 group-hover:translate-x-2 group-hover:-translate-y-2 flex flex-col items-center p-3 relative overflow-hidden">
+                      <div className="absolute top-0 left-8 w-28 h-32 rounded-xl border border-white/10 bg-[image:var(--k-chip-grad)] shadow-2xl transition-transform duration-500 group-hover:translate-x-2 group-hover:-translate-y-2 flex flex-col items-center p-3 relative overflow-hidden">
                         <div className="w-16 h-1.5 rounded-full bg-white/20 mb-2 mt-2 self-start" />
                         <div className="w-full flex-1 border border-white/10 rounded-lg mt-1 relative overflow-hidden flex items-end">
                            <svg viewBox="0 0 100 50" className="w-full h-full opacity-30 text-white" preserveAspectRatio="none">
@@ -714,7 +713,7 @@ export function KettlesLanding() {
                            </svg>
                         </div>
                         {/* Glowing Planet */}
-                        <div className="absolute -bottom-2 -right-2 w-16 h-16 rounded-full bg-gradient-to-tr from-[#0066ff] to-[#3385ff] shadow-[0_0_30px_rgba(0,102,255,0.6)] flex flex-col items-center justify-center overflow-hidden">
+                        <div className="absolute -bottom-2 -right-2 w-16 h-16 rounded-full bg-gradient-to-tr from-[var(--k-accent)] to-[var(--k-accent2)] shadow-[0_0_30px_rgba(0,102,255,0.6)] flex flex-col items-center justify-center overflow-hidden">
                           {/* Stripes on planet */}
                           <div className="w-full h-1.5 bg-white/20 transform rotate-12 mb-1.5" />
                           <div className="w-full h-1 bg-white/20 transform rotate-12" />
@@ -723,20 +722,19 @@ export function KettlesLanding() {
                     </div>
                   </div>
                   <div className="mt-6 flex flex-col gap-2 relative z-10">
-                    <h3 className="text-[20px] font-semibold text-[var(--k-ink)] tracking-[-0.02em]">Pick a task</h3>
-                    <p className="text-[14.5px] text-[var(--k-muted)] leading-relaxed pr-6">Choose what you&apos;re working on. The timer attaches to that task, not a blank stopwatch.</p>
+                    <h3 className="k-h3">Pick a task</h3>
+                    <p className="k-body pr-6">Choose what you&apos;re working on. The timer attaches to that task, not a blank stopwatch.</p>
                   </div>
                 </div>
               </div>
 
               {/* Card 2: The kettle boils */}
-              <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1">
-                <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-gradient-to-br from-[#3385ff]/20 via-[#0066ff]/10 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className="relative h-full flex flex-col justify-between bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] min-h-[340px]">
-                  <FocusRingArt className="k-step-art pointer-events-none absolute -right-8 -top-7 z-0 w-[min(15rem,76%)]" />
-                  <div className="relative z-10 h-40 w-full flex items-center justify-center">
+              <div className="group relative md:col-span-5 rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1">
+                <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-gradient-to-br from-[var(--k-wash-20)] via-[var(--k-wash-10)] to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative h-full flex flex-col justify-between bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] min-h-[320px]">
+                  <div className="relative z-10 flex w-full flex-1 items-center justify-center py-2">
                     {/* Clock Graphic */}
-                    <div className="relative w-28 h-28 rounded-full border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
+                    <div className="relative w-28 h-28 rounded-full border border-white/10 bg-[image:var(--k-chip-grad)] shadow-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
                       {/* Inner ring */}
                       <div className="absolute inset-2 rounded-full border border-white/5" />
                       
@@ -753,40 +751,39 @@ export function KettlesLanding() {
 
                       {/* Minute hand */}
                       <div className="absolute inset-0 transition-transform duration-[1500ms] ease-out group-hover:rotate-[1080deg]">
-                        <div className="absolute bottom-1/2 left-1/2 -translate-x-1/2 w-1 h-10 bg-gradient-to-t from-[#0066ff] to-[#3385ff] shadow-[0_0_12px_rgba(51,133,255,0.6)] rounded-full origin-bottom translate-y-[1px]" />
+                        <div className="absolute bottom-1/2 left-1/2 -translate-x-1/2 w-1 h-10 bg-gradient-to-t from-[var(--k-accent)] to-[var(--k-accent2)] shadow-[0_0_12px_rgba(51,133,255,0.6)] rounded-full origin-bottom translate-y-[1px]" />
                       </div>
 
                       {/* Center dot */}
-                      <div className="w-2.5 h-2.5 rounded-full bg-[#0066ff] shadow-[0_0_10px_rgba(51,133,255,0.8)] z-10" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-[var(--k-accent)] shadow-[0_0_10px_rgba(51,133,255,0.8)] z-10" />
                     </div>
                   </div>
                   <div className="mt-6 flex flex-col gap-2 relative z-10">
-                    <h3 className="text-[20px] font-semibold text-[var(--k-ink)] tracking-[-0.02em]">The timer runs</h3>
-                    <p className="text-[14.5px] text-[var(--k-muted)] leading-relaxed pr-6">Watch your focus session count down. Close the app, switch devices. Your progress keeps ticking in the cloud.</p>
+                    <h3 className="k-h3">The timer runs</h3>
+                    <p className="k-body pr-6">Watch your focus session count down. Close the app, switch devices. Your progress keeps ticking in the cloud.</p>
                   </div>
                 </div>
               </div>
 
               {/* Card 3: Time locks to the task */}
-              <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1">
-                <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-gradient-to-br from-[#3385ff]/20 via-[#0066ff]/10 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className="relative h-full flex flex-col justify-between bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] min-h-[340px]">
-                  
-                  <div className="relative h-40 w-full flex items-center justify-center">
+              <div className="group relative md:col-span-12 rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1">
+                <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-gradient-to-br from-[var(--k-wash-20)] via-[var(--k-wash-10)] to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative h-full flex flex-col justify-between gap-6 bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] min-h-[220px] md:flex-row md:items-center md:gap-14 md:p-10">
+                  <div className="relative flex h-40 w-full items-center justify-center md:h-auto md:w-[46%] md:shrink-0 md:py-4">
                     {/* Sleek Progress/Pill Graphic */}
-                    <div className="relative w-48 h-16 rounded-full border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-2xl backdrop-blur-md flex items-center px-3 transition-transform duration-500 group-hover:scale-105">
-                      <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-[#0066ff] to-[#3385ff] flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(0,102,255,0.4)] overflow-hidden">
+                    <div className="relative flex h-20 w-full max-w-[400px] items-center rounded-full border border-white/10 bg-[image:var(--k-chip-grad)] px-4 shadow-2xl backdrop-blur-md transition-transform duration-500 group-hover:scale-105">
+                      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-[var(--k-accent)] to-[var(--k-accent2)] flex items-center justify-center shadow-[0_0_15px_rgba(0,102,255,0.4)]">
                         <Check size={16} weight="bold" className="text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.6)] absolute transition-all duration-300 group-hover:opacity-0 group-hover:scale-75" />
-                        <Lock size={15} weight="bold" className="text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.6)] absolute opacity-0 scale-75 transition-all duration-300 group-hover:opacity-100 group-hover:scale-100" />
+                        <Lock size={16} weight="bold" className="text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.6)] absolute opacity-0 scale-75 transition-all duration-300 group-hover:opacity-100 group-hover:scale-100" />
                       </div>
-                      <div className="ml-3 w-28 h-6 rounded-full bg-[#0a0a0a] border border-black shadow-inner flex items-center px-1">
-                        <div className="h-4 w-2/3 bg-gradient-to-r from-[#0066ff] to-[#3385ff] rounded-full shadow-[0_0_10px_rgba(51,133,255,0.4)] transition-all duration-500 ease-out group-hover:w-[92%]" />
+                      <div className="ml-4 flex h-8 flex-1 items-center rounded-full border border-[color:var(--k-well-line)] bg-[var(--k-well)] px-1.5 shadow-inner">
+                        <div className="h-5 w-2/3 rounded-full bg-gradient-to-r from-[var(--k-accent)] to-[var(--k-accent2)] shadow-[0_0_10px_rgba(51,133,255,0.4)] transition-all duration-500 ease-out group-hover:w-[92%]" />
                       </div>
                     </div>
                   </div>
-                  <div className="mt-6 flex flex-col gap-2 relative z-10">
-                    <h3 className="text-[20px] font-semibold text-[var(--k-ink)] tracking-[-0.02em]">Time locks to the task</h3>
-                    <p className="text-[14.5px] text-[var(--k-muted)] leading-relaxed pr-6">When the brew is done, the minutes seal to the task. No guessing, no backfilling, no rounding up.</p>
+                  <div className="relative z-10 flex flex-col gap-2 md:mt-0 md:max-w-[46ch]">
+                    <h3 className="k-h3">Time locks to the task</h3>
+                    <p className="k-body pr-6">When the brew is done, the minutes seal to the task. No guessing, no backfilling, no rounding up.</p>
                   </div>
                 </div>
               </div>
@@ -795,13 +792,13 @@ export function KettlesLanding() {
         </section>
 
         {/* ===================== PROBLEM (editorial, all cards legible) ===================== */}
-        <section className="mx-auto max-w-[1180px] px-6 py-[120px]">
+        <section className="mx-auto max-w-[1180px] px-6 k-section">
           <div className="grid w-full grid-cols-1 items-center gap-14 lg:grid-cols-12 lg:gap-16">
             <div className="k-reveal lg:col-span-5">
-              <h2 className="text-[clamp(32px,3.8vw,48px)] font-bold leading-[1.05] tracking-[-0.03em]">
+              <h2 className="k-h2">
                 Your logged hours don&apos;t match your real work.
               </h2>
-              <p className="mt-5 max-w-[56ch] text-[17px] leading-relaxed text-[var(--k-muted)]">
+              <p className="mt-5 k-lede">
                 Guessed timesheets quietly cost you money and trust. Kettles fixes the leak at the source. No boxes, just an honest record.
               </p>
             </div>
@@ -834,42 +831,30 @@ export function KettlesLanding() {
         </section>
 
         {/* ===================== FEATURES (4-levels Analytics Style) ===================== */}
-        <section id="features" className="k-texture relative overflow-hidden border-y border-[var(--k-line)] bg-[var(--k-bg)] py-[120px]">
-          <SectionDivider className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[clamp(3.5rem,8vw,7rem)] w-full opacity-60" />
-          {/* concentric-ring backdrop */}
-          <Image
-            src="/images/bg-circle.png"
-            alt=""
-            aria-hidden
-            width={1440}
-            height={1440}
-            priority={false}
-            className="pointer-events-none absolute left-1/2 top-1/2 z-0 w-[min(1650px,125vw)] max-w-none -translate-x-1/2 -translate-y-1/2 select-none opacity-80 [mask-image:radial-gradient(circle_at_center,#000_42%,transparent_78%)]"
-          />
+        <section id="features" className="k-texture relative overflow-hidden border-y border-[var(--k-line)] bg-[var(--k-bg)] k-section">
           <div className="relative z-10">
             <WorkflowPreview />
           </div>
         </section>
 
         {/* ===================== COMPANION (asymmetric focal + states) ===================== */}
-        <section className="relative z-10 border-y border-[var(--k-line)] bg-[var(--k-bg2)] py-[120px]">
+        <section className="relative z-10 border-y border-[var(--k-line)] bg-[var(--k-bg2)] k-section">
           <div className="mx-auto max-w-[1180px] px-6">
             <div className="k-reveal mx-auto max-w-[740px] text-center">
-              <Eyebrow>The companion</Eyebrow>
-              <h2 className="mt-5 text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.03em]">You&apos;re not focusing alone.</h2>
-              <p className="mx-auto mt-5 max-w-[56ch] text-[17px] leading-relaxed text-[var(--k-muted)]">
+              <h2 className="k-h2">You&apos;re not focusing alone.</h2>
+              <p className="mx-auto mt-5 k-lede">
                 Your kettle stays warm while you work, whistles when a brew is done, and wanders off when you go cold. Keep your streak. Keep the kettle on.
               </p>
             </div>
             <div className="mt-14 grid grid-cols-1 gap-[18px] lg:grid-cols-12">
               {/* focal */}
-              <article className="group relative flex flex-col justify-between overflow-hidden rounded-[24px] border border-[var(--k-line)] bg-[var(--k-card)] p-10 lg:col-span-6 lg:row-span-2 lg:min-h-[420px]">
+              <article className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-[var(--k-line)] bg-[var(--k-card)] p-10 lg:col-span-6 lg:row-span-2 lg:min-h-[420px]">
                 <div className="flex flex-1 items-center justify-center py-6">
                   <Kettle size={140} />
                 </div>
                 <div>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-[var(--k-line2)] bg-[var(--k-bg2)] px-3 py-1.5 text-[12.5px] font-medium text-[var(--k-ink2)]">Brewing</span>
-                  <h3 className="mt-3 text-[22px] font-semibold tracking-[-0.02em]">Steaming along</h3>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-[var(--k-line2)] bg-[var(--k-bg2)] px-3 py-1.5 text-[12px] font-medium text-[var(--k-ink2)]">Brewing</span>
+                  <h3 className="mt-3 k-h3">Steaming along</h3>
                   <p className="mt-1.5 max-w-[40ch] text-[15px] text-[var(--k-muted)]">While you focus, it stays warm and whistles the moment the brew is done.</p>
                 </div>
               </article>
@@ -884,76 +869,74 @@ export function KettlesLanding() {
         <PetShowcase />
 
         {/* ===================== TRUST / ACCOUNT DATA (OAuth homepage requirement) ===================== */}
-        <section id="security" className="relative z-10 border-y border-[var(--k-line)] bg-[var(--k-bg2)] py-16 md:py-20">
-          <div className="mx-auto max-w-[900px] px-6 text-center">
-            <p className="k-reveal text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--k-muted)]">
-              Privacy &amp; account data
-            </p>
-            <h2 className="k-reveal mt-3 text-[clamp(26px,3.4vw,40px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">
-              Why Kettles asks for your account data
-            </h2>
-            <p className="k-reveal mt-4 text-[16px] leading-relaxed text-[var(--k-muted)]">
-              <span className="font-semibold text-[var(--k-ink)]">No screenshots. No keystroke spying. No productivity scores.</span>{" "}
-              Just an accurate time record you own.
-            </p>
-
-            <div className="k-reveal mt-10 grid gap-4 text-left sm:grid-cols-2">
-              <div className="rounded-2xl border border-[var(--k-line2)] bg-[var(--k-card)] p-5">
-                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--k-line2)] bg-[var(--k-tint)] text-[var(--k-accent2)]">
-                  <User size={18} weight="bold" />
-                </div>
-                <h3 className="text-[15px] font-semibold text-[var(--k-ink)]">Sign-in only</h3>
-                <p className="mt-2 text-[13.5px] leading-relaxed text-[var(--k-muted)]">
-                  If you sign in with Google, Kettles requests your basic Google profile — name and
-                  email — only to create or open your account and keep your workspace secure. We do
-                  not read Gmail, Drive, Calendar, Contacts, or other Google services.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-[var(--k-line2)] bg-[var(--k-card)] p-5">
-                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--k-line2)] bg-[var(--k-tint)] text-[var(--k-accent2)]">
-                  <LockKey size={18} weight="bold" />
-                </div>
-                <h3 className="text-[15px] font-semibold text-[var(--k-ink)]">What we store</h3>
-                <p className="mt-2 text-[13.5px] leading-relaxed text-[var(--k-muted)]">
-                  Account identity plus the work data you create: clients, projects, tasks, and time
-                  sessions. That data powers timers, reports, and billing. We do not sell your
-                  personal information or use it for third-party advertising.
-                </p>
-              </div>
+        <section id="security" className="relative z-10 border-y border-[var(--k-line)] bg-[var(--k-bg2)] k-strip">
+          {/* Editorial split rather than a centred stack: the centred version
+              produced a bad rag on the lede and paired two identical cards.
+              The two facts are now a divided list — grouping by rule, not by
+              box. Copy is unchanged (OAuth homepage requirement). */}
+          <div className="mx-auto grid max-w-[1180px] grid-cols-1 gap-x-16 gap-y-10 px-6 lg:grid-cols-12">
+            <div className="k-reveal lg:col-span-5">
+              <h2 className="k-h2">Why Kettles asks for your account data</h2>
+              <p className="mt-5 max-w-[42ch] text-[16px] leading-[1.6] text-[var(--k-muted)]">
+                <span className="font-semibold text-[var(--k-ink)]">No screenshots. No keystroke spying. No productivity scores.</span>{" "}
+                Just an accurate time record you own.
+              </p>
+              <p className="mt-6 max-w-[42ch] text-[14px] leading-relaxed text-[var(--k-muted)]">
+                Full details are in our{" "}
+                <Link href="/legal/privacy" className="font-semibold text-[var(--k-accent2)] underline-offset-2 hover:underline">
+                  Privacy Policy
+                </Link>
+                {" "}and{" "}
+                <Link href="/legal/terms" className="font-semibold text-[var(--k-accent2)] underline-offset-2 hover:underline">
+                  Terms of Service
+                </Link>
+                . Both are public — no login required.
+              </p>
             </div>
 
-            <p className="k-reveal mt-8 text-[14px] leading-relaxed text-[var(--k-muted)]">
-              Full details are in our{" "}
-              <Link href="/legal/privacy" className="font-semibold text-[var(--k-accent2)] underline-offset-2 hover:underline">
-                Privacy Policy
-              </Link>
-              {" "}and{" "}
-              <Link href="/legal/terms" className="font-semibold text-[var(--k-accent2)] underline-offset-2 hover:underline">
-                Terms of Service
-              </Link>
-              . Both are public — no login required.
-            </p>
+            <div className="k-reveal lg:col-span-7">
+              <dl className="divide-y divide-[var(--k-line)] border-y border-[var(--k-line)]">
+                {[
+                  {
+                    Icon: User,
+                    term: "Sign-in only",
+                    desc: "If you sign in with Google, Kettles requests your basic Google profile — name and email — only to create or open your account and keep your workspace secure. We do not read Gmail, Drive, Calendar, Contacts, or other Google services.",
+                  },
+                  {
+                    Icon: LockKey,
+                    term: "What we store",
+                    desc: "Account identity plus the work data you create: clients, projects, tasks, and time sessions. That data powers timers, reports, and billing. We do not sell your personal information or use it for third-party advertising.",
+                  },
+                ].map(({ Icon, term, desc }) => (
+                  <div key={term} className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 py-7">
+                    <Icon size={18} weight="bold" className="mt-0.5 text-[var(--k-accent2)]" />
+                    <dt className="text-[15px] font-semibold text-[var(--k-ink)]">{term}</dt>
+                    <dd className="col-start-2 text-[14px] leading-[1.65] text-[var(--k-muted)]">{desc}</dd>
+                  </div>
+                ))}
+              </dl>
 
-            <div className="k-reveal mt-8 flex flex-wrap justify-center gap-3">
-              {[[EyeSlash, "No screenshots"], [LockKey, "Encrypted in transit"], [ShieldCheck, "You own your data"], [SealCheck, "No productivity scores"]].map(([Ic, t]) => {
-                const Icon = Ic as typeof SealCheck;
-                return (
-                  <span key={t as string} className="inline-flex items-center gap-2.5 rounded-full border border-[var(--k-line2)] bg-[var(--k-card)] px-4 py-2.5 text-[13.5px] font-medium text-[var(--k-ink2)]">
-                    <Icon size={18} className="text-[var(--k-accent2)]" /> {t as string}
-                  </span>
-                );
-              })}
+              <div className="mt-7 flex flex-wrap gap-2.5">
+                {[[EyeSlash, "No screenshots"], [LockKey, "Encrypted in transit"], [ShieldCheck, "You own your data"], [SealCheck, "No productivity scores"]].map(([Ic, t]) => {
+                  const Icon = Ic as typeof SealCheck;
+                  return (
+                    <span key={t as string} className="inline-flex items-center gap-2 rounded-full border border-[var(--k-line2)] bg-[var(--k-card)] px-3.5 py-2 text-[13px] font-medium text-[var(--k-ink2)]">
+                      <Icon size={16} className="text-[var(--k-accent2)]" /> {t as string}
+                    </span>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </section>
 
         {/* ===================== TESTIMONIALS (Bento Grid) & PRICING ===================== */}
-        <section id="reviews" className="relative overflow-hidden border-y border-[var(--k-line)] py-[120px]">
+        <section id="reviews" className="relative overflow-hidden border-y border-[var(--k-line)] k-section">
           {/* no section bg — let the fixed beam backdrop show through (parallax) */}
           <div className="relative z-10 mx-auto max-w-[1180px] px-6 flex flex-col gap-6">
             <div className="k-reveal mx-auto max-w-[740px] text-center mb-10">
-              <h2 className="text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.035em] text-[var(--k-ink)]">People love using Kettles.</h2>
-              <p className="mt-4 text-[17px] text-[var(--k-muted)] mx-auto leading-relaxed max-w-[56ch]">
+              <h2 className="k-h2">People love using Kettles.</h2>
+              <p className="mt-4 k-lede">
                 Built for freelancers and small teams who bill real hours, not guessed ones.
               </p>
             </div>
@@ -961,12 +944,12 @@ export function KettlesLanding() {
             <div className="k-reveal grid grid-cols-1 md:grid-cols-12 gap-6 w-full items-stretch">
               {/* Left Card: Quote */}
               <div className="md:col-span-7 group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1 min-h-[440px]">
-                <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-gradient-to-br from-[#3385ff]/10 via-[#0066ff]/5 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-gradient-to-tl from-[#3385ff]/10 via-[#0066ff]/5 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-gradient-to-br from-[var(--k-wash-10)] via-[var(--k-wash-05)] to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-gradient-to-tl from-[var(--k-wash-10)] via-[var(--k-wash-05)] to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                 
                 <div className="relative h-full flex flex-col justify-between bg-[var(--k-surface)]/60 rounded-[22px] p-8 md:p-12 backdrop-blur-md border border-[var(--k-hairline)] shadow-2xl">
                   <div className="flex justify-center w-full relative z-10">
-                    <div className="relative w-16 h-16 rounded-2xl border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
+                    <div className="relative w-16 h-16 rounded-2xl border border-white/10 bg-[image:var(--k-chip-grad)] shadow-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
                       <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" aria-hidden>
                         <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                       </svg>
@@ -981,7 +964,7 @@ export function KettlesLanding() {
 
                   <div className="flex justify-center relative z-10">
                     <div className="flex items-center gap-3 bg-[var(--k-surface-soft)] border border-[var(--k-hairline2)] px-4 py-2 rounded-full backdrop-blur-md transition-transform duration-300 group-hover:scale-105 group-hover:bg-[var(--k-tint)] group-hover:border-[var(--k-line3)]">
-                      <div className="h-8 w-8 rounded-full bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] border border-white/10 flex items-center justify-center text-[10px] font-bold text-white uppercase shadow-sm">
+                      <div className="h-8 w-8 rounded-full bg-[image:var(--k-chip-grad)] border border-white/10 flex items-center justify-center text-[10px] font-bold text-white uppercase shadow-sm">
                         SS
                       </div>
                       <div className="flex flex-col text-left">
@@ -996,10 +979,10 @@ export function KettlesLanding() {
               {/* Right column — honest product highlights (no unbacked ratings) */}
               <div className="md:col-span-5 flex flex-col gap-6 justify-between">
                 <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1 flex-1 min-h-[208px]">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-gradient-to-br from-[#3385ff]/20 via-[#0066ff]/10 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-gradient-to-br from-[var(--k-wash-20)] via-[var(--k-wash-10)] to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                   <div className="relative h-full flex flex-col items-center justify-center bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] overflow-hidden text-center gap-3">
-                    <div className="relative flex items-center justify-center w-14 h-14 rounded-full border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-xl transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
-                      <Fire size={22} className="text-white" weight="fill" />
+                    <div className="relative flex items-center justify-center w-14 h-14 rounded-full border border-white/10 bg-[image:var(--k-chip-grad)] shadow-xl transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
+                      <Fire size={20} className="text-white" weight="fill" />
                     </div>
                     <div>
                       <h4 className="text-[14px] font-semibold text-[var(--k-ink)] tracking-tight">Task-linked by default</h4>
@@ -1011,10 +994,10 @@ export function KettlesLanding() {
                 </div>
 
                 <div className="group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)] overflow-hidden hover:border-[var(--k-hairline2)] transition-colors p-1 flex-1 min-h-[208px]">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-gradient-to-br from-[#3385ff]/10 via-[#0066ff]/5 to-transparent blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-gradient-to-br from-[var(--k-wash-10)] via-[var(--k-wash-05)] to-transparent blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                   <div className="relative h-full flex flex-col items-center justify-center bg-[var(--k-surface)]/60 rounded-[22px] p-6 backdrop-blur-md border border-[var(--k-hairline)] overflow-hidden text-center gap-4">
-                    <div className="relative flex items-center justify-center w-14 h-14 rounded-full border border-white/10 bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] shadow-xl transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
-                      <ArrowsClockwise size={22} className="text-white" weight="bold" />
+                    <div className="relative flex items-center justify-center w-14 h-14 rounded-full border border-white/10 bg-[image:var(--k-chip-grad)] shadow-xl transition-transform duration-500 group-hover:scale-105 group-hover:-translate-y-1">
+                      <ArrowsClockwise size={20} className="text-white" weight="bold" />
                     </div>
                     <div>
                       <h4 className="text-[14px] font-semibold text-[var(--k-ink)] tracking-tight">Survives tab closes</h4>
@@ -1031,9 +1014,9 @@ export function KettlesLanding() {
             <div id="pricing" className="k-reveal overflow-hidden rounded-3xl border border-[var(--k-hairline2)] bg-gradient-to-br from-[var(--k-card2)] to-[var(--k-card)] shadow-2xl transition-all duration-300 hover:border-[var(--k-line3)] mt-2">
               <div className="grid grid-cols-1 items-center gap-10 p-10 md:grid-cols-12 md:p-12">
                 <div className="md:col-span-7">
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#3385ff] mb-2 block">Pricing</span>
-                  <h3 className="text-[clamp(24px,3vw,36px)] font-bold tracking-[-0.035em] text-[var(--k-ink)] leading-tight">Start free. Brew on.</h3>
-                  <p className="mt-3.5 max-w-[52ch] text-[16px] leading-relaxed text-[var(--k-muted)]">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--k-accent2)] mb-2 block">Pricing</span>
+                  <h3 className="k-h2">Start free. Brew on.</h3>
+                  <p className="mt-3.5 k-lede">
                     Track every client and the whole ritual at no cost while Kettles is in beta.
                   </p>
                   <div className="mt-5">
@@ -1057,14 +1040,13 @@ export function KettlesLanding() {
         </section>
 
         {/* ===================== FAQ ===================== */}
-        <section id="faq" className="relative z-10 border-t border-[var(--k-line)] bg-[var(--k-bg2)] py-[120px]">
+        <section id="faq" className="relative z-10 border-t border-[var(--k-line)] bg-[var(--k-bg2)] k-section">
           <div className="mx-auto max-w-[720px] px-6">
             <div className="k-reveal text-center">
-              <Eyebrow>FAQ</Eyebrow>
-              <h2 className="mt-5 text-[clamp(28px,3.4vw,40px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">
+              <h2 className="k-h2">
                 Questions, answered.
               </h2>
-              <p className="mx-auto mt-4 max-w-[48ch] text-[16px] leading-relaxed text-[var(--k-muted)]">
+              <p className="mx-auto mt-4 k-lede">
                 Straight answers about task-linked time, sync, and privacy.
               </p>
             </div>
@@ -1092,7 +1074,7 @@ export function KettlesLanding() {
                     </button>
                     {open && (
                       <div className="border-t border-[var(--k-line)] px-5 pb-5 pt-3">
-                        <p className="text-[14.5px] leading-relaxed text-[var(--k-muted)]">{a}</p>
+                        <p className="k-body">{a}</p>
                       </div>
                     )}
                   </div>
@@ -1103,13 +1085,13 @@ export function KettlesLanding() {
         </section>
 
         {/* ===================== FINAL CTA (Redesigned with mock modal + spotlight) ===================== */}
-        <section id="download" className="border-t border-[var(--k-line)] bg-[var(--k-bg)] px-6 py-[120px] text-center overflow-hidden">
+        <section id="download" className="border-t border-[var(--k-line)] bg-[var(--k-bg)] px-6 k-section text-center overflow-hidden">
           <div className="mx-auto max-w-[1180px] flex flex-col items-center relative z-10">
             
-            <h2 className="k-reveal text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">
+            <h2 className="k-reveal k-h2">
               The kettle&apos;s ready when you are.
             </h2>
-            <p className="k-reveal mx-auto mt-4 max-w-[56ch] text-[17px] leading-relaxed text-[var(--k-muted)]">
+            <p className="k-reveal mx-auto mt-4 k-lede">
               Drop your email and pick up in the app. Every minute from here brews into a record you can bill.
             </p>
 
@@ -1133,7 +1115,7 @@ export function KettlesLanding() {
             {/* Studio Branding Card */}
             <div className="lg:col-span-4 flex flex-col justify-between gap-8 group relative rounded-3xl border border-[var(--k-hairline)] bg-[var(--k-surface-soft)]/20 p-8 backdrop-blur-md overflow-hidden min-h-[220px] transition-all duration-300 hover:border-[var(--k-hairline2)] hover:bg-[var(--k-surface-soft)]/30">
               {/* Subtle background glow */}
-              <div className="absolute -top-20 -left-20 w-48 h-48 rounded-full bg-gradient-to-br from-[#3385ff]/10 to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+              <div className="absolute -top-20 -left-20 w-48 h-48 rounded-full bg-gradient-to-br from-[var(--k-wash-10)] to-transparent blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
               
               <div className="relative z-10">
                 <Wordmark className="h-7 w-auto text-[var(--k-ink)]" />
@@ -1157,7 +1139,7 @@ export function KettlesLanding() {
                 <div key={h as string}>
                   <h5 className="mb-4 text-[11px] font-bold tracking-[0.1em] uppercase text-[var(--k-muted)]">{h as string}</h5>
                   {(links as [string, string][]).map(([l, href]) => (
-                    <Link key={l} href={href} className="block w-fit py-1.5 text-[13.5px] font-medium text-[var(--k-faint)] transition duration-200 hover:text-[var(--k-ink)]">
+                    <Link key={l} href={href} className="block w-fit py-1.5 text-[13px] font-medium text-[var(--k-faint)] transition duration-200 hover:text-[var(--k-ink)]">
                       {l}
                     </Link>
                   ))}
@@ -1170,7 +1152,7 @@ export function KettlesLanding() {
           {/* Bottom Copyright Area */}
           <div className="mt-16 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[var(--k-hairline)] pt-8">
             <p className="text-[13px] text-[var(--k-faint)] font-medium">© 2026 Kettles. Made for focused work.</p>
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[12.5px] text-[var(--k-faint)] font-medium">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[12px] text-[var(--k-faint)] font-medium">
               <Link href="/legal/privacy" className="hover:text-[var(--k-ink)] transition">Privacy Policy</Link>
               <span className="opacity-30" aria-hidden>•</span>
               <Link href="/legal/terms" className="hover:text-[var(--k-ink)] transition">Terms of Service</Link>
@@ -1227,14 +1209,14 @@ export function KettlesLanding() {
 
 function CompanionState({ tone, pill, title, desc }: { tone: "idle" | "lost"; pill: string; title: string; desc: string }) {
   return (
-    <article className="flex items-center gap-5 rounded-[24px] border border-[var(--k-line)] bg-[var(--k-card)] p-7 lg:col-span-6">
+    <article className="flex items-center gap-5 rounded-3xl border border-[var(--k-line)] bg-[var(--k-card)] p-7 lg:col-span-6">
       <div className="grid h-24 w-24 flex-none place-items-center">
         <Kettle size={84} steam={false} lost={tone === "lost"} />
       </div>
       <div>
-        <span className="inline-flex items-center gap-2 rounded-full border border-[var(--k-line2)] bg-[var(--k-bg2)] px-3 py-1.5 text-[12.5px] font-medium text-[var(--k-ink2)]">{pill}</span>
-        <h3 className="mt-3 text-[19px] font-semibold tracking-[-0.02em]">{title}</h3>
-        <p className="mt-1.5 max-w-[34ch] text-[14.5px] text-[var(--k-muted)]">{desc}</p>
+        <span className="inline-flex items-center gap-2 rounded-full border border-[var(--k-line2)] bg-[var(--k-bg2)] px-3 py-1.5 text-[12px] font-medium text-[var(--k-ink2)]">{pill}</span>
+        <h3 className="mt-3 k-h3">{title}</h3>
+        <p className="mt-1.5 max-w-[34ch] k-body">{desc}</p>
       </div>
     </article>
   );
@@ -1244,7 +1226,7 @@ function Testimonial({ quote, name, role, color }: { quote: string; name: string
   const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2);
   return (
     <div className="rounded-[18px] border border-[var(--k-line)] bg-[var(--k-card)] p-6">
-      <div className="mb-3.5 flex gap-0.5 text-[#f5a623]">
+      <div className="mb-3.5 flex gap-0.5 text-[var(--k-star)]">
         {[...Array(5)].map((_, i) => (
           <svg key={i} viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
             <path d="M12 2l3 7h7l-5.5 4 2 7L12 17l-6.5 4 2-7L2 9h7z" />
@@ -1257,8 +1239,8 @@ function Testimonial({ quote, name, role, color }: { quote: string; name: string
           {initials}
         </span>
         <div>
-          <div className="text-[13.5px] font-semibold">{name}</div>
-          <div className="text-[12.5px] text-[var(--k-faint)]">{role}</div>
+          <div className="text-[13px] font-semibold">{name}</div>
+          <div className="text-[12px] text-[var(--k-faint)]">{role}</div>
         </div>
       </div>
     </div>
@@ -1304,9 +1286,9 @@ function LaurelBadge({ label, subLabel, rank }: { label: string; subLabel?: stri
 
 function G2Badge() {
   return (
-    <div className="relative flex flex-col items-center justify-between bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] text-white rounded-xl w-[135px] h-[175px] p-3.5 shadow-[0_0_30px_rgba(0,102,255,0.3)] border border-white/10 select-none">
+    <div className="relative flex flex-col items-center justify-between bg-[image:var(--k-chip-grad)] text-white rounded-xl w-[135px] h-[175px] p-3.5 shadow-[0_0_30px_rgba(0,102,255,0.3)] border border-white/10 select-none">
       {/* G2 Logo at top */}
-      <div className="flex items-center justify-center w-7 h-7 bg-gradient-to-br from-[#0066ff] to-[#3385ff] shadow-[0_0_10px_rgba(51,133,255,0.5)] rounded-md text-white font-extrabold text-base">
+      <div className="flex items-center justify-center w-7 h-7 bg-gradient-to-br from-[var(--k-accent)] to-[var(--k-accent2)] shadow-[0_0_10px_rgba(51,133,255,0.5)] rounded-md text-white font-extrabold text-base">
         G
       </div>
       
@@ -1317,11 +1299,11 @@ function G2Badge() {
       </div>
       
       {/* Blue Ribbon Banner */}
-      <div className="relative w-[118%] bg-[#0047b3] border-y border-white/10 text-white text-[9px] font-bold uppercase tracking-wider py-1.5 text-center my-1.5 shadow-md">
+      <div className="relative w-[118%] bg-[var(--k-accent-deep)] border-y border-white/10 text-white text-[9px] font-bold uppercase tracking-wider py-1.5 text-center my-1.5 shadow-md">
         SUMMER
         {/* Ribbon ears/tails under the main fold */}
-        <div className="absolute left-0 bottom-[-4px] border-t-[4px] border-t-[#002b6b] border-l-[4px] border-l-transparent"></div>
-        <div className="absolute right-0 bottom-[-4px] border-t-[4px] border-t-[#002b6b] border-r-[4px] border-r-transparent"></div>
+        <div className="absolute left-0 bottom-[-4px] border-t-[4px] border-t-[color:var(--k-accent-deeper)] border-l-[4px] border-l-transparent"></div>
+        <div className="absolute right-0 bottom-[-4px] border-t-[4px] border-t-[color:var(--k-accent-deeper)] border-r-[4px] border-r-transparent"></div>
       </div>
       
       {/* Year */}
@@ -1334,9 +1316,9 @@ function G2Badge() {
 
 function FadedG2Badge({ title, sub }: { title: string; sub: string }) {
   return (
-    <div className="flex flex-col items-center justify-between bg-[linear-gradient(135deg,#05080d_0%,#061733_50%,#072a63_100%)] text-white rounded-lg w-[105px] h-[140px] p-2.5 shadow-lg border border-white/10 select-none">
+    <div className="flex flex-col items-center justify-between bg-[image:var(--k-chip-grad)] text-white rounded-lg w-[105px] h-[140px] p-2.5 shadow-lg border border-white/10 select-none">
       {/* G2 Logo at top */}
-      <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-[#0066ff] to-[#3385ff] shadow-[0_0_8px_rgba(51,133,255,0.4)] rounded-md text-white font-bold text-xs">
+      <div className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-[var(--k-accent)] to-[var(--k-accent2)] shadow-[0_0_8px_rgba(51,133,255,0.4)] rounded-md text-white font-bold text-xs">
         G
       </div>
       
@@ -1350,7 +1332,7 @@ function FadedG2Badge({ title, sub }: { title: string; sub: string }) {
       </div>
       
       {/* Ribbon */}
-      <div className="w-[115%] bg-[#0047b3] border-y border-white/10 text-white text-[8px] font-black uppercase py-1 text-center my-1 leading-normal">
+      <div className="w-[115%] bg-[var(--k-accent-deep)] border-y border-white/10 text-white text-[8px] font-black uppercase py-1 text-center my-1 leading-normal">
         SUMMER
       </div>
       

@@ -108,8 +108,8 @@ export function PetShowcase() {
       <div className="mx-auto max-w-[1180px] px-6">
         {/* Section Header */}
         <div className="k-reveal mx-auto max-w-[760px] text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[var(--k-line2)] bg-[var(--k-card)] px-3.5 py-1.5 text-[12.5px] font-medium text-[var(--k-accent2)]">
-            <Desktop size={15} weight="bold" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-[var(--k-line2)] bg-[var(--k-card)] px-3.5 py-1.5 text-[12px] font-medium text-[var(--k-accent2)]">
+            <Desktop size={16} weight="bold" />
             Tauri Overlay Window
           </span>
           <h2 className="mt-5 text-[clamp(32px,3.8vw,48px)] font-bold tracking-[-0.03em] text-[var(--k-ink)]">
@@ -124,12 +124,12 @@ export function PetShowcase() {
         {/* Top Grid: Interactive Behavior Explorer + Desktop Traits */}
         <div className="mt-14 grid grid-cols-1 gap-[20px] lg:grid-cols-12">
           {/* Main Behavior Stage */}
-          <div className="k-reveal flex flex-col justify-between overflow-hidden rounded-[24px] border border-[var(--k-line)] bg-[var(--k-card)] p-8 lg:col-span-7">
+          <div className="k-reveal flex flex-col justify-between overflow-hidden rounded-3xl border border-[var(--k-line)] bg-[var(--k-card)] p-8 lg:col-span-7">
             <div>
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--k-line)] pb-5">
                 <div className="flex items-center gap-2">
                   <Sparkle size={18} className="text-[var(--k-accent2)]" weight="bold" />
-                  <h3 className="text-[18px] font-semibold text-[var(--k-ink)]">Timer Reactions</h3>
+                  <h3 className="k-h3">Timer Reactions</h3>
                 </div>
                 <span className="k-mono text-[12px] font-medium text-[var(--k-faint)]">
                   Event: {activeBehavior.event}
@@ -145,7 +145,7 @@ export function PetShowcase() {
                       key={b.id}
                       type="button"
                       onClick={() => setActiveBehavior(b)}
-                      className={`k-press rounded-full px-4 py-2 text-[13.5px] font-medium transition-all ${
+                      className={`k-press rounded-full px-4 py-2 text-[13px] font-medium transition-all ${
                         isActive
                           ? "bg-[var(--k-accent)] text-[var(--k-ink)] shadow-[0_4px_16px_-4px_rgba(0,102,255,0.4)]"
                           : "border border-[var(--k-line2)] bg-[var(--k-bg2)] text-[var(--k-muted)] hover:border-[var(--k-line3)] hover:text-[var(--k-ink)]"
@@ -159,7 +159,7 @@ export function PetShowcase() {
             </div>
 
             {/* Animation Canvas */}
-            <div className="relative my-8 flex min-h-[220px] flex-col items-center justify-center rounded-[16px] border border-[var(--k-line2)] bg-[var(--k-bg2)] p-6">
+            <div className="relative my-8 flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-[var(--k-line2)] bg-[var(--k-bg2)] p-6">
               <FocusRingArt className="pointer-events-none absolute h-44 w-44 opacity-20" />
               <div className="relative z-10 flex flex-col items-center">
                 <LandingPet
@@ -178,7 +178,7 @@ export function PetShowcase() {
             </div>
 
             {/* Behavior details footer */}
-            <div className="rounded-[16px] border border-[var(--k-line)] bg-[var(--k-bg2)] p-5">
+            <div className="rounded-2xl border border-[var(--k-line)] bg-[var(--k-bg2)] p-5">
               <div className="flex items-center justify-between text-[13px] font-medium text-[var(--k-accent2)]">
                 <span>Trigger: {activeBehavior.trigger}</span>
                 {activeBehavior.hasNotify && (
@@ -187,7 +187,7 @@ export function PetShowcase() {
                   </span>
                 )}
               </div>
-              <p className="mt-1.5 text-[14.5px] text-[var(--k-muted)] leading-relaxed">
+              <p className="mt-1.5 k-body">
                 {activeBehavior.description}
               </p>
 
@@ -215,9 +215,9 @@ export function PetShowcase() {
           {/* Right Column: Desktop Window Capabilities & Poses */}
           <div className="flex flex-col gap-[20px] lg:col-span-5">
             {/* Native Window Traits Card */}
-            <div className="k-reveal rounded-[24px] border border-[var(--k-line)] bg-[var(--k-card)] p-7 flex-1">
-              <h3 className="text-[18px] font-semibold text-[var(--k-ink)]">Desktop Window Capabilities</h3>
-              <p className="mt-2 text-[14.5px] text-[var(--k-muted)] leading-relaxed">
+            <div className="k-reveal rounded-3xl border border-[var(--k-line)] bg-[var(--k-card)] p-7 flex-1">
+              <h3 className="k-h3">Desktop Window Capabilities</h3>
+              <p className="mt-2 k-body">
                 Integrated directly with the host Tauri process for unobtrusive background operation.
               </p>
 
@@ -253,7 +253,7 @@ export function PetShowcase() {
             </div>
 
             {/* Pose Artwork Showcase */}
-            <div className="k-reveal relative overflow-hidden rounded-[24px] border border-[var(--k-line)] bg-[var(--k-card)] p-6">
+            <div className="k-reveal relative overflow-hidden rounded-3xl border border-[var(--k-line)] bg-[var(--k-card)] p-6">
               <SteamMotif className="pointer-events-none absolute -right-4 -top-4 h-24 w-auto opacity-15" />
               <div className="flex items-center gap-4">
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-[var(--k-line2)] bg-[var(--k-bg2)]">
@@ -278,14 +278,14 @@ export function PetShowcase() {
         </div>
 
         {/* Bottom Section: Speech Bubbles & Quote System */}
-        <div className="k-reveal mt-12 rounded-[24px] border border-[var(--k-line)] bg-[var(--k-card)] p-8">
+        <div className="k-reveal mt-12 rounded-3xl border border-[var(--k-line)] bg-[var(--k-card)] p-8">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:items-center">
             <div className="lg:col-span-5">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--k-line2)] bg-[var(--k-bg2)] px-3 py-1 text-[12.5px] font-medium text-[var(--k-accent2)]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--k-line2)] bg-[var(--k-bg2)] px-3 py-1 text-[12px] font-medium text-[var(--k-accent2)]">
                 <ChatTeardropText size={14} weight="bold" />
                 PetSignal.quote &amp; quoteKind
               </div>
-              <h3 className="mt-4 text-[22px] font-semibold tracking-[-0.02em] text-[var(--k-ink)]">
+              <h3 className="mt-4 k-h3">
                 Contextual Speech Bubbles
               </h3>
               <p className="mt-2 text-[15px] leading-relaxed text-[var(--k-muted)]">
@@ -307,7 +307,7 @@ export function PetShowcase() {
                       }`}
                     >
                       <div>
-                        <div className="flex items-center gap-2 text-[13.5px] font-semibold text-[var(--k-ink)]">
+                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[var(--k-ink)]">
                           <span>{q.label}</span>
                           <span className="k-mono text-[11px] font-normal text-[var(--k-faint)]">
                             (quoteKind: &quot;{q.kind}&quot;)
@@ -329,9 +329,9 @@ export function PetShowcase() {
                 <div className="relative mb-4 w-full max-w-[340px] rounded-2xl border border-[var(--k-line2)] bg-[var(--k-card)] p-4 shadow-xl">
                   <div className="flex items-center justify-between border-b border-[var(--k-line)] pb-2 text-[12px] font-medium text-[var(--k-accent2)]">
                     <span>Flowmate Pet</span>
-                    <span className="k-mono uppercase text-[10.5px] text-[var(--k-faint)]">{activeQuote.kind}</span>
+                    <span className="k-mono uppercase text-[10px] text-[var(--k-faint)]">{activeQuote.kind}</span>
                   </div>
-                  <p className="mt-2 text-[14.5px] font-medium leading-normal text-[var(--k-ink)]">
+                  <p className="mt-2 text-[15px] font-medium leading-normal text-[var(--k-ink)]">
                     &quot;{activeQuote.text}&quot;
                   </p>
                   {/* Tail */}
