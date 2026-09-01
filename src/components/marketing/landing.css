@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
 
 /* ==========================================================================
    Kettles — marketing landing (v3 rebuild)
@@ -72,7 +71,7 @@
 
   background: linear-gradient(180deg, var(--card-gradient-start) 0%, var(--card-gradient-mid) 50%, var(--k-bg) 100%);
   color: var(--k-ink);
-  font-family: "Urbanist", var(--font-urbanist), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-urbanist), "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-feature-settings: "ss01" 1;
   letter-spacing: -0.011em;
   -webkit-font-smoothing: antialiased;
@@ -82,7 +81,7 @@
 
 .kettles ::selection { background: var(--k-accent); color: #fff; }
 .kettles *:focus-visible { outline: 2px solid var(--k-accent2); outline-offset: 3px; border-radius: 8px; }
-.k-mono { font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace; font-feature-settings: "tnum" 1; letter-spacing: -0.02em; }
+.k-mono { font-family: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace; font-feature-settings: "tnum" 1; letter-spacing: -0.02em; }
 
 /* ==========================================================================
    TYPE SCALE + SECTION RHYTHM
