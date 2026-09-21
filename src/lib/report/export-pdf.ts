@@ -168,13 +168,14 @@ function sessionsTable(doc: jsPDF, autoTable: AutoTableFn, rows: EnrichedSession
     startY,
     bodyStyles: { ...TABLE_STYLES.bodyStyles, fontSize: 8 },
     headStyles: { ...TABLE_STYLES.headStyles, fontSize: 8 },
-    head: [["Date", "Task", "Project", "Duration", "Billable", "Earnings"]],
+    head: [["Date", "Task", "Project", "Duration", "Billable", "Billed", "Earnings"]],
     body: logs.map((l) => [
       new Date(l.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       l.taskTitle,
       l.projectName,
       formatDuration(l.seconds) || "0m",
       l.billable ? "Yes" : "No",
+      l.billed ? "Billed" : "Open",
       l.earningsCents > 0 ? formatCurrency(l.earningsCents) : "—",
     ]),
   });

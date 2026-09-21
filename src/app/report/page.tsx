@@ -79,6 +79,7 @@ export default function ReportPage() {
     clientId: null,
     tag: null,
     billable: "all",
+    billed: "all",
   }));
   const [timeLogSort, setTimeLogSort] = useState<TimeLogSort>("date_desc");
   const [sliceBy, setSliceBy] = useState<"projects" | "clients">("projects");
@@ -113,6 +114,10 @@ export default function ReportPage() {
         params.get("billable") === "billable" || params.get("billable") === "non-billable"
           ? (params.get("billable") as "billable" | "non-billable")
           : "all",
+      billed:
+        params.get("billed") === "billed" || params.get("billed") === "unbilled"
+          ? (params.get("billed") as "billed" | "unbilled")
+          : "all",
     }));
     if (tab && TABS.some((t) => t.id === tab)) setActiveTab(tab as ReportTab);
   }, []);
@@ -140,8 +145,9 @@ export default function ReportPage() {
       clientId: filters.clientId,
       tag: filters.tag,
       billable: filters.billable,
+      billed: filters.billed,
     }),
-    [range, filters.projectId, filters.clientId, filters.tag, filters.billable]
+    [range, filters.projectId, filters.clientId, filters.tag, filters.billable, filters.billed]
   );
 
   const data = useMemo(
@@ -215,6 +221,7 @@ export default function ReportPage() {
     if (filters.clientId) params.set("client", filters.clientId);
     if (filters.tag) params.set("tag", filters.tag);
     if (filters.billable !== "all") params.set("billable", filters.billable);
+    if (filters.billed !== "all") params.set("billed", filters.billed);
     return `${getPublicShareOrigin()}/report?${params.toString()}`;
   };
 

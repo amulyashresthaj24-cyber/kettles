@@ -111,6 +111,11 @@ export function TimeLogTable({
                     $
                   </span>
                 )}
+                {log.billed && (
+                  <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent/[0.12] text-accent">
+                    Billed
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1.5 min-w-0 pr-2">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: log.color }} />

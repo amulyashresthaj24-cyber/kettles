@@ -12,6 +12,7 @@ import { ProjectBillingSection } from "./ProjectBillingSection";
 import { ClientNameField } from "./ClientSelector";
 import { parseRateInput } from "@/lib/rates";
 import { getProjectClient, getProjectClientName } from "@/lib/clients";
+import { parseBilledThrough, todayLocalDateString } from "@/lib/billed";
 import { useFocusTrap } from "@/lib/use-focus-trap";
 
 const PROJECT_STATUSES: { label: string; value: ProjectStatus }[] = [
@@ -106,6 +107,7 @@ export function EditProjectModal({
   const [status, setStatus] = useState<ProjectStatus>("active");
   const [budget, setBudget] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
+  const [billedThrough, setBilledThrough] = useState("");
   /** Linked client id at open — name edits rename this client in place. */
   const [linkedClientId, setLinkedClientId] = useState<string | null>(null);
   const [clientName, setClientName] = useState("");
@@ -126,6 +128,7 @@ export function EditProjectModal({
       setStatus(project.status || "active");
       setBudget(project.budget?.toString() || "");
       setHourlyRate(project.hourlyRate != null && project.hourlyRate > 0 ? String(project.hourlyRate) : "");
+      setBilledThrough(parseBilledThrough(project.billedThrough) ?? "");
       setLinkedClientId(project.clientId || null);
       // Snapshot name at open only — don't reset while typing if clients list updates.
       setClientName(getProjectClientName(project, useApp.getState().clients));
@@ -160,6 +163,7 @@ export function EditProjectModal({
         status,
         budget: budget ? Number(budget) : null,
         hourlyRate: parsedRate.value,
+        billedThrough: parseBilledThrough(billedThrough),
         clientId,
       });
       onClose();
@@ -168,7 +172,7 @@ export function EditProjectModal({
     } finally {
       setIsSubmitting(false);
     }
-  }, [name, project, updateProject, resolveProjectClientLink, onClose, description, color, icon, billable, status, budget, hourlyRate, linkedClientId, clientName]);
+  }, [name, project, updateProject, resolveProjectClientLink, onClose, description, color, icon, billable, status, budget, hourlyRate, billedThrough, linkedClientId, clientName]);
 
   // Escape and the focus trap come from useFocusTrap; this only adds the
   // Cmd/Ctrl+Enter submit shortcut.
@@ -246,6 +250,23 @@ export function EditProjectModal({
             onBudgetChange={setBudget}
             client={selectedClient}
           />
+
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] uppercase tracking-[0.04em] text-text-faint">
+              Billed through
+            </span>
+            <input
+              type="date"
+              aria-label="Last date already invoiced on this project"
+              className="h-9 rounded-[8px] bg-surface-raised px-3 text-[14px] text-text-primary outline-none transition-colors focus:ring-2 focus:ring-accent/40"
+              value={billedThrough}
+              max={todayLocalDateString()}
+              onChange={(e) => setBilledThrough(e.target.value)}
+            />
+            <span className="text-[12px] leading-relaxed text-text-muted">
+              Sessions on or before this date are already invoiced. Leave empty if nothing has been billed yet.
+            </span>
+          </label>
         </div>
 
         <div className="flex items-center justify-between gap-sm px-xl py-lg border-t border-border-subtle">

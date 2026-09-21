@@ -33,6 +33,7 @@ import {
   findClientByNormalizedName,
   planProjectClientLink,
 } from "./clients";
+import { parseBilledThrough } from "./billed";
 import {
   activeSince,
   durationAtIdleStart,
@@ -906,6 +907,20 @@ persist((set, get) => ({
             next = applyProjectClientPatch(next, { clientId: null });
           } else if (patch.clientId) {
             next = { ...next, clientId: patch.clientId };
+          }
+          if (patch.billedThrough === null || patch.billedThrough === "") {
+            const cleared = { ...next };
+            delete cleared.billedThrough;
+            next = cleared;
+          } else if (patch.billedThrough) {
+            const parsed = parseBilledThrough(patch.billedThrough);
+            if (parsed) {
+              next = { ...next, billedThrough: parsed };
+            } else {
+              const cleared = { ...next };
+              delete cleared.billedThrough;
+              next = cleared;
+            }
           }
           return next;
         }),

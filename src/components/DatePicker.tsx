@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { CaretLeft, CaretRight, CalendarBlank } from "@/components/ui/icon";
+import { toLocalDateString } from "@/lib/billed";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -73,8 +74,7 @@ export function DatePicker({ value, onChange, placeholder = "Due date" }: DatePi
 
   function handleDayClick(day: number) {
     const newDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const dateStr = newDate.toISOString().split("T")[0];
-    onChange(dateStr);
+    onChange(toLocalDateString(newDate));
     setOpen(false);
   }
 

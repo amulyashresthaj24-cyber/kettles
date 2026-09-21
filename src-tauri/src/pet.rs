@@ -57,22 +57,75 @@ struct POINT {
     y: i32,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct RECT {
+    left: i32,
+    top: i32,
+    right: i32,
+    bottom: i32,
+}
+
 extern "system" {
     fn GetCursorPos(lpPoint: *mut POINT) -> i32;
     fn GetSystemMetrics(index: i32) -> i32;
+    fn EnumDisplayMonitors(
+        hdc: isize,
+        lprc_clip: *const RECT,
+        lpfn_enum: unsafe extern "system" fn(isize, isize, *mut RECT, isize) -> i32,
+        dw_data: isize,
+    ) -> i32;
 }
 
 // SM_C[XY]SCREEN — PRIMARY monitor size (physical px). The primary monitor is
 // always anchored at (0,0) in Windows screen coords.
 const SM_CXSCREEN: i32 = 0;
 const SM_CYSCREEN: i32 = 1;
+// Bounding box of every monitor, which may start negative if one sits left
+// or above the primary.
+const SM_XVIRTUALSCREEN: i32 = 76;
+const SM_YVIRTUALSCREEN: i32 = 77;
+const SM_CXVIRTUALSCREEN: i32 = 78;
+const SM_CYVIRTUALSCREEN: i32 = 79;
+
+/// Smallest overlap (on both axes, physical px) that still keeps the mascot
+/// grabbable after a drag past an outer edge.
+const MIN_VISIBLE_PX: f64 = 64.0;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ScreenRect {
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+}
+
+impl ScreenRect {
+    fn from_xywh(x: f64, y: f64, w: f64, h: f64) -> Self {
+        Self { x, y, w, h }
+    }
+
+    fn intersection(self, other: Self) -> Option<Self> {
+        let x0 = self.x.max(other.x);
+        let y0 = self.y.max(other.y);
+        let x1 = (self.x + self.w).min(other.x + other.w);
+        let y1 = (self.y + self.h).min(other.y + other.h);
+        let w = x1 - x0;
+        let h = y1 - y0;
+        if w > 0.0 && h > 0.0 {
+            Some(Self { x: x0, y: y0, w, h })
+        } else {
+            None
+        }
+    }
+}
 
 /// (origin_x, origin_y, width, height) of the PRIMARY monitor, physical px.
 ///
-/// NOTE: we deliberately do NOT span the whole virtual desktop. A transparent,
-/// always-on-top WebView2 window that large (e.g. 4480x1440 across mixed-height
-/// monitors) fails to composite — it renders fully invisible — and the
-/// bottom-anchored mascot falls off shorter screens. Keep it on one monitor.
+/// Used only to park the overlay on first launch. The window itself stays
+/// small (`PET_W` x `PET_H`) — a transparent WebView2 that spans the whole
+/// virtual desktop fails to composite on mixed-height setups. Position is
+/// independent: after launch the pet can be dragged to any monitor.
 fn primary_screen() -> (i32, i32, i32, i32) {
     unsafe {
         let w = GetSystemMetrics(SM_CXSCREEN);
@@ -83,6 +136,113 @@ fn primary_screen() -> (i32, i32, i32, i32) {
             (0, 0, w, h)
         }
     }
+}
+
+fn virtual_screen() -> ScreenRect {
+    unsafe {
+        let x = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        let y = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        let w = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        let h = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+        if w <= 0 || h <= 0 {
+            let (_, _, pw, ph) = primary_screen();
+            ScreenRect::from_xywh(0.0, 0.0, pw as f64, ph as f64)
+        } else {
+            ScreenRect::from_xywh(x as f64, y as f64, w as f64, h as f64)
+        }
+    }
+}
+
+unsafe extern "system" fn collect_monitor(
+    _hmon: isize,
+    _hdc: isize,
+    lprect: *mut RECT,
+    lparam: isize,
+) -> i32 {
+    if lprect.is_null() || lparam == 0 {
+        return 1;
+    }
+    let rect = *lprect;
+    let w = (rect.right - rect.left) as f64;
+    let h = (rect.bottom - rect.top) as f64;
+    if w > 0.0 && h > 0.0 {
+        let out = &mut *(lparam as *mut Vec<ScreenRect>);
+        out.push(ScreenRect::from_xywh(
+            rect.left as f64,
+            rect.top as f64,
+            w,
+            h,
+        ));
+    }
+    1
+}
+
+/// Every attached monitor in physical px. Win32, not Tauri — `current_monitor`
+/// from a command thread is both main-thread-only and the source of the
+/// "stuck on one screen" trap (it never reports the destination monitor
+/// because the old clamp refused to leave the current one).
+fn display_monitors() -> Vec<ScreenRect> {
+    let mut out: Vec<ScreenRect> = Vec::new();
+    unsafe {
+        let _ = EnumDisplayMonitors(
+            0,
+            std::ptr::null(),
+            collect_monitor,
+            &mut out as *mut Vec<ScreenRect> as isize,
+        );
+    }
+    if out.is_empty() {
+        out.push(virtual_screen());
+    }
+    out
+}
+
+fn clamp_inside(x: f64, y: f64, ww: f64, wh: f64, m: ScreenRect) -> (f64, f64) {
+    let max_x = m.x + (m.w - ww).max(0.0);
+    let max_y = m.y + (m.h - wh).max(0.0);
+    (x.clamp(m.x, max_x), y.clamp(m.y, max_y))
+}
+
+/// Keep the overlay on the desktop without locking it to one monitor.
+///
+/// Full containment on `current_monitor` made it impossible to cross a bezel:
+/// the window was snapped back before its center could reach the next screen,
+/// so the destination monitor was never chosen. Allow straddling (and sitting
+/// fully on any monitor). Only snap when the mascot would otherwise vanish
+/// off an outer edge or into a gap between mixed-height displays.
+fn clamp_to_monitors(
+    x: f64,
+    y: f64,
+    ww: f64,
+    wh: f64,
+    monitors: &[ScreenRect],
+    min_visible: f64,
+) -> (i32, i32) {
+    if monitors.is_empty() {
+        return (x.round() as i32, y.round() as i32);
+    }
+    let win = ScreenRect::from_xywh(x, y, ww, wh);
+    let visible_enough = monitors.iter().any(|m| {
+        m.intersection(win)
+            .map(|hit| hit.w >= min_visible && hit.h >= min_visible)
+            .unwrap_or(false)
+    });
+    if visible_enough {
+        return (x.round() as i32, y.round() as i32);
+    }
+    let cx = x + ww / 2.0;
+    let cy = y + wh / 2.0;
+    let nearest = monitors
+        .iter()
+        .copied()
+        .min_by(|a, b| {
+            let da = (a.x + a.w / 2.0 - cx).hypot(a.y + a.h / 2.0 - cy);
+            let db = (b.x + b.w / 2.0 - cx).hypot(b.y + b.h / 2.0 - cy);
+            da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap();
+    let (nx, ny) = clamp_inside(x, y, ww, wh, nearest);
+    (nx.round() as i32, ny.round() as i32)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -332,44 +492,24 @@ pub fn pet_signal(app: AppHandle, signal: PetSignal) -> Result<bool, String> {
     Ok(delivered)
 }
 
-/// Move the pet window (physical px). Used to park / snap it programmatically;
-/// interactive dragging uses the OS via `startDragging` in the webview.
+/// Move the pet window (physical px). Live dragging in `pet.js` calls this
+/// every frame; hop-to-center on session finish uses it too.
 #[tauri::command]
 pub fn pet_set_position(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
     if let Some(win) = app.get_webview_window(PET_LABEL) {
-        let (x, y) = clamp_to_monitor(&win, x, y);
+        let (x, y) = clamp_to_desktop(&win, x, y);
         win.set_position(PhysicalPosition::new(x, y))
             .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
 
-/// Keep the overlay fully inside the monitor it sits on. Without this a drag
-/// past an edge parks the window half off-screen, where the mascot is sliced
-/// flat by the screen edge and the remaining sliver is hard to grab back.
-fn clamp_to_monitor(win: &tauri::WebviewWindow, x: f64, y: f64) -> (i32, i32) {
+fn clamp_to_desktop(win: &tauri::WebviewWindow, x: f64, y: f64) -> (i32, i32) {
     let (ww, wh) = win
         .outer_size()
         .map(|s| (s.width as f64, s.height as f64))
         .unwrap_or((PET_W, PET_H));
-
-    let (mx, my, mw, mh) = win
-        .current_monitor()
-        .ok()
-        .flatten()
-        .map(|m| {
-            let p = m.position();
-            let s = m.size();
-            (p.x as f64, p.y as f64, s.width as f64, s.height as f64)
-        })
-        .unwrap_or_else(|| {
-            let (_, _, pw, ph) = primary_screen();
-            (0.0, 0.0, pw as f64, ph as f64)
-        });
-
-    let max_x = mx + (mw - ww).max(0.0);
-    let max_y = my + (mh - wh).max(0.0);
-    (x.clamp(mx, max_x) as i32, y.clamp(my, max_y) as i32)
+    clamp_to_monitors(x, y, ww, wh, &display_monitors(), MIN_VISIBLE_PX)
 }
 
 /// Toggle click-through. `true` = mouse passes through the pet to windows
@@ -432,4 +572,76 @@ pub fn pet_tracking(app: AppHandle, enabled: bool) -> Result<(), String> {
         }
     });
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn primary() -> ScreenRect {
+        ScreenRect::from_xywh(0.0, 0.0, 1920.0, 1080.0)
+    }
+
+    fn right_of_primary() -> ScreenRect {
+        ScreenRect::from_xywh(1920.0, 0.0, 1920.0, 1080.0)
+    }
+
+    fn left_of_primary() -> ScreenRect {
+        ScreenRect::from_xywh(-1920.0, 0.0, 1920.0, 1080.0)
+    }
+
+    #[test]
+    fn accepts_a_position_fully_on_the_second_monitor() {
+        let monitors = [primary(), right_of_primary()];
+        // Old current-monitor clamp would have snapped this back to x=1620
+        // (1920 - 300) on the primary.
+        assert_eq!(
+            clamp_to_monitors(2500.0, 200.0, 300.0, 500.0, &monitors, 64.0),
+            (2500, 200)
+        );
+    }
+
+    #[test]
+    fn allows_straddling_the_bezel_so_a_drag_can_cross() {
+        let monitors = [primary(), right_of_primary()];
+        // Window 1800..2100: 120px on primary, 180px on secondary.
+        assert_eq!(
+            clamp_to_monitors(1800.0, 100.0, 300.0, 500.0, &monitors, 64.0),
+            (1800, 100)
+        );
+    }
+
+    #[test]
+    fn can_move_onto_a_monitor_left_of_primary() {
+        let monitors = [left_of_primary(), primary()];
+        assert_eq!(
+            clamp_to_monitors(-1500.0, 80.0, 300.0, 500.0, &monitors, 64.0),
+            (-1500, 80)
+        );
+    }
+
+    #[test]
+    fn snaps_back_when_dragged_past_the_outer_edge() {
+        let monitors = [primary()];
+        let (x, y) = clamp_to_monitors(4000.0, 200.0, 300.0, 500.0, &monitors, 64.0);
+        assert_eq!((x, y), (1620, 200)); // 1920 - 300
+    }
+
+    #[test]
+    fn snaps_out_of_a_mixed_height_gap() {
+        // Laptop 1920x1080 + taller monitor to the right. The region below
+        // the laptop (y > 1080, x < 1920) is not a real screen.
+        let laptop = ScreenRect::from_xywh(0.0, 0.0, 1920.0, 1080.0);
+        let external = ScreenRect::from_xywh(1920.0, 0.0, 2560.0, 1440.0);
+        let (x, y) = clamp_to_monitors(100.0, 1200.0, 300.0, 500.0, &[laptop, external], 64.0);
+        assert_eq!((x, y), (100, 580)); // 1080 - 500, still on the laptop
+    }
+
+    #[test]
+    fn empty_monitor_list_leaves_the_requested_point() {
+        assert_eq!(
+            clamp_to_monitors(12.4, 8.6, 300.0, 500.0, &[], 64.0),
+            (12, 9)
+        );
+    }
 }

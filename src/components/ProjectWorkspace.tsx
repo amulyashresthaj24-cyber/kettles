@@ -32,6 +32,8 @@ import { KanbanBoard } from "@/components/KanbanBoard";
 import { TaskList } from "@/components/TaskList";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/format";
+import { BilledThroughSection } from "@/components/BilledThroughSection";
+import { formatBilledThroughLabel } from "@/lib/billed";
 
 type TabId = "overview" | "tasks" | "board";
 
@@ -151,7 +153,14 @@ export function ProjectWorkspace({ project, tasks, onBack }: ProjectWorkspacePro
             <div className="min-w-0">
               <h1 className="truncate text-sm font-semibold text-text-primary">{project.name}</h1>
               <p className="truncate text-xs text-text-muted">
-                {client?.name ?? "No client"} · {project.billable ? "Billable" : "Internal"} · {STATUS_LABELS[status]}
+                {[
+                  client?.name ?? "No client",
+                  project.billable ? "Billable" : "Internal",
+                  formatBilledThroughLabel(project.billedThrough),
+                  STATUS_LABELS[status],
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             </div>
           </div>
@@ -331,6 +340,7 @@ function ProjectOverview({
     .filter((task) => task.status !== "done")
     .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
     .slice(0, 5);
+  const billedLabel = formatBilledThroughLabel(project.billedThrough);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -345,6 +355,7 @@ function ProjectOverview({
                   <Badge variant={project.billable ? "success" : "raised"}>
                     {project.billable ? "Billable" : "Internal"}
                   </Badge>
+                  {billedLabel && <Badge variant="accent">{billedLabel}</Badge>}
                   <Badge variant="raised">{isPrivate ? "Private" : "Shared"}</Badge>
                 </div>
                 <div>
@@ -368,6 +379,15 @@ function ProjectOverview({
               <Metric icon={<CalendarBlank size={17} />} label="Timeline" value={formatDateRange(project.startDate, project.endDate)} detail={project.endDate ? "target date set" : "no end date"} />
             </div>
           </div>
+
+          <Panel title="Billed through">
+            <BilledThroughSection
+              project={project}
+              client={client}
+              sessions={projectConfirmedSessions}
+              onSave={(billedThrough) => onUpdateProject(project.id, { billedThrough })}
+            />
+          </Panel>
 
           <div className="grid gap-lg lg:grid-cols-[minmax(0,1fr)_300px]">
             <Panel title="Workload">
