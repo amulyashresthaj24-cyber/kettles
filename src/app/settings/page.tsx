@@ -34,7 +34,7 @@ import { PageLayout, PageHeader, PageContent } from "@/components/layout";
 import { useNotification } from "@/components/ui/notification";
 import { AuthGuard } from "@/components/AuthGuard";
 import { getSupabaseClient } from "@/lib/supabase";
-import { isDesktop } from "@/lib/desktop";
+import { isDesktop, clearAppUsage } from "@/lib/desktop";
 import { ALARM_SOUNDS, GOOGLE_CALENDAR_ENABLED } from "@/lib/constants";
 import type { Client, Project, ProjectColor } from "@/lib/types";
 import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
@@ -137,6 +137,8 @@ function SettingsContent() {
   const [clientFormLoading, setClientFormLoading] = useState(false);
   const [deleteTargetClient, setDeleteTargetClient] = useState<Client | null>(null);
   const [clientDeleting, setClientDeleting] = useState(false);
+  const [clearAppUsageOpen, setClearAppUsageOpen] = useState(false);
+  const [clearAppUsagePending, setClearAppUsagePending] = useState(false);
 
   // ─── Theme Handler ─────────────────────────────────────────────────────────
   const handleThemeChange = (theme: "light" | "dark") => {
@@ -659,6 +661,61 @@ function SettingsContent() {
                     {!desktopAvailable && (
                       <p className="text-[12px] text-text-faint">
                         This setting is saved here, but only the Tauri desktop app can read system idle time or send native Windows notifications.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
+                  <div className="flex flex-col gap-1 mb-lg sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h2 className="text-[17px] font-semibold tracking-[-0.012em] text-text-primary mb-1">Personal app activity</h2>
+                      <p className="text-[13px] text-text-muted">See which apps were focused while a timer was running. Stored only on this PC.</p>
+                    </div>
+                    <Badge variant={desktopAvailable ? "success" : "raised"}>
+                      {desktopAvailable ? "Desktop active" : "Desktop only"}
+                    </Badge>
+                  </div>
+
+                  <div className="flex flex-col gap-md max-w-xl">
+                    <div className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface p-md">
+                      <Checkbox
+                        id="appUsageTrackingEnabled"
+                        checked={preferences?.appUsageTrackingEnabled === true}
+                        onChange={(val) => setPreferences({ appUsageTrackingEnabled: val })}
+                      />
+                      <div
+                        className="flex flex-col gap-0.5 select-none"
+                        onClick={() =>
+                          setPreferences({
+                            appUsageTrackingEnabled: !(preferences?.appUsageTrackingEnabled === true),
+                          })
+                        }
+                      >
+                        <label htmlFor="appUsageTrackingEnabled" className="text-[13px] font-semibold text-text-primary cursor-pointer">
+                          Record focused app while a timer is running
+                        </label>
+                        <p className="text-[12px] text-text-muted">
+                          Saves the application name (for example VS Code or Chrome), not window titles. Never billed and never included in shared reports.
+                        </p>
+                      </div>
+                    </div>
+
+                    {desktopAvailable && (
+                      <Button
+                        type="button"
+                        variant="danger"
+                        size="sm"
+                        className="self-start"
+                        onClick={() => setClearAppUsageOpen(true)}
+                      >
+                        Clear local history
+                      </Button>
+                    )}
+
+                    {!desktopAvailable && (
+                      <p className="text-[12px] text-text-faint">
+                        This setting is saved here, but only the Tauri desktop app can record which app is focused.
                       </p>
                     )}
                   </div>
@@ -1305,6 +1362,36 @@ function SettingsContent() {
         pending={clientDeleting}
         onClose={() => setDeleteTargetClient(null)}
         onConfirm={handleDeleteClientConfirm}
+      />
+
+      <ConfirmDialog
+        open={clearAppUsageOpen}
+        title="Clear app activity history?"
+        description="This deletes the local record of which apps were focused during timed sessions on this PC. It does not change billed time."
+        confirmLabel="Clear history"
+        pendingLabel="Clearing..."
+        pending={clearAppUsagePending}
+        onClose={() => setClearAppUsageOpen(false)}
+        onConfirm={async () => {
+          setClearAppUsagePending(true);
+          try {
+            await clearAppUsage();
+            setClearAppUsageOpen(false);
+            notify({
+              title: "App activity cleared",
+              description: "Local app activity history was deleted on this PC.",
+              tone: "success",
+            });
+          } catch (error) {
+            notify({
+              title: "Could not clear history",
+              description: getErrorMessage(error, "Could not clear app activity history."),
+              tone: "error",
+            });
+          } finally {
+            setClearAppUsagePending(false);
+          }
+        }}
       />
     </PageLayout>
   );

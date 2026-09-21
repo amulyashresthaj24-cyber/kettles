@@ -77,6 +77,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   petIntelligenceEnabled: true,
   agentFinishCelebrationEnabled: true,
   idleThresholdMinutes: 5,
+  appUsageTrackingEnabled: false,
 };
 
 /** Debounce window for preference writes (ms). */

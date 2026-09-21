@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -31,6 +31,13 @@ import { getWeekRange } from "@/lib/report-dates";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useNotification } from "@/components/ui/notification";
+import { AppUsageCard } from "@/components/report/AppUsageCard";
+import { isDesktop, getAppUsageSummary } from "@/lib/desktop";
+import {
+  aggregateAppUsage,
+  filterSpansBySessionIds,
+  type AppUsageSpan,
+} from "@/lib/app-usage";
 
 const URGENCY_ORDER: Record<Urgency, number> = {
   urgent: 0,
@@ -87,6 +94,8 @@ export default function Dashboard() {
   const [openAdd, setOpenAdd] = useState(false);
   const [completingTasks, setCompletingTasks] = useState<Record<string, boolean>>({});
   const [reopeningTasks, setReopeningTasks] = useState<Record<string, boolean>>({});
+  const [desktopAvailable, setDesktopAvailable] = useState(false);
+  const [appSpans, setAppSpans] = useState<AppUsageSpan[]>([]);
 
   const handleFocusTask = async (task: Task) => {
     if (activeSessionId) {
@@ -154,6 +163,26 @@ export default function Dashboard() {
 
   const { start: todayStart, end: todayEnd } = todayBounds();
   const { start: weekStart, end: weekEnd } = weekBounds();
+
+  useEffect(() => {
+    setDesktopAvailable(isDesktop());
+  }, []);
+
+  useEffect(() => {
+    if (!desktopAvailable) return;
+    let cancelled = false;
+    const load = () => {
+      void getAppUsageSummary(todayStart, todayEnd).then((spans) => {
+        if (!cancelled) setAppSpans(spans);
+      });
+    };
+    load();
+    const id = window.setInterval(load, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [desktopAvailable, todayStart, todayEnd]);
 
   const todaySessions = useMemo(
     () => sessions.filter((s) => s.endedAt && (s.state ?? "confirmed") === "confirmed" && s.endedAt >= todayStart && s.endedAt < todayEnd),
@@ -227,6 +256,14 @@ export default function Dashboard() {
   const activeProject = activeTask
     ? projects.find((p) => p.id === activeTask.projectId)
     : null;
+
+  const appUsageSlices = useMemo(() => {
+    const allowed = new Set(todaySessions.map((s) => s.id));
+    if (activeSession && activeSession.state === "running" && !activeSession.paused) {
+      allowed.add(activeSession.id);
+    }
+    return aggregateAppUsage(filterSpansBySessionIds(appSpans, allowed));
+  }, [appSpans, todaySessions, activeSession]);
 
   const now = new Date();
   const greeting =
@@ -515,6 +552,16 @@ export default function Dashboard() {
               draftCount={todayDraftSessions.length}
               billableCents={todayBillableCents}
             />
+
+            {desktopAvailable && (
+              <AppUsageCard
+                title="Today's apps"
+                slices={appUsageSlices}
+                trackingEnabled={preferences?.appUsageTrackingEnabled === true}
+                maxItems={5}
+                emptyWhenOn="No app activity today. It records while a timer is running."
+              />
+            )}
 
             {/* Quick actions */}
             <section className="rounded-lg p-5 flex flex-col gap-3" style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)" }}>

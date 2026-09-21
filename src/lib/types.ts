@@ -88,6 +88,11 @@ export interface UserPreferences {
   agentFinishCelebrationEnabled?: boolean;
   /** Minutes without input before the timer auto-pauses. Floored at 30s. */
   idleThresholdMinutes?: number;
+  /**
+   * Desktop-only. When on, the shell records the focused app executable
+   * while a timer session is running. Stored locally, never billed.
+   */
+  appUsageTrackingEnabled?: boolean;
 }
 
 /** Per-user profile + onboarding state (`user_profiles` table). One row per user. */

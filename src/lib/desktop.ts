@@ -6,6 +6,10 @@
  * Falls back gracefully when running in a regular browser.
  */
 
+import type { AppUsageSpan } from "./app-usage";
+
+export type { AppUsageSpan };
+
 // ---------------------------------------------------------------------------
 // Environment detection
 // ---------------------------------------------------------------------------
@@ -127,6 +131,33 @@ export async function exitMiniMode(): Promise<void> {
 /** Enable or disable native idle detection events in the Tauri shell. */
 export async function setIdleDetectionEnabled(enabled: boolean): Promise<void> {
   await invoke("set_idle_detection_enabled", { enabled });
+}
+
+/** Opt-in personal app-usage capture (timer-only, local, not billed). */
+export async function setAppUsageEnabled(enabled: boolean): Promise<void> {
+  await invoke("set_app_usage_enabled", { enabled });
+}
+
+/** Tell the capture thread whether a timer session is currently running. */
+export async function setAppUsageSession(
+  sessionId: string | null,
+  running: boolean
+): Promise<void> {
+  await invoke("set_app_usage_session", { sessionId, running });
+}
+
+/** Local spans overlapping `[fromMs, toMs]`. Empty on web. */
+export async function getAppUsageSummary(
+  fromMs: number,
+  toMs: number
+): Promise<AppUsageSpan[]> {
+  const rows = await invoke<AppUsageSpan[]>("get_app_usage_summary", { fromMs, toMs });
+  return rows ?? [];
+}
+
+/** Delete all locally stored app-usage spans. */
+export async function clearAppUsage(): Promise<void> {
+  await invoke("clear_app_usage");
 }
 
 /** Seconds without input before the timer auto-pauses. Floored at 30s in Rust. */

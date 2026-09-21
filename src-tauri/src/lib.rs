@@ -8,6 +8,7 @@ use tauri::{
 };
 
 mod agent_bridge;
+mod app_usage;
 mod pet;
 
 // ---------------------------------------------------------------------------
@@ -22,7 +23,7 @@ static LAST_IDLE_SECS: AtomicU64 = AtomicU64::new(0);
 /// How long without input before the timer auto-pauses. Runtime-configurable:
 /// five minutes suits deep work and is far too long for a coffee break, so this
 /// is a preference rather than a constant.
-static IDLE_THRESHOLD_SECS: AtomicU64 = AtomicU64::new(300);
+pub(crate) static IDLE_THRESHOLD_SECS: AtomicU64 = AtomicU64::new(300);
 /// Below this the detector fights normal reading pauses instead of finding real
 /// absences.
 const MIN_IDLE_THRESHOLD_SECS: u64 = 30;
@@ -403,6 +404,10 @@ pub fn run() {
             // Windows-gated: idle detection is Windows-only; the bridge is not.
             agent_bridge::start(app.handle().clone());
 
+            // Personal app-usage capture (timer-only). Sibling thread to idle
+            // detection — do not fold the two together.
+            app_usage::start(app.handle().clone());
+
             // --- System Tray ---
             // A disabled first line carries the current task + elapsed time, so
             // the tray answers "what am I tracking?" without opening the window.
@@ -634,6 +639,10 @@ pub fn run() {
             show_notification,
             set_idle_detection_enabled,
             set_idle_threshold_seconds,
+            app_usage::set_app_usage_enabled,
+            app_usage::set_app_usage_session,
+            app_usage::get_app_usage_summary,
+            app_usage::clear_app_usage,
             agent_bridge::set_manual_agent_active,
             pet::pet_open,
             pet::pet_is_open,
@@ -663,6 +672,7 @@ pub fn run() {
         .run(|_app, event| {
             if let tauri::RunEvent::Exit = event {
                 IDLE_POLL_RUNNING.store(false, Ordering::Relaxed);
+                app_usage::on_shutdown();
                 agent_bridge::on_shutdown();
             }
         });

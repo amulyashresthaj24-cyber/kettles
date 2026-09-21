@@ -7,6 +7,8 @@ import {
   invoke,
   setIdleDetectionEnabled,
   setIdleThresholdSeconds,
+  setAppUsageEnabled,
+  setAppUsageSession,
   showDesktopNotification,
 } from "@/lib/desktop";
 import { useApp } from "@/lib/store-supabase";
@@ -80,6 +82,7 @@ export function DesktopShell() {
   const confirmSession = useApp((s) => s.confirmSession);
   const discardSession = useApp((s) => s.discardSession);
   const autoPauseOnIdleEnabled = useApp((s) => s.preferences?.autoPauseOnIdleEnabled !== false);
+  const appUsageTrackingEnabled = useApp((s) => s.preferences?.appUsageTrackingEnabled === true);
   const idleThresholdMinutes = useApp((s) => {
     const raw = Number(s.preferences?.idleThresholdMinutes);
     // A 0 or NaN preference must not turn every reading pause into an idle gap.
@@ -755,6 +758,11 @@ export function DesktopShell() {
     void setIdleThresholdSeconds(idleThresholdMinutes * 60);
   }, [idleThresholdMinutes]);
 
+  useEffect(() => {
+    if (!isDesktop()) return;
+    void setAppUsageEnabled(appUsageTrackingEnabled);
+  }, [appUsageTrackingEnabled]);
+
   // Updates are handled by DesktopUpdatePrompt, which offers rather than
   // forces — installing terminates the process on Windows NSIS, so it must not
   // land in the middle of a session.
@@ -810,6 +818,13 @@ export function DesktopShell() {
     const id = window.setInterval(push, 1000);
     return () => window.clearInterval(id);
   }, [activeSession, tasks]);
+
+  // Personal app-usage capture: only accrue while a timer is actually running.
+  useEffect(() => {
+    if (!isDesktop()) return;
+    const running = !!activeSession && activeSession.state === "running" && !activeSession.paused;
+    void setAppUsageSession(running && activeSession ? activeSession.id : null, running);
+  }, [activeSession]);
 
   // -----------------------------------------------------------------------
   // Drive pet overlay animations from timer state transitions

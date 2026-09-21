@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/legal/privacy" },
 };
 
-const LAST_UPDATED = "2026-08-09";
+const LAST_UPDATED = "2026-09-17";
 
 const sections: LegalSection[] = [
   {
@@ -57,6 +57,14 @@ const sections: LegalSection[] = [
         </ul>
         <p><strong>Shared reports.</strong> If you create a public report share link, viewers may access the report data you chose to share. We may store a password hash (if you protect the link), expiry or revocation status, and anonymized viewer-session identifiers used only to measure unique views without inflating counts.</p>
         <p><strong>Device and usage data.</strong> We automatically collect limited technical information such as browser or app version, operating system, approximate region derived from network metadata, error logs, and product interaction events needed to keep the Service reliable. Theme and some UI preferences may be stored locally on your device (for example in local storage).</p>
+        <p>
+          <strong>Desktop app activity (optional).</strong> If you turn this on in the Windows
+          desktop app, we record the executable name of the application in the foreground while a
+          timer session is running (for example Code.exe). This stays on your device
+          and is not uploaded to our servers. It is not used for billing and is not included in
+          shared reports or exports. You can turn it off and delete the local history at any time
+          in Settings.
+        </p>
         <p><strong>Communications.</strong> If you email us or contact support, we keep the content of that correspondence and related contact details so we can respond.</p>
       </>
     ),

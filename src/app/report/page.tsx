@@ -38,6 +38,13 @@ import { TimeSeriesChart } from "@/components/report/charts/TimeSeriesChart";
 import { DistributionDonut } from "@/components/report/charts/DistributionDonut";
 import { HourOfDayChart } from "@/components/report/charts/HourOfDayChart";
 import { WeekdayChart } from "@/components/report/charts/WeekdayChart";
+import { AppUsageCard } from "@/components/report/AppUsageCard";
+import { isDesktop, getAppUsageSummary } from "@/lib/desktop";
+import {
+  aggregateAppUsage,
+  filterSpansBySessionIds,
+  type AppUsageSpan,
+} from "@/lib/app-usage";
 import { getPublicShareOrigin } from "@/lib/supabase";
 
 type ReportTab = "overview" | "projects" | "tags" | "logs";
@@ -60,6 +67,8 @@ export default function ReportPage() {
   const weeklyTargetHours = useApp(
     (s) => s.preferences?.weeklyTargetHours ?? DEFAULT_WEEKLY_TARGET_HOURS
   );
+  const appUsageTrackingEnabled = useApp((s) => s.preferences?.appUsageTrackingEnabled === true);
+  const activeSessionId = useApp((s) => s.activeSessionId);
   const { notify } = useNotification();
 
   const [activeTab, setActiveTab] = useState<ReportTab>("overview");
@@ -78,6 +87,8 @@ export default function ReportPage() {
   const [shareOpen, setShareOpen] = useState(false);
   const [addLogOpen, setAddLogOpen] = useState(false);
   const [editingLog, setEditingLog] = useState<import("@/lib/report/data").TimeLogRow | null>(null);
+  const [desktopAvailable, setDesktopAvailable] = useState(false);
+  const [appSpans, setAppSpans] = useState<AppUsageSpan[]>([]);
 
   // Hydrate filters from a shared URL. window.location is used instead of
   // useSearchParams because the app builds with `output: "export"`.
@@ -104,6 +115,10 @@ export default function ReportPage() {
           : "all",
     }));
     if (tab && TABS.some((t) => t.id === tab)) setActiveTab(tab as ReportTab);
+  }, []);
+
+  useEffect(() => {
+    setDesktopAvailable(isDesktop());
   }, []);
 
   // ── Data pipeline (single source for every tab AND exports) ──────────────
@@ -133,6 +148,34 @@ export default function ReportPage() {
     () => buildReportData(source, reportFilters, timeLogSort),
     [source, reportFilters, timeLogSort]
   );
+
+  useEffect(() => {
+    if (!desktopAvailable) return;
+    let cancelled = false;
+    const fromMs = range.start.getTime();
+    const toMs = range.end.getTime();
+    const load = () => {
+      void getAppUsageSummary(fromMs, toMs).then((spans) => {
+        if (!cancelled) setAppSpans(spans);
+      });
+    };
+    load();
+    if (activeTab !== "overview") return () => { cancelled = true; };
+    const id = window.setInterval(load, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [desktopAvailable, range, activeTab]);
+
+  const appUsageSlices = useMemo(() => {
+    const allowed = new Set(data.rows.map((r) => r.session.id));
+    const live = sessions.find((s) => s.id === activeSessionId);
+    if (live && live.state === "running" && !live.paused) {
+      allowed.add(live.id);
+    }
+    return aggregateAppUsage(filterSpansBySessionIds(appSpans, allowed));
+  }, [appSpans, data.rows, sessions, activeSessionId]);
 
   const tagOptions = useMemo(
     () => Array.from(new Set(tasks.flatMap((t) => t.tags ?? []))).sort(),
@@ -313,6 +356,10 @@ export default function ReportPage() {
                 <DistributionDonut data={donutData} totalSeconds={totals.totalSeconds} />
               </ReportCard>
             </div>
+
+            {desktopAvailable && (
+              <AppUsageCard slices={appUsageSlices} trackingEnabled={appUsageTrackingEnabled} />
+            )}
 
             <ReportCard title="Top projects" flush>
               {data.projects.length === 0 ? (
