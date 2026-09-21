@@ -249,7 +249,7 @@ function sessionsSheet(rows: EnrichedSession[]): SheetSpec {
   const logs = buildTimeLog(rows, "date_desc");
   return {
     rows: [
-      ["Date", "Start", "End", "Task", "Project", "Client", "Tags", "Duration", "Hours (decimal)", "Billable", "Earnings (USD)"],
+      ["Date", "Start", "End", "Task", "Project", "Client", "Tags", "Duration", "Hours (decimal)", "Billable", "Billed", "Earnings (USD)"],
       ...logs.map((l) => [
         new Date(l.startedAt).toLocaleDateString("en-US"),
         new Date(l.startedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
@@ -261,11 +261,12 @@ function sessionsSheet(rows: EnrichedSession[]): SheetSpec {
         formatDuration(l.seconds),
         hours(l.seconds),
         l.billable ? "Yes" : "No",
+        l.billed ? "Billed" : "Open",
         dollars(l.earningsCents),
       ]),
     ],
-    widths: [12, 10, 10, 32, 20, 18, 20, 10, 14, 9, 14],
-    formats: { 8: HOURS_FMT, 10: CURRENCY_FMT },
+    widths: [12, 10, 10, 32, 20, 18, 20, 10, 14, 9, 10, 14],
+    formats: { 8: HOURS_FMT, 11: CURRENCY_FMT },
   };
 }
 

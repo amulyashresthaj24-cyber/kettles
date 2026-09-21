@@ -188,6 +188,12 @@ export interface Project {
   billable: boolean;
   /** Project hourly rate in USD. Preferred over client rate for earnings. `null` clears it. */
   hourlyRate?: number | null;
+  /**
+   * Inclusive local calendar day (`YYYY-MM-DD`) through which this project
+   * has already been invoiced. Sessions that ended on or before this date
+   * are billed; later sessions are still open. `null` clears the cutoff.
+   */
+  billedThrough?: string | null;
   status?: ProjectStatus;
   startDate?: number;
   endDate?: number;

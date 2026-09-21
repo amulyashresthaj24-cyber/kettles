@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Briefcase, CaretDown, CaretLeft, CaretRight, CurrencyDollar, FolderOpen, Tag } from "@/components/ui/icon";
+import { Briefcase, CaretDown, CaretLeft, CaretRight, CheckCircle, CurrencyDollar, FolderOpen, Tag } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import type { Client, Project } from "@/lib/types";
-import type { BillableFilter } from "@/lib/report/data";
+import type { BillableFilter, BilledFilter } from "@/lib/report/data";
 
 export type PeriodMode = "week" | "month" | "year";
 
@@ -21,6 +21,7 @@ export interface ReportFilterState {
   clientId: string | null;
   tag: string | null;
   billable: BillableFilter;
+  billed: BilledFilter;
 }
 
 interface ReportFilterBarProps {
@@ -38,6 +39,12 @@ const BILLABLE_LABELS: Record<BillableFilter, string> = {
   "non-billable": "Non-billable only",
 };
 
+const BILLED_LABELS: Record<BilledFilter, string> = {
+  all: "Billed + unbilled",
+  billed: "Already billed",
+  unbilled: "Not yet billed",
+};
+
 export function ReportFilterBar({
   state,
   onChange,
@@ -46,14 +53,14 @@ export function ReportFilterBar({
   clients,
   tagOptions,
 }: ReportFilterBarProps) {
-  const { periodMode, cursors, projectId, clientId, tag, billable } = state;
+  const { periodMode, cursors, projectId, clientId, tag, billable, billed } = state;
 
   const handlePrev = () =>
     onChange({ cursors: { ...cursors, [periodMode]: cursors[periodMode] - 1 } });
   const handleNext = () =>
     onChange({ cursors: { ...cursors, [periodMode]: cursors[periodMode] + 1 } });
 
-  const hasFilters = projectId || clientId || tag || billable !== "all";
+  const hasFilters = projectId || clientId || tag || billable !== "all" || billed !== "all";
   const activeProjects = projects.filter((p) => !p.archived);
 
   return (
@@ -137,11 +144,24 @@ export function ReportFilterBar({
         selectedLabel={billable !== "all" ? BILLABLE_LABELS[billable] : undefined}
       />
 
+      <FilterDropdown
+        icon={<CheckCircle size={13} />}
+        placeholder="Billed"
+        value={billed === "all" ? null : billed}
+        options={[
+          { value: "unbilled", label: "Not yet billed" },
+          { value: "billed", label: "Already billed" },
+        ]}
+        allLabel={BILLED_LABELS.all}
+        onSelect={(v) => onChange({ billed: (v ?? "all") as BilledFilter })}
+        selectedLabel={billed !== "all" ? BILLED_LABELS[billed] : undefined}
+      />
+
       {hasFilters && (
         <button
           className="text-[12px] text-error hover:opacity-80 shrink-0"
           onClick={() =>
-            onChange({ projectId: null, clientId: null, tag: null, billable: "all" })
+            onChange({ projectId: null, clientId: null, tag: null, billable: "all", billed: "all" })
           }
         >
           Clear filters

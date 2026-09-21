@@ -8,6 +8,7 @@ import { eachDayOf } from "@/lib/report-dates";
 import { earningsCents, resolveHourlyRate, type RateSource } from "@/lib/rates";
 import { hasTruthfulTimeline } from "@/lib/session-timeline";
 import { agentNamesIn, agentSecondsIn } from "@/lib/agent-runs";
+import { isTimestampBilled, type BilledFilter } from "@/lib/billed";
 
 // ─── Inputs ──────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ export interface ReportSource {
 }
 
 export type BillableFilter = "all" | "billable" | "non-billable";
+export type { BilledFilter };
 
 export interface ReportFilters {
   range: DateRange;
@@ -26,6 +28,8 @@ export interface ReportFilters {
   clientId: string | null;
   tag: string | null;
   billable: BillableFilter;
+  /** Owner-only. Absent or `"all"` leaves billed and unbilled rows in. */
+  billed?: BilledFilter;
 }
 
 export function isReportableSession(s: Session): boolean {
@@ -110,6 +114,8 @@ export interface EnrichedSession {
   agentSeconds: number;
   /** Display names of agents that touched this session. */
   agentNames: string[];
+  /** True when the session ended on or before the project's billed-through date. */
+  billed: boolean;
 }
 
 /**
@@ -139,6 +145,10 @@ export function selectSessions(src: ReportSource, filters: ReportFilters): Enric
     if (filters.billable === "billable" && !billable) continue;
     if (filters.billable === "non-billable" && billable) continue;
 
+    const billed = isTimestampBilled(endedAt, project?.billedThrough);
+    if (filters.billed === "billed" && !billed) continue;
+    if (filters.billed === "unbilled" && billed) continue;
+
     const task = s.taskId ? taskById.get(s.taskId) : undefined;
     const tags = task?.tags ?? [];
     if (filters.tag && !tags.includes(filters.tag)) continue;
@@ -165,6 +175,7 @@ export function selectSessions(src: ReportSource, filters: ReportFilters): Enric
       startedAt: bounds.startedAt,
       agentSeconds: agentSecondsIn(s),
       agentNames: agentNamesIn(s),
+      billed,
     });
   }
   return rows;
@@ -512,6 +523,7 @@ export interface TimeLogRow {
   tags: string[];
   seconds: number;
   billable: boolean;
+  billed: boolean;
   earningsCents: number;
   color: string;
   /** Session notes joined — maps to timesheet Description column. */
@@ -532,6 +544,7 @@ export function buildTimeLog(rows: EnrichedSession[], sort: TimeLogSort): TimeLo
     tags: r.tags,
     seconds: r.seconds,
     billable: r.billable,
+    billed: r.billed,
     earningsCents: r.earningsCents,
     color: r.color,
     description: (r.session.notes ?? [])
