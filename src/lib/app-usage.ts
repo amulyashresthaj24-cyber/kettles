@@ -85,7 +85,7 @@ export function aggregateAppUsage(spans: AppUsageSpan[]): AppUsageSlice[] {
     secondsByKey.set(key, (secondsByKey.get(key) ?? 0) + seconds);
     if (!exeByKey.has(key)) exeByKey.set(key, span.exe.trim());
   }
-  return [...secondsByKey.entries()]
+  return Array.from(secondsByKey.entries())
     .map(([id, seconds]) => {
       const exe = exeByKey.get(id) ?? id;
       return {
