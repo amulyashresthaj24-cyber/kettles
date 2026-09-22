@@ -34,7 +34,8 @@ import { PageLayout, PageHeader, PageContent } from "@/components/layout";
 import { useNotification } from "@/components/ui/notification";
 import { AuthGuard } from "@/components/AuthGuard";
 import { getSupabaseClient } from "@/lib/supabase";
-import { isDesktop, clearAppUsage } from "@/lib/desktop";
+import { isDesktop, clearAppUsage, getAppVersion } from "@/lib/desktop";
+import { announceDesktopUpdate, checkForDesktopUpdate } from "@/lib/updater";
 import { ALARM_SOUNDS, GOOGLE_CALENDAR_ENABLED } from "@/lib/constants";
 import type { Client, Project, ProjectColor } from "@/lib/types";
 import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
@@ -100,6 +101,8 @@ function SettingsContent() {
   // Theme tracking
   const [currentTheme, setCurrentTheme] = useState<"light" | "dark">("dark");
   const [desktopAvailable, setDesktopAvailable] = useState(false);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+  const [updateChecking, setUpdateChecking] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -108,6 +111,9 @@ function SettingsContent() {
         setCurrentTheme(stored);
       }
       setDesktopAvailable(isDesktop());
+      void getAppVersion().then((version) => {
+        if (version) setAppVersion(version);
+      });
     }
   }, []);
 
@@ -409,6 +415,27 @@ function SettingsContent() {
     }
   };
 
+  const handleCheckForUpdates = async () => {
+    if (!desktopAvailable || updateChecking) return;
+    setUpdateChecking(true);
+    try {
+      const update = await checkForDesktopUpdate();
+      if (update) {
+        announceDesktopUpdate(update);
+      } else {
+        notify({
+          title: "You're up to date",
+          description: appVersion
+            ? `This install is ${appVersion}. No newer version is available.`
+            : "No newer version is available right now.",
+          tone: "success",
+        });
+      }
+    } finally {
+      setUpdateChecking(false);
+    }
+  };
+
   // ─── Tabs List ─────────────────────────────────────────────────────────────
   const TABS = [
     { id: "profile" as SettingsTab, label: "Profile", Icon: User },
@@ -661,6 +688,42 @@ function SettingsContent() {
                     {!desktopAvailable && (
                       <p className="text-[12px] text-text-faint">
                         This setting is saved here, but only the Tauri desktop app can read system idle time or send native Windows notifications.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="rounded-xl p-xl border" style={{ background: "var(--surface-raised)", borderColor: "var(--border-subtle)" }}>
+                  <div className="flex flex-col gap-1 mb-lg sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h2 className="text-[17px] font-semibold tracking-[-0.012em] text-text-primary mb-1">App updates</h2>
+                      <p className="text-[13px] text-text-muted">
+                        Check GitHub Releases for a newer desktop build. Installing closes Kettles and reopens it.
+                      </p>
+                    </div>
+                    <Badge variant={desktopAvailable ? "success" : "raised"}>
+                      {desktopAvailable ? "Desktop active" : "Desktop only"}
+                    </Badge>
+                  </div>
+
+                  <div className="flex flex-col gap-md max-w-xl">
+                    <p className="text-[13px] text-text-secondary">
+                      {appVersion ? `Installed version ${appVersion}` : "Version is shown in the desktop app."}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="w-fit"
+                      disabled={!desktopAvailable || updateChecking}
+                      onClick={() => void handleCheckForUpdates()}
+                    >
+                      <ArrowClockwise size={14} />
+                      {updateChecking ? "Checking…" : "Check for updates"}
+                    </Button>
+                    {!desktopAvailable && (
+                      <p className="text-[12px] text-text-faint">
+                        Updates apply to the Windows app. The tray menu also has Check for Updates.
                       </p>
                     )}
                   </div>

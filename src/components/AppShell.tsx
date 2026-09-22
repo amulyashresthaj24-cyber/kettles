@@ -31,6 +31,10 @@ const DesktopShell = dynamic(
   () => import("./DesktopShell").then((mod) => mod.DesktopShell),
   { ssr: false }
 );
+const DesktopUpdatePrompt = dynamic(
+  () => import("./DesktopUpdatePrompt").then((mod) => mod.DesktopUpdatePrompt),
+  { ssr: false }
+);
 const ReminderAgent = dynamic(
   () => import("./ReminderAgent").then((mod) => mod.ReminderAgent),
   { ssr: false }
@@ -184,6 +188,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <NotificationProvider>
         <DesktopShell />
+        <DesktopUpdatePrompt />
         <ReminderAgent />
         {children}
       </NotificationProvider>
@@ -193,6 +198,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <NotificationProvider>
       <DesktopShell />
+      <DesktopUpdatePrompt />
       <ReminderAgent />
       <div className="flex h-screen overflow-hidden bg-surface">
         <Sidebar

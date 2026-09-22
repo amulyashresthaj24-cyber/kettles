@@ -66,6 +66,23 @@ export async function checkForDesktopUpdate(): Promise<PendingUpdate | null> {
   }
 }
 
+/** In-app "Check for updates" (Settings). The tray uses the same listener. */
+export const DESKTOP_UPDATE_CHECK_EVENT = "kettles-check-updates";
+/** Settings already fetched an update — hand it to DesktopUpdatePrompt. */
+export const DESKTOP_UPDATE_FOUND_EVENT = "kettles-desktop-update-found";
+
+export function requestDesktopUpdateCheck() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(DESKTOP_UPDATE_CHECK_EVENT));
+}
+
+export function announceDesktopUpdate(update: PendingUpdate) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<PendingUpdate>(DESKTOP_UPDATE_FOUND_EVENT, { detail: update })
+  );
+}
+
 /**
  * The updater endpoint only serves signed production artifacts, so a dev build
  * always mismatches. Set NEXT_PUBLIC_ENABLE_UPDATER=1 to exercise the flow

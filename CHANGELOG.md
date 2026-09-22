@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-09-22
+
+Desktop update that actually offers updates in the app.
+
+### Added
+
+- **Check for updates** in Settings → Timer & Theme, showing the installed version.
+
+### Fixed
+
+- The tray **Check for Updates…** item and the launch update check never ran — `DesktopUpdatePrompt` existed but was not mounted. Updates are offered (not force-installed) so a running timer is not killed.
+
 ## [1.1.2] - 2026-09-21
 
 Desktop production release of work that landed on web after 1.1.1: billed-through invoicing, opt-in app-usage tracking, timer correctness, AI attribution, and budget alerts.

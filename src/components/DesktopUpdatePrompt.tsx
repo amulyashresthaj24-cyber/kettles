@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/lib/store-supabase";
 import { useNotification } from "@/components/ui/notification";
-import { checkForDesktopUpdate, type PendingUpdate } from "@/lib/updater";
+import {
+  checkForDesktopUpdate,
+  DESKTOP_UPDATE_CHECK_EVENT,
+  DESKTOP_UPDATE_FOUND_EVENT,
+  type PendingUpdate,
+} from "@/lib/updater";
 import { listen } from "@/lib/desktop";
 
 /**
@@ -38,12 +43,12 @@ export function DesktopUpdatePrompt() {
     };
   }, []);
 
-  // "Check for Updates…" in the tray menu. An explicit check must always answer,
-  // including when there is nothing to install — silence would read as broken.
+  // Tray "Check for Updates…" and Settings both ask here. An explicit check
+  // must always answer, including when there is nothing to install.
   useEffect(() => {
     let cancelled = false;
-    const unlisten = listen<string>("shortcut-action", async (action) => {
-      if (action !== "check_updates" || cancelled) return;
+
+    const applyExplicit = async () => {
       const update = await checkForDesktopUpdate();
       if (cancelled) return;
       if (update) {
@@ -56,9 +61,30 @@ export function DesktopUpdatePrompt() {
           tone: "success",
         });
       }
+    };
+
+    const onWindowCheck = () => {
+      void applyExplicit();
+    };
+    const onUpdateFound = (event: Event) => {
+      const update = (event as CustomEvent<PendingUpdate>).detail;
+      if (!update) return;
+      offered.current = false;
+      setPending(update);
+    };
+
+    window.addEventListener(DESKTOP_UPDATE_CHECK_EVENT, onWindowCheck);
+    window.addEventListener(DESKTOP_UPDATE_FOUND_EVENT, onUpdateFound);
+
+    const unlisten = listen<string>("shortcut-action", async (action) => {
+      if (action !== "check_updates" || cancelled) return;
+      await applyExplicit();
     });
+
     return () => {
       cancelled = true;
+      window.removeEventListener(DESKTOP_UPDATE_CHECK_EVENT, onWindowCheck);
+      window.removeEventListener(DESKTOP_UPDATE_FOUND_EVENT, onUpdateFound);
       unlisten.then((off) => off());
     };
   }, [notify]);

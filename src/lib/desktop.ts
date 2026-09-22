@@ -170,6 +170,17 @@ export async function showDesktopNotification(title: string, body: string): Prom
   await invoke("show_notification", { title, body });
 }
 
+/** Installed app version from Tauri. Null on web. */
+export async function getAppVersion(): Promise<string | null> {
+  if (!isDesktop()) return null;
+  try {
+    const { getVersion } = await import("@tauri-apps/api/app");
+    return await getVersion();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * M2 — manual "AI running" toggle. Opens/closes a non-expiring bridge lease
  * so idle auto-pause is suppressed without agent hooks. Emits the same
