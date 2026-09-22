@@ -8,6 +8,7 @@ import { WorkflowPreview } from "@/components/marketing/ProductSections";
 import { LandingPet } from "@/components/marketing/LandingPet";
 import { PetShowcase } from "@/components/marketing/PetShowcase";
 import { SteamMotif } from "@/components/marketing/art";
+import { LANDING_FAQS } from "@/lib/landing-faq";
 import { BeamsBackground } from "@/components/ui/beams-background";
 import DisplayCards from "@/components/ui/display-cards";
 import {
@@ -550,14 +551,7 @@ export function KettlesLanding() {
     };
   }, []);
 
-  const faqs = [
-    ["Is it task-linked or just a stopwatch?", "Task-linked. You pick a task first, and the time you brew is sealed to it. That's what makes your weekly report accurate enough to invoice without second-guessing."],
-    ["Does the timer survive a tab close?", "Yes. Brews are saved to the cloud, so closing a tab, refreshing, or switching devices doesn't lose a second. Your timer keeps running where it left off."],
-    ["Which platforms are supported?", "Kettles runs in the browser, plus native macOS and Windows apps with a floating always-on-top mini-timer. A browser extension keeps everything in sync."],
-    ["Can I export for invoicing?", "Every weekly report exports to PDF or CSV in one click, with hours broken down per client, ready to attach to an invoice or send straight to a client."],
-    ["Is my data private?", "Yes. Kettles never takes screenshots, logs keystrokes, or scores your productivity. It records the hours you choose to brew, and nothing else. Read the full Privacy Policy for details."],
-    ["Why does Kettles request Google account data?", "Only to sign you in. If you use Sign in with Google, we request your basic profile (name and email) to create or open your Kettles account. We do not access Gmail, Drive, Contacts, or other Google services."],
-  ];
+  const faqs = LANDING_FAQS;
 
   return (
     <BeamsBackground ref={rootRef} className="kettles min-h-[100dvh] bg-transparent" intensity="strong">
@@ -646,8 +640,8 @@ export function KettlesLanding() {
               Time tracking that does the remembering for you.
             </h1>
             <p className="k-reveal mt-5 max-w-[52ch] text-[clamp(16px,1.35vw,19px)] leading-[1.55] text-[var(--k-muted)] text-pretty">
-              Pick a task, hit start. Every minute locks to the work. Your weekly
-              report stays accurate and invoice-ready, automatically.
+              Task-linked time tracking for freelancers. Pick a task, hit start, and
+              every minute locks to the work — ready to bill at the end of the week.
             </p>
             <div className="k-reveal mt-11 flex flex-col items-center gap-3.5">
               <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-5">

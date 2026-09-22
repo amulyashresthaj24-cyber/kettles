@@ -10,7 +10,10 @@ import type { Metadata } from "next";
  */
 
 export const SITE_NAME = "Kettles";
-export const SITE_DESCRIPTION = "Task-linked time tracking for focused work";
+/** Public homepage title. App routes keep the short `SITE_NAME` tab title. */
+export const SITE_TITLE = "Kettles — Time tracking for freelancers";
+export const SITE_DESCRIPTION =
+  "Task-linked time tracking for freelancers. Start a timer on the task, and every minute lands in an invoice-ready report. Free to start.";
 
 export const OG_IMAGE = {
   url: "/images/dashboard-shot.png",
