@@ -1,8 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { isOnline } from "@/lib/desktop";
 import { validateLogoInput } from "@/lib/project-logo";
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("Could not read that logo."));
+    };
+    reader.onerror = () => reject(new Error("Could not read that logo."));
+    reader.readAsDataURL(file);
+  });
+}
 
 /** Pending logo file for the project form. Upload happens on save. */
 export function useLogoDraft() {
@@ -10,26 +22,13 @@ export function useLogoDraft() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [removed, setRemoved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const previewRef = useRef<string | null>(null);
-
-  const replacePreview = useCallback((next: string | null) => {
-    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
-    previewRef.current = next;
-    setPreviewUrl(next);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (previewRef.current) URL.revokeObjectURL(previewRef.current);
-    };
-  }, []);
 
   const reset = useCallback(() => {
     setFile(null);
     setRemoved(false);
     setError(null);
-    replacePreview(null);
-  }, [replacePreview]);
+    setPreviewUrl(null);
+  }, []);
 
   const pick = useCallback((next: File) => {
     const message = validateLogoInput(next);
@@ -41,18 +40,27 @@ export function useLogoDraft() {
       setError("Connect to the internet to add a logo.");
       return;
     }
-    setError(null);
-    setRemoved(false);
-    setFile(next);
-    replacePreview(URL.createObjectURL(next));
-  }, [replacePreview]);
+
+    // data: URLs are allowed by the desktop image policy. blob: URLs are not,
+    // which made the preview and the save-time decode both fail.
+    void readFileAsDataUrl(next)
+      .then((url) => {
+        setError(null);
+        setRemoved(false);
+        setFile(next);
+        setPreviewUrl(url);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Could not read that logo.");
+      });
+  }, []);
 
   const clear = useCallback(() => {
     setFile(null);
     setRemoved(true);
     setError(null);
-    replacePreview(null);
-  }, [replacePreview]);
+    setPreviewUrl(null);
+  }, []);
 
   return { file, previewUrl, removed, error, setError, pick, clear, reset };
 }

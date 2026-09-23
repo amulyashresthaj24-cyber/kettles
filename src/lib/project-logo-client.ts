@@ -41,24 +41,51 @@ async function currentUserId(): Promise<string> {
   return data.user.id;
 }
 
-function loadImage(file: File): Promise<HTMLImageElement> {
+function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      if (!img.naturalWidth || !img.naturalHeight) {
-        reject(new Error("Could not read that logo."));
-        return;
-      }
-      resolve(img);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("Could not read that logo."));
     };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Could not read that logo."));
-    };
-    img.src = url;
+    reader.onerror = () => reject(new Error("Could not read that logo."));
+    reader.readAsDataURL(file);
   });
+}
+
+type DecodedLogo = {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  close?: () => void;
+};
+
+/** Decode without a blob: URL. The desktop app's image policy blocks those. */
+async function decodeLogo(file: File): Promise<DecodedLogo> {
+  if (typeof createImageBitmap === "function" && file.type !== "image/svg+xml") {
+    try {
+      const bitmap = await createImageBitmap(file);
+      if (bitmap.width > 0 && bitmap.height > 0) {
+        return { source: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close() };
+      }
+      bitmap.close();
+    } catch {
+      // Fall through to a data URL, which the desktop image policy allows.
+    }
+  }
+
+  const url = await readFileAsDataUrl(file);
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("Could not read that logo. Use a PNG, JPEG, or WebP."));
+    el.src = url;
+  });
+  return {
+    source: img,
+    width: img.naturalWidth || PROJECT_LOGO_SIZE,
+    height: img.naturalHeight || PROJECT_LOGO_SIZE,
+  };
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob | null> {
@@ -73,18 +100,19 @@ export async function rasterizeLogo(file: File): Promise<{ blob: Blob; ext: Logo
   if (invalid) throw new Error(invalid);
   if (typeof document === "undefined") throw new Error("Could not prepare the logo.");
 
-  const image = await loadImage(file);
+  const image = await decodeLogo(file);
   const canvas = document.createElement("canvas");
   canvas.width = PROJECT_LOGO_SIZE;
   canvas.height = PROJECT_LOGO_SIZE;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not prepare the logo.");
 
-  const scale = Math.max(PROJECT_LOGO_SIZE / image.naturalWidth, PROJECT_LOGO_SIZE / image.naturalHeight);
-  const width = image.naturalWidth * scale;
-  const height = image.naturalHeight * scale;
+  const scale = Math.max(PROJECT_LOGO_SIZE / image.width, PROJECT_LOGO_SIZE / image.height);
+  const width = image.width * scale;
+  const height = image.height * scale;
   ctx.clearRect(0, 0, PROJECT_LOGO_SIZE, PROJECT_LOGO_SIZE);
-  ctx.drawImage(image, (PROJECT_LOGO_SIZE - width) / 2, (PROJECT_LOGO_SIZE - height) / 2, width, height);
+  ctx.drawImage(image.source, (PROJECT_LOGO_SIZE - width) / 2, (PROJECT_LOGO_SIZE - height) / 2, width, height);
+  image.close?.();
 
   for (const quality of [0.9, 0.7, 0.5]) {
     const webp = await canvasToBlob(canvas, "image/webp", quality);

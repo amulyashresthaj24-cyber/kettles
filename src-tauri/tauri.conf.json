@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' tauri: https://tauri.localhost; connect-src 'self' tauri: https://tauri.localhost https://*.supabase.co https://*.supabase.in; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: asset: tauri:; script-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self' tauri: https://tauri.localhost; connect-src 'self' tauri: https://tauri.localhost https://*.supabase.co https://*.supabase.in; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https: asset: tauri:; script-src 'self' 'unsafe-inline'"
     },
     "trayIcon": {
       "iconPath": "icons/icon.png",
