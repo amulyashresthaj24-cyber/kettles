@@ -41,7 +41,7 @@ Flowmate combines project management, task tracking, and time tracking into a un
 | [Docs/agent-hooks.md](./Docs/agent-hooks.md) | Agent bridge hook wiring |
 | [Docs/release.md](./Docs/release.md) | Web + desktop release channels |
 | [Docs/pet-mascot-kit.md](./Docs/pet-mascot-kit.md) | Pet sprite contract and asset pipeline |
-| [Docs/marketing/](./Docs/marketing/) | Landing page PRD, brand assets, build brief |
+| [Docs/marketing/](./Docs/marketing/) | GTM plan, landing PRD, brand assets, build brief |
 | [supabase/functions/CLAUDE.md](./supabase/functions/CLAUDE.md) | Edge function patterns |
 
 ## Quick Start

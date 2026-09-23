@@ -315,6 +315,8 @@ Recommended stack: **GSAP + ScrollTrigger** for scroll storytelling; CSS transit
 
 ## 7. Growth & launch guide
 
+> Full go-to-market (audience, claim hygiene, phased channels, metrics): [`KETTLES_MARKETING_PLAN.md`](./KETTLES_MARKETING_PLAN.md). This section is the short version for landing-page builders.
+
 **SEO targets:** "task time tracking for freelancers", "pomodoro time tracker desktop", "time tracking per client", "focus timer with reports", "calm time tracker (not surveillance)". Blog clusters: freelance billing, deep work, anti-burnout, Pomodoro.
 
 **Launch channels:**
