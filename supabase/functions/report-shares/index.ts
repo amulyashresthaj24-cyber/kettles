@@ -5,6 +5,8 @@ import {
   validateUUID,
   rateDollars,
   budgetDollars as resolveBudgetDollars,
+  canonicalLogoPath,
+  PROJECT_LOGO_BUCKET,
 } from '../_shared/validators.ts';
 
 // ─── Constants (keep in sync with src/lib/report/share-types.ts) ─────────────
@@ -617,7 +619,7 @@ async function buildPublicSource(
     };
   });
 
-  const publicProjects = projects.map((p) => {
+  const publicProjects = await Promise.all(projects.map(async (p) => {
     const d = getData(p);
     const out: any = {
       id: p.id,
@@ -632,8 +634,13 @@ async function buildPublicSource(
       const budget = resolveBudgetDollars(p);
       if (budget != null) out.budget = budget;
     }
+    const logoPath = canonicalLogoPath(d.logoPath, userId);
+    if (logoPath) {
+      const signed = await service.storage.from(PROJECT_LOGO_BUCKET).createSignedUrl(logoPath, 6 * 60 * 60);
+      if (signed.data?.signedUrl) out.logoUrl = signed.data.signedUrl;
+    }
     return out;
-  });
+  }));
 
   const publicClients = clients.map((c) => {
     const d = getData(c);

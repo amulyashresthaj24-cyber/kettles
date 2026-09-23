@@ -5,6 +5,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { ProjectOptionLabel } from "@/components/ProjectMark";
 import { Spinner } from "@/components/ui/icon";
 import { useNotification } from "@/components/ui/notification";
 import { useApp } from "@/lib/store-supabase";
@@ -292,8 +293,10 @@ export function AddTimeLogDialog({
             {projectOptions.length === 0 && <option value="">No projects</option>}
             {projectOptions.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}
-                {p.archived || p.status === "archived" ? " (archived)" : ""}
+                <ProjectOptionLabel
+                  project={p}
+                  suffix={p.archived || p.status === "archived" ? " (archived)" : ""}
+                />
               </option>
             ))}
           </Select>

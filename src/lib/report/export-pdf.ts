@@ -11,6 +11,7 @@ import { buildTimeLog, UNTAGGED } from "./data";
 import type { ExportScope } from "./export-excel";
 import { SCOPE_LABELS } from "./export-excel";
 import { saveLocalFile, type SaveLocalResult } from "./save-local";
+import { projectLogoPngDataUrl } from "@/lib/project-logo-client";
 
 type AutoTableFn = (doc: jsPDF, options: Record<string, unknown>) => void;
 
@@ -119,10 +120,34 @@ function drawKpiBlock(doc: jsPDF, data: ReportData, topY: number): number {
   return y + 24;
 }
 
-function projectsTable(doc: jsPDF, autoTable: AutoTableFn, projects: ProjectRollup[], data: ReportData, startY: number): void {
+function projectsTable(
+  doc: jsPDF,
+  autoTable: AutoTableFn,
+  projects: ProjectRollup[],
+  data: ReportData,
+  startY: number,
+  logos: Array<string | null>
+): void {
   autoTable(doc, {
     ...TABLE_STYLES,
     startY,
+    columnStyles: { 0: { cellPadding: { top: 5, right: 4, bottom: 5, left: 18 } } },
+    didDrawCell: (cell: {
+      section: string;
+      column: { index: number };
+      row: { index: number };
+      cell: { x: number; y: number; height: number };
+    }) => {
+      if (cell.section !== "body" || cell.column.index !== 0) return;
+      const img = logos[cell.row.index];
+      if (!img) return;
+      const size = 11;
+      try {
+        doc.addImage(img, "PNG", cell.cell.x + 3, cell.cell.y + (cell.cell.height - size) / 2, size, size);
+      } catch {
+        // A missing image should not fail the export.
+      }
+    },
     head: [["Project", "Client", "Hours", "Billable", "Sessions", "Rate", "Earnings"]],
     body: projects.map((p) => [
       p.name,
@@ -181,11 +206,20 @@ function sessionsTable(doc: jsPDF, autoTable: AutoTableFn, rows: EnrichedSession
   });
 }
 
-function sectionTitle(doc: jsPDF, title: string, y: number): number {
+function sectionTitle(doc: jsPDF, title: string, y: number, logo?: string | null): number {
+  let x = PAGE_MARGIN;
+  if (logo) {
+    try {
+      doc.addImage(logo, "PNG", PAGE_MARGIN, y - 11, 14, 14);
+      x = PAGE_MARGIN + 18;
+    } catch {
+      x = PAGE_MARGIN;
+    }
+  }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(...TEXT_DARK);
-  doc.text(title, PAGE_MARGIN, y);
+  doc.text(title, x, y);
   return y + 12;
 }
 
@@ -219,6 +253,8 @@ export async function exportPdf(
   ]);
   const doc = new JsPDF({ unit: "pt", format: "a4" });
   const table = autoTable as unknown as AutoTableFn;
+  const logos = await Promise.all(data.projects.map((project) => projectLogoPngDataUrl(project)));
+  const logoById = new Map(data.projects.map((project, index) => [project.id, logos[index]]));
 
   const headerBottom = drawHeader(doc, data, opts.scope);
   let y = drawKpiBlock(doc, data, headerBottom);
@@ -231,7 +267,7 @@ export async function exportPdf(
         y = 56;
       }
       const sub = p.clientName ? `${p.name} — ${p.clientName}` : p.name;
-      y = sectionTitle(doc, sub, y);
+      y = sectionTitle(doc, sub, y, logoById.get(p.id));
       table(doc, {
         ...TABLE_STYLES,
         startY: y + 4,
@@ -261,7 +297,7 @@ export async function exportPdf(
     });
   } else {
     y = sectionTitle(doc, "Projects", y);
-    projectsTable(doc, table, data.projects, data, y + 4);
+    projectsTable(doc, table, data.projects, data, y + 4, logos);
     y = finalY(doc) + 28;
 
     const meaningfulTags = data.tags.filter((t) => t.tag !== UNTAGGED);

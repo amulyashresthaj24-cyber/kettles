@@ -199,8 +199,18 @@ export default function ReportPage() {
   const utilizationPct = targetSeconds > 0 ? (totals.totalSeconds / targetSeconds) * 100 : 0;
 
   const donutData = useMemo(() => {
-    const rollups = sliceBy === "clients" ? data.clients : data.projects;
-    return rollups.map((r) => ({ id: r.id, name: r.name, seconds: r.seconds, color: r.color }));
+    if (sliceBy === "clients") {
+      return data.clients.map((r) => ({ id: r.id, name: r.name, seconds: r.seconds, color: r.color }));
+    }
+    return data.projects.map((r) => ({
+      id: r.id,
+      name: r.name,
+      seconds: r.seconds,
+      color: r.color,
+      icon: r.icon,
+      logoPath: r.logoPath,
+      logoUrl: r.logoUrl,
+    }));
   }, [data.clients, data.projects, sliceBy]);
 
   // ── Actions ───────────────────────────────────────────────────────────────

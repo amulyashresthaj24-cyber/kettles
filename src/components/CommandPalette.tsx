@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   MagnifyingGlass,
   Plus,
-  FolderOpen,
   CheckSquare,
   Timer,
   ChartBar,
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/icon";
 import { useApp } from "@/lib/store-supabase";
 import { cn } from "@/lib/utils";
+import { ProjectMark } from "./ProjectMark";
 
 type Item = {
   id: string;
@@ -115,7 +115,7 @@ export function CommandPalette({
       id: `proj-${p.id}`,
       group: "Projects",
       label: p.name,
-      icon: <FolderOpen size={15} />,
+      icon: <ProjectMark project={p} size={16} />,
       action: () => { onClose(); router.push(`/projects/view?id=${p.id}`); },
     })),
     [projects, onClose, router]

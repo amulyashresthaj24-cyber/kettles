@@ -126,6 +126,11 @@ export interface PublicShareProject {
   billable?: boolean;
   hourlyRate?: number;
   budget?: number;
+  /**
+   * Short-lived signed URL for the project logo. Present only on a public
+   * share response — never stored on the project row.
+   */
+  logoUrl?: string;
 }
 
 export interface PublicShareClient {

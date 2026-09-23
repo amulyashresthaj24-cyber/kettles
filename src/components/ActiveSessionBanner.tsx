@@ -7,6 +7,7 @@ import { useApp } from "@/lib/store-supabase";
 import { formatHMS } from "@/lib/format";
 import { elapsedSecondsFor } from "@/lib/session-timeline";
 import { Button } from "./ui/button";
+import { ProjectMark } from "./ProjectMark";
 
 export function ActiveSessionBanner() {
   const router = useRouter();
@@ -56,6 +57,7 @@ export function ActiveSessionBanner() {
           className={`relative h-2 w-2 rounded-full ${isPaused ? "bg-text-faint" : "bg-success"}`}
         />
       </span>
+      {project && <ProjectMark project={project} size={16} />}
       <span className="flex-1 min-w-0 truncate text-text-primary">
         <span className="text-text-muted">{isPaused ? "Paused · " : "● "}</span>
         <strong className="font-semibold">{label}</strong>

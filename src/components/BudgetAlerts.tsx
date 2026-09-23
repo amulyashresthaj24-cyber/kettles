@@ -7,6 +7,7 @@ import { projectsNeedingAttention } from "@/lib/budget";
 import { formatCurrency, formatDuration } from "@/lib/format";
 import { Warning } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import { ProjectMark } from "@/components/ProjectMark";
 
 /**
  * Budgets that are close to spent or already over.
@@ -60,6 +61,7 @@ export function BudgetAlerts() {
                 className={cn("shrink-0", over ? "text-error" : "text-warning")}
                 aria-hidden
               />
+              <ProjectMark project={project} size={18} />
               <div className="flex flex-col gap-0.5 min-w-0">
                 <span className="text-[13px] font-semibold text-text-primary truncate">
                   {project.name}

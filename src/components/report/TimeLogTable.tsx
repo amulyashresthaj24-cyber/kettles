@@ -5,6 +5,7 @@ import { formatDuration, formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { TimeLogRow } from "@/lib/report/data";
 import { ReportEmptyState } from "./ReportCard";
+import { ProjectMark } from "@/components/ProjectMark";
 
 const GRID = "grid grid-cols-[minmax(0,1fr)_130px_120px_150px_130px_80px_90px] items-center";
 
@@ -118,7 +119,16 @@ export function TimeLogTable({
                 )}
               </div>
               <div className="flex items-center gap-1.5 min-w-0 pr-2">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: log.color }} />
+                <ProjectMark
+                  project={{
+                    name: log.projectName,
+                    color: log.color,
+                    icon: log.projectIcon,
+                    logoPath: log.projectLogoPath,
+                    logoUrl: log.projectLogoUrl,
+                  }}
+                  size={14}
+                />
                 <span className="text-[12px] text-text-secondary truncate">{log.projectName}</span>
               </div>
               <span className="text-[12px] text-text-muted truncate pr-2">{log.clientName}</span>

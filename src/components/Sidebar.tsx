@@ -25,8 +25,8 @@ import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { AddProjectModal } from "./AddProjectModal";
 import { BrandMark } from "./BrandMark";
-import { getProjectColor, resolveProjectIcon } from "@/lib/constants";
-import { AppIcon, type IconName } from "@/components/ui/icon";
+import { getProjectColor } from "@/lib/constants";
+import { ProjectMark } from "./ProjectMark";
 import { isDesktop, invoke } from "@/lib/desktop";
 import { useNotification } from "@/components/ui/notification";
 import type { Project } from "@/lib/types";
@@ -289,17 +289,7 @@ function ProjectsSection({
               )}
               style={active ? { color: getProjectColor(p.color).hex } : {}}
             >
-              <span
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
-                style={{ background: getProjectColor(p.color).hex + "20" }}
-              >
-                <AppIcon
-                  name={resolveProjectIcon(p.icon) as IconName}
-                  size={12}
-                  weight={active ? "bold" : "regular"}
-                  style={{ color: getProjectColor(p.color).hex } as React.CSSProperties}
-                />
-              </span>
+              <ProjectMark project={p} size={20} />
               <span className="truncate">{p.name}</span>
             </button>
           );

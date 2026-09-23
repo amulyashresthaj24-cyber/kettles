@@ -11,6 +11,9 @@ import {
   assertOwnedRow,
   readJsonBody,
   publicErrorMessage,
+  normalizeLogoPath,
+  canonicalLogoPath,
+  PROJECT_LOGO_BUCKET,
 } from '../_shared/validators.ts';
 
 const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
@@ -95,10 +98,17 @@ serve(async (req) => {
             headers: jsonHeaders,
           });
         }
+        const logo = normalizeLogoPath(money.data, user.id);
+        if (logo.error) {
+          return new Response(JSON.stringify({ error: logo.error }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
 
         const insertData: any = {
           user_id: user.id,
-          data: mergeEntityData({}, money.data),
+          data: mergeEntityData({}, logo.data),
         };
 
         if (body.clientId) {
@@ -170,8 +180,16 @@ serve(async (req) => {
             headers: jsonHeaders,
           });
         }
+        const logo = normalizeLogoPath(money.data, user.id);
+        if (logo.error) {
+          return new Response(JSON.stringify({ error: logo.error }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
 
-        const mergedData = mergeEntityData(currentData?.data, money.data);
+        const previousLogo = canonicalLogoPath(currentData?.data?.logoPath, user.id);
+        const mergedData = mergeEntityData(currentData?.data, logo.data);
         
         const updateData: any = { data: mergedData };
         
@@ -205,6 +223,16 @@ serve(async (req) => {
           .single();
         
         if (error) throw error;
+
+        const nextLogo = canonicalLogoPath(mergedData?.logoPath, user.id);
+        if (previousLogo && previousLogo !== nextLogo) {
+          try {
+            await supabase.storage.from(PROJECT_LOGO_BUCKET).remove([previousLogo]);
+          } catch (removeError) {
+            console.error('[project-logo]', removeError);
+          }
+        }
+
         return new Response(JSON.stringify(formatEntityResponse(data)), {
           headers: jsonHeaders,
         });
@@ -224,6 +252,13 @@ serve(async (req) => {
           });
         }
 
+        const { data: existing } = await supabase
+          .from('projects')
+          .select('data')
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
         const { error } = await supabase
           .from('projects')
           .delete()
@@ -231,6 +266,16 @@ serve(async (req) => {
           .eq('user_id', user.id);
         
         if (error) throw error;
+
+        const previousLogo = canonicalLogoPath(existing?.data?.logoPath, user.id);
+        if (previousLogo) {
+          try {
+            await supabase.storage.from(PROJECT_LOGO_BUCKET).remove([previousLogo]);
+          } catch (removeError) {
+            console.error('[project-logo]', removeError);
+          }
+        }
+
         return new Response(JSON.stringify({ success: true }), {
           headers: jsonHeaders,
         });

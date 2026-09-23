@@ -7,7 +7,10 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { X, CaretDown } from "@/components/ui/icon";
 import { DEFAULT_PROJECT_COLOR, DEFAULT_PROJECT_ICON } from "@/lib/constants";
+import { isOnline } from "@/lib/desktop";
+import { uploadProjectLogo } from "@/lib/project-logo-client";
 import { ProjectIconPicker } from "./ProjectIconPicker";
+import { useLogoDraft } from "./use-logo-draft";
 import { ProjectBillingSection } from "./ProjectBillingSection";
 import { ClientNameField } from "./ClientSelector";
 import { parseRateInput } from "@/lib/rates";
@@ -56,21 +59,21 @@ function PillSelect<T extends string>({
       >
         {selected?.bg && <span className={cn("w-2 h-2 rounded-full shrink-0", selected.bg)} />}
         {!selected?.bg && <span className="text-text-muted">{icon}</span>}
-        <span>{selected ? selected.label : label}</span>
-        <CaretDown size={11} className="text-text-faint" />
+        <span className="max-w-[140px] truncate">{selected ? selected.label : label}</span>
+        <CaretDown size={11} className={cn("text-text-faint transition-transform duration-fast", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute bottom-full mb-2 left-0 min-w-[160px] bg-surface-raised border border-border rounded-lg shadow-elevation-2 z-dropdown py-1 overflow-hidden">
+        <div className="absolute bottom-full mb-2 left-0 min-w-[180px] max-h-[240px] overflow-y-auto bg-surface-raised border border-border-subtle rounded-lg shadow-elevation-2 z-dropdown p-1 animate-dropdown-in">
           {options.map((o) => (
             <button
               key={o.value}
               type="button"
               onClick={() => { onChange(o.value); setOpen(false); }}
               className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors text-left",
+                "w-full flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] transition-colors text-left",
                 value === o.value
-                  ? "text-text-primary bg-surface-mid"
+                  ? "text-text-primary bg-surface-mid font-medium"
                   : "text-text-secondary hover:bg-surface-mid hover:text-text-primary"
               )}
             >
@@ -92,6 +95,7 @@ export function AddProjectModal({
   onClose: () => void;
 }) {
   const addProject = useApp((s) => s.addProject);
+  const updateProject = useApp((s) => s.updateProject);
   const resolveProjectClientLink = useApp((s) => s.resolveProjectClientLink);
   const clients = useApp((s) => s.clients);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -109,6 +113,10 @@ export function AddProjectModal({
     () => findClientByNormalizedName(clients, clientName),
     [clients, clientName]
   );
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const logo = useLogoDraft();
 
   useEffect(() => {
     if (open) {
@@ -122,11 +130,10 @@ export function AddProjectModal({
       setHourlyRate("");
       setClientName("");
       setError(null);
+      setCreatedId(null);
+      logo.reset();
     }
-  }, [open]);
-
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  }, [open, logo.reset]);
 
   const handleSubmit = useCallback(async () => {
     if (!name.trim()) return;
@@ -137,29 +144,53 @@ export function AddProjectModal({
       return;
     }
 
+    if (logo.file && !isOnline()) {
+      setError("Connect to the internet to add a logo.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
+    const fields = {
+      name: name.trim(),
+      description: description.trim() || undefined,
+      color,
+      icon,
+      billable,
+      status,
+      budget: budget ? Number(budget) : null,
+      hourlyRate: parsedRate.value,
+    };
+
+    let id = createdId;
     try {
       const clientId = await resolveProjectClientLink({ clientName });
-      await addProject({
-        name: name.trim(),
-        description: description.trim() || undefined,
-        color,
-        icon,
-        billable,
-        status,
-        budget: budget ? Number(budget) : null,
-        hourlyRate: parsedRate.value,
-        ...(clientId ? { clientId } : {}),
-      });
+      const payload = { ...fields, ...(clientId ? { clientId } : {}) };
+      if (!id) {
+        const created = await addProject(payload);
+        id = created.id;
+        setCreatedId(id);
+      } else {
+        await updateProject(id, payload);
+      }
+      if (logo.file && id) {
+        try {
+          const logoPath = await uploadProjectLogo(id, logo.file);
+          await updateProject(id, { logoPath });
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : "Could not upload the logo.";
+          setError(`${detail} The project was saved.`);
+          return;
+        }
+      }
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create project");
     } finally {
       setIsSubmitting(false);
     }
-  }, [name, description, color, icon, billable, status, budget, hourlyRate, clientName, addProject, resolveProjectClientLink, onClose]);
+  }, [name, description, color, icon, billable, status, budget, hourlyRate, clientName, addProject, updateProject, resolveProjectClientLink, onClose, logo.file, createdId]);
 
   // Escape and the focus trap come from useFocusTrap; this only adds the
   // Cmd/Ctrl+Enter submit shortcut.
@@ -208,7 +239,11 @@ export function AddProjectModal({
             <ProjectIconPicker
               icon={icon}
               color={color}
+              logoPreviewUrl={logo.previewUrl}
+              logoError={logo.error}
               onChange={(newIcon, newColor) => { setIcon(newIcon); setColor(newColor); }}
+              onLogoFile={logo.pick}
+              onLogoClear={logo.clear}
             />
             <div className="flex flex-1 flex-col gap-2 pt-1">
               <input

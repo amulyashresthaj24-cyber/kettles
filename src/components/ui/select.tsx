@@ -62,6 +62,14 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         ?.scrollIntoView({ block: "nearest" });
     }, [open, activeIndex]);
 
+    // Option labels can be elements (a project mark plus a name). Clone them
+    // so the closed trigger and the open menu each get their own copy.
+    const renderLabel = (label: React.ReactNode): React.ReactNode => {
+      if (Array.isArray(label)) return label.map((child) => renderLabel(child));
+      if (React.isValidElement(label)) return React.cloneElement(label);
+      return label;
+    };
+
     const commit = (index: number) => {
       const opt = options[index];
       if (!opt) return;
@@ -141,7 +149,7 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           )}
           disabled={props.disabled}
         >
-          <span className={cn("truncate", isPill && "max-w-[120px]")}>{selectedOption?.label}</span>
+          <span className={cn("flex min-w-0 flex-1 items-center truncate text-left [&>*]:min-w-0 [&>*]:max-w-full", isPill && "max-w-[160px]")}>{renderLabel(selectedOption?.label)}</span>
           <CaretDown
             size={isPill ? 11 : (size === "sm" ? 14 : 16)}
             className={cn(
@@ -160,8 +168,8 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
             role="listbox"
             aria-activedescendant={`${listboxId}-${activeIndex}`}
             className={cn(
-              "absolute z-dropdown w-full overflow-y-auto max-h-64 bg-surface-raised shadow-elevation-2 animate-dropdown-in",
-              isPill ? "bottom-full mb-2 rounded-lg py-1 min-w-[160px]" : "top-full mt-1 rounded-xl py-1"
+              "absolute z-dropdown overflow-y-auto max-h-[240px] border border-border-subtle bg-surface-raised p-1 shadow-elevation-2 animate-dropdown-in",
+              isPill ? "bottom-full mb-2 min-w-[160px] rounded-lg" : "top-full mt-1 w-full min-w-[180px] rounded-lg"
             )}
           >
             {options.map((opt, index) => {
@@ -177,7 +185,7 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
                   tabIndex={-1}
                   type="button"
                   className={cn(
-                    "w-full flex items-center px-3 py-2 text-left text-sm transition-colors duration-fast outline-none",
+                    "w-full flex items-center rounded-md px-2.5 py-1.5 text-left text-[12px] transition-colors duration-fast outline-none",
                     isSelected
                       ? "bg-accent text-white font-medium"
                       : isActive
@@ -187,7 +195,7 @@ export const Select = React.forwardRef<HTMLDivElement, SelectProps>(
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => commit(index)}
                 >
-                  {opt.label}
+                  {renderLabel(opt.label)}
                 </button>
               );
             })}

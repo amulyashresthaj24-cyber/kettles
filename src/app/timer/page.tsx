@@ -18,6 +18,8 @@ import { useApp } from "@/lib/store-supabase";
 import { readCustomMascot } from "@/lib/mascot-custom";
 import { formatDuration, formatHMS, formatMinSec, formatMSS, formatWallTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import { ProjectMark, ProjectOptionLabel } from "@/components/ProjectMark";
 import { useNotification } from "@/components/ui/notification";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -566,6 +568,7 @@ export default function TimerPage() {
                   value: p.id,
                   label: p.name,
                   meta: p.billable ? "Billable" : "Internal",
+                  leading: <ProjectMark project={p} size={14} />,
                 })),
               ]}
               createLabel="Create project"
@@ -885,12 +888,35 @@ function ActiveSentence({ userName, task, project, clientName, billable, isDraft
           <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>+ Add task / client</Button>
           {open && (
             <div className="flex flex-wrap justify-center gap-2 rounded-lg p-3" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
-              <SelectPill value={taskId} onChange={(v) => { setTaskId(v); const t = tasks.find((item) => item.id === v); if (t) setProjectId(t.projectId ?? ""); }} placeholder="task">
-                {tasks.filter((t) => t.status !== "done").map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
-              </SelectPill>
-              <SelectPill value={projectId || selectedTask?.projectId || ""} onChange={setProjectId} placeholder="client">
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </SelectPill>
+              <Select
+                value={taskId}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setTaskId(next);
+                  const t = tasks.find((item) => item.id === next);
+                  if (t) setProjectId(t.projectId ?? "");
+                }}
+                className="w-[200px]"
+                size="sm"
+              >
+                <option value="">task</option>
+                {tasks.filter((t) => t.status !== "done").map((t) => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </Select>
+              <Select
+                value={projectId || selectedTask?.projectId || ""}
+                onChange={(e) => setProjectId(e.target.value)}
+                className="w-[200px]"
+                size="sm"
+              >
+                <option value="">client</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    <ProjectOptionLabel project={p} />
+                  </option>
+                ))}
+              </Select>
               <Button size="sm" variant="primary" disabled={!taskId || !(projectId || selectedTask?.projectId)} onClick={() => onClassify(taskId, projectId || selectedTask!.projectId || "", selectedTask ? projects.find((p) => p.id === selectedTask.projectId)?.billable ?? false : false)}>Apply</Button>
             </div>
           )}
@@ -1010,7 +1036,22 @@ function FinishOverlay(props: {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1.5"><span className="text-[11px] uppercase tracking-[0.08em] text-text-muted">Client</span><select className="h-10 rounded-md border border-border bg-surface px-3 text-[13px] text-text-primary" value={props.draftProjectId} onChange={(e) => props.setDraftProjectId(e.target.value)}><option value="">Choose client</option>{props.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] uppercase tracking-[0.08em] text-text-muted">Client</span>
+              <Select
+                value={props.draftProjectId}
+                onChange={(e) => props.setDraftProjectId(e.target.value)}
+                className="w-full"
+                size="lg"
+              >
+                <option value="">Choose client</option>
+                {props.projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    <ProjectOptionLabel project={p} />
+                  </option>
+                ))}
+              </Select>
+            </label>
             <LabelInput label="Task name" value={props.draftTaskTitle} onChange={props.setDraftTaskTitle} />
           </div>
           <div className="flex gap-2">
@@ -1191,15 +1232,6 @@ function QuickPick({ tasks, projects, onStart }: { tasks: Task[]; projects: Proj
   );
 }
 
-function SelectPill({ value, onChange, placeholder, children }: { value: string; onChange: (value: string) => void; placeholder: string; children: React.ReactNode }) {
-  return (
-    <select className="h-9 max-w-[220px] rounded-full border border-border-subtle bg-surface-raised px-3 text-[13px] font-medium text-text-primary outline-none" value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">{placeholder}</option>
-      {children}
-    </select>
-  );
-}
-
 function EntitySelectPill({
   value,
   onChange,
@@ -1211,7 +1243,7 @@ function EntitySelectPill({
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
-  items: { value: string; label: string; meta?: string }[];
+  items: { value: string; label: string; meta?: string; leading?: React.ReactNode }[];
   createLabel: string;
   onCreate: () => void;
 }) {
@@ -1235,7 +1267,10 @@ function EntitySelectPill({
         onClick={() => setOpen((current) => !current)}
         className="inline-flex h-9 min-w-[180px] items-center justify-between gap-2 rounded-full border border-border-subtle bg-surface-raised px-3 text-[13px] font-medium text-text-primary transition-all duration-150 hover:bg-surface-mid active:scale-[0.98] btn-interactive focus-ring"
       >
-        <span className="truncate">{selected?.label ?? placeholder}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          {selected?.leading}
+          <span className="truncate">{selected?.label ?? placeholder}</span>
+        </span>
         <CaretDown
           size={12}
           className={`shrink-0 text-text-faint transition-transform ${open ? "rotate-180" : ""}`}
@@ -1263,7 +1298,10 @@ function EntitySelectPill({
                       : "text-text-secondary hover:bg-surface-mid hover:text-text-primary"
                   }`}
                 >
-                  <span className="truncate text-[13px]">{item.label}</span>
+                  <span className="flex min-w-0 items-center gap-2 text-[13px]">
+                    {item.leading}
+                    <span className="truncate">{item.label}</span>
+                  </span>
                   {item.meta && <span className="shrink-0 text-[11px] text-text-faint">{item.meta}</span>}
                 </button>
               ))

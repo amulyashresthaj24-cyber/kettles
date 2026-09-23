@@ -1,11 +1,10 @@
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
-import { getProjectColor, resolveProjectIcon } from "@/lib/constants";
-import { AppIcon, type IconName } from "@/components/ui/icon";
+import { getProjectColor } from "@/lib/constants";
+import { ProjectMark } from "./ProjectMark";
 
 export function ProjectTag({ project, className }: { project: Project; className?: string }) {
   const colorMeta = getProjectColor(project.color);
-  const iconKey = resolveProjectIcon(project.icon) as IconName;
 
   return (
     <span
@@ -15,7 +14,7 @@ export function ProjectTag({ project, className }: { project: Project; className
       )}
       style={{ background: colorMeta.hex + "18", color: colorMeta.hex }}
     >
-      <AppIcon name={iconKey} size={11} weight="bold" style={{ color: colorMeta.hex } as React.CSSProperties} />
+      <ProjectMark project={project} size={12} />
       <span className="truncate">{project.name}</span>
     </span>
   );

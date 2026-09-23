@@ -9,6 +9,7 @@ import { earningsCents, resolveHourlyRate, type RateSource } from "@/lib/rates";
 import { hasTruthfulTimeline } from "@/lib/session-timeline";
 import { agentNamesIn, agentSecondsIn } from "@/lib/agent-runs";
 import { isTimestampBilled, type BilledFilter } from "@/lib/billed";
+import { isDisplayableLogoUrl } from "@/lib/project-logo";
 
 // ─── Inputs ──────────────────────────────────────────────────────────────────
 
@@ -88,6 +89,12 @@ export function colorForProject(project: Project | undefined, id: string): strin
 
 export function colorForKey(key: string): string {
   return FALLBACK_PALETTE[hashString(key) % FALLBACK_PALETTE.length];
+}
+
+/** Signed logo URL carried on a public share project. Ignored unless it is a real image URL. */
+function shareLogoUrl(project: Project | undefined): string | null {
+  const raw = (project as { logoUrl?: unknown } | undefined)?.logoUrl;
+  return typeof raw === "string" && isDisplayableLogoUrl(raw) ? raw : null;
 }
 
 // ─── Enrichment ──────────────────────────────────────────────────────────────
@@ -257,6 +264,9 @@ export interface ProjectRollup {
   id: string;
   name: string;
   color: string;
+  icon?: string;
+  logoPath?: string | null;
+  logoUrl?: string | null;
   clientName?: string;
   seconds: number;
   billableSeconds: number;
@@ -284,6 +294,9 @@ export function rollupByProject(rows: EnrichedSession[]): ProjectRollup[] {
         id: key,
         name: r.project?.name ?? "Without project",
         color: r.color,
+        icon: r.project?.icon,
+        logoPath: r.project?.logoPath ?? null,
+        logoUrl: shareLogoUrl(r.project),
         clientName: r.client?.name,
         seconds: 0,
         billableSeconds: 0,
@@ -519,6 +532,9 @@ export interface TimeLogRow {
   taskTitle: string;
   taskStatus: TaskStatus;
   projectName: string;
+  projectIcon?: string;
+  projectLogoPath?: string | null;
+  projectLogoUrl?: string | null;
   clientName: string;
   tags: string[];
   seconds: number;
@@ -540,6 +556,9 @@ export function buildTimeLog(rows: EnrichedSession[], sort: TimeLogSort): TimeLo
     taskTitle: r.task?.title ?? "Unknown task",
     taskStatus: r.task?.status ?? "todo",
     projectName: r.project?.name ?? "—",
+    projectIcon: r.project?.icon,
+    projectLogoPath: r.project?.logoPath ?? null,
+    projectLogoUrl: shareLogoUrl(r.project),
     clientName: r.client?.name ?? "—",
     tags: r.tags,
     seconds: r.seconds,

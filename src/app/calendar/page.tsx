@@ -16,8 +16,9 @@ import { taskDateTimestamp } from "@/lib/task-dates";
 import { AddTaskModal } from "@/components/AddTaskModal";
 import { TaskDetailSidebar } from "@/components/TaskDetailSidebar";
 import { Button } from "@/components/ui/button";
-import type { Task, ProjectColor, GoogleCalendarEvent } from "@/lib/types";
+import type { Task, Project, ProjectColor, GoogleCalendarEvent } from "@/lib/types";
 import { GOOGLE_CALENDAR_ENABLED, PROJECT_COLOR_HEX } from "@/lib/constants";
+import { ProjectMark } from "@/components/ProjectMark";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,7 @@ interface CalendarEvent {
   date: Date;
   color: string;
   projectName: string;
+  project?: Project;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -142,6 +144,7 @@ export default function CalendarPage() {
 
   const tasks = useApp((s) => s.tasks);
   const projects = useApp((s) => s.projects);
+  const selectedFilterProject = projects.find((p) => p.id === filterProject);
   const activeSessionId = useApp((s) => s.activeSessionId);
   const sessions = useApp((s) => s.sessions);
   const selectedTaskId = useApp((s) => s.selectedTaskId);
@@ -196,6 +199,7 @@ export default function CalendarPage() {
           date: new Date(taskDateTimestamp(t)),
           color: getProjectColor(project?.color ?? ""),
           projectName: project?.name?.trim() || "Unassigned",
+          project,
         };
       });
   }, [tasks, projects, filterProject, filterStatus]);
@@ -386,9 +390,14 @@ export default function CalendarPage() {
                 className="flex items-center gap-1.5 h-7 px-2.5 text-[12px] font-medium rounded-[8px] transition-colors hover:opacity-80"
                 style={{ background: "var(--surface-raised)", color: "var(--text-secondary)" }}
               >
-                {filterProject === "all"
-                  ? "All projects"
-                  : (projects.find((p) => p.id === filterProject)?.name ?? "All projects")}
+                {selectedFilterProject ? (
+                  <>
+                    <ProjectMark project={selectedFilterProject} size={14} />
+                    {selectedFilterProject.name}
+                  </>
+                ) : (
+                  "All projects"
+                )}
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ color: "var(--text-muted)" }}>
                   <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -410,10 +419,7 @@ export default function CalendarPage() {
                         className="w-full text-left px-2.5 py-1.5 text-[12px] rounded-md transition-colors hover:bg-surface-mid flex items-center gap-2"
                         style={{ color: filterProject === p.id ? "var(--accent)" : "var(--text-primary)" }}
                       >
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ background: getProjectColor(p.color) }}
-                        />
+                        <ProjectMark project={p} size={14} />
                         {p.name}
                       </button>
                     ))}
@@ -1526,7 +1532,11 @@ function UpcomingTaskRow({
           />
         )}
         <div className="flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ background: ev.color }} />
+          {ev.project ? (
+            <ProjectMark project={ev.project} size={14} />
+          ) : (
+            <div className="w-1.5 h-1.5 rounded-full" style={{ background: ev.color }} />
+          )}
           <span className="text-[12px]" style={{ color: "var(--text-faint)" }}>{ev.projectName}</span>
         </div>
       </div>

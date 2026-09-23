@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { TagEditor } from "./TagEditor";
 import type { Task, ProjectColor } from "@/lib/types";
 import { PROJECT_COLOR_HEX } from "@/lib/constants";
+import { ProjectMark } from "./ProjectMark";
 import { useFocusTrap } from "@/lib/use-focus-trap";
 
 function getProjectColor(c: string) { return PROJECT_COLOR_HEX[c as ProjectColor] ?? "var(--text-muted)"; }
@@ -162,7 +163,7 @@ export function TaskDetailSidebar({ taskId, onClose, onEditTask }: TaskDetailSid
                       color: getProjectColor(project.color),
                     }}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: getProjectColor(project.color) }} />
+                    <ProjectMark project={project} size={14} />
                     {project.name}
                   </div>
                 )}

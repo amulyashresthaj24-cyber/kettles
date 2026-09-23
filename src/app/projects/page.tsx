@@ -24,12 +24,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useNotification } from "@/components/ui/notification";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { PageLayout, PageHeader, PageToolbar, PageContent } from "@/components/layout";
-import type { Project, ProjectColor } from "@/lib/types";
-import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
-
-const colorDot = (color: string) => {
-  return PROJECT_COLOR_CLASSES[color as ProjectColor] || "bg-slate-400";
-};
+import type { Project } from "@/lib/types";
+import { ProjectMark } from "@/components/ProjectMark";
 
 const errorMessage = (err: unknown, fallback: string) =>
   err instanceof Error && err.message ? err.message : fallback;
@@ -260,12 +256,10 @@ export default function ProjectsPage() {
                   )}
                 >
                   <div className="flex min-w-0 items-center gap-md transition-all duration-200 ease-out group-hover:gap-[18px]">
-                    <span
-                      className={cn(
-                        "h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-surface-raised/70 transition-all duration-200 ease-out group-hover:ring-4",
-                        colorDot(project.color),
-                        isArchived && "opacity-50"
-                      )}
+                    <ProjectMark
+                      project={project}
+                      size={28}
+                      className={cn("ring-2 ring-surface-raised/70 transition-all duration-200 ease-out group-hover:ring-4", isArchived && "opacity-50")}
                     />
 
                     <div className="min-w-0 flex-1">

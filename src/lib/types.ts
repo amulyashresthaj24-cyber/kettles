@@ -190,6 +190,11 @@ export interface Project {
   clientId?: string | null;
   color: ProjectColor;
   icon?: string;
+  /**
+   * Private storage path for an uploaded logo (`{userId}/{projectId}.webp`).
+   * `null` on update removes it. Surfaces fall back to `icon` when this is absent.
+   */
+  logoPath?: string | null;
   billable: boolean;
   /** Project hourly rate in USD. Preferred over client rate for earnings. `null` clears it. */
   hourlyRate?: number | null;

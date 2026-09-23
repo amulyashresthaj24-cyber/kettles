@@ -7,9 +7,9 @@ import { formatCurrency, formatDuration } from "@/lib/format";
 import { PencilSimple, Archive, Trash, CalendarBlank, CurrencyDollar } from "@/components/ui/icon";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import type { Project, ProjectStatus, ProjectColor } from "@/lib/types";
+import type { Project, ProjectStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
+import { ProjectMark } from "@/components/ProjectMark";
 
 const STATUS_BADGE_VARIANT: Record<ProjectStatus, "success" | "warning" | "accent" | "raised"> = {
   active: "success",
@@ -82,9 +82,7 @@ export function ProjectDetailsCard({
       <div className="flex items-start justify-between">
         <div className="flex-1 space-y-lg">
           <div className="flex items-center gap-md">
-            <div
-              className={`w-4 h-4 rounded-full ${getColorClass(project.color)}`}
-            />
+            <ProjectMark project={project} size={28} />
             <h2 className="text-2xl font-semibold text-text-primary">
               {project.name}
             </h2>
@@ -260,8 +258,4 @@ export function ProjectDetailsCard({
       </div>
     </div>
   );
-}
-
-function getColorClass(color: string): string {
-  return PROJECT_COLOR_CLASSES[color as ProjectColor] || "bg-slate-400";
 }

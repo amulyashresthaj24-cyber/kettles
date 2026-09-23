@@ -13,6 +13,7 @@ import {
   CaretDown,
 } from "@/components/ui/icon";
 import { DatePicker } from "./DatePicker";
+import { ProjectMark } from "./ProjectMark";
 import { useFocusTrap } from "@/lib/use-focus-trap";
 
 const URGENCY_OPTIONS: { label: string; value: Urgency; dot: string }[] = [
@@ -33,7 +34,7 @@ function PillSelect<T extends string>({
 }: {
   value: T;
   onChange: (v: T) => void;
-  options: { label: string; value: T; dot?: string }[];
+  options: { label: string; value: T; dot?: string; leading?: React.ReactNode }[];
   icon: React.ReactNode;
   label: string;
 }) {
@@ -57,28 +58,33 @@ function PillSelect<T extends string>({
         onClick={() => setOpen((p) => !p)}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-raised hover:bg-surface-mid text-[12px] font-medium text-text-secondary transition-colors"
       >
-        {selected?.dot && <span className={cn("w-2 h-2 rounded-full shrink-0", selected.dot)} />}
-        {!selected?.dot && <span className="text-text-muted">{icon}</span>}
-        <span>{selected ? selected.label : label}</span>
-        <CaretDown size={11} className="text-text-faint" />
+        {selected?.leading ?? (
+          selected?.dot ? (
+            <span className={cn("w-2 h-2 rounded-full shrink-0", selected.dot)} />
+          ) : (
+            <span className="text-text-muted">{icon}</span>
+          )
+        )}
+        <span className="max-w-[140px] truncate">{selected ? selected.label : label}</span>
+        <CaretDown size={11} className={cn("text-text-faint transition-transform duration-fast", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute bottom-full mb-2 left-0 min-w-[160px] bg-surface-raised border border-border rounded-lg shadow-elevation-2 z-dropdown py-1 overflow-hidden">
+        <div className="absolute bottom-full mb-2 left-0 min-w-[180px] max-h-[240px] overflow-y-auto bg-surface-raised border border-border-subtle rounded-lg shadow-elevation-2 z-dropdown p-1 animate-dropdown-in">
           {options.map((o) => (
             <button
-              key={o.value}
+              key={o.value || "none"}
               type="button"
               onClick={() => { onChange(o.value); setOpen(false); }}
               className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors text-left",
+                "w-full flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] transition-colors text-left",
                 value === o.value
-                  ? "text-text-primary bg-surface-mid"
+                  ? "text-text-primary bg-surface-mid font-medium"
                   : "text-text-secondary hover:bg-surface-mid hover:text-text-primary"
               )}
             >
-              {o.dot && <span className={cn("w-2 h-2 rounded-full shrink-0", o.dot)} />}
-              {o.label}
+              {o.leading ?? (o.dot && <span className={cn("w-2 h-2 rounded-full shrink-0", o.dot)} />)}
+              <span className="truncate">{o.label}</span>
             </button>
           ))}
         </div>
@@ -200,8 +206,13 @@ export function AddTaskModal({
 
   const projectOptions = [
     { label: "No project", value: "" },
-    ...projects.map((p) => ({ label: p.name, value: p.id })),
+    ...projects.map((p) => ({
+      label: p.name,
+      value: p.id,
+      leading: <ProjectMark project={p} size={14} />,
+    })),
   ];
+  const selectedProject = projects.find((p) => p.id === projectId);
 
   if (!open) return null;
 
@@ -219,9 +230,9 @@ export function AddTaskModal({
         {/* Breadcrumb header */}
         <div className="flex items-center justify-between px-xl py-md border-b border-border-subtle">
           <div className="flex items-center gap-sm text-[13px] text-text-muted">
-            <Folder size={13} />
+            {selectedProject ? <ProjectMark project={selectedProject} size={14} /> : <Folder size={13} />}
             <span>
-              {projects.find((p) => p.id === projectId)?.name ?? "No project"}
+              {selectedProject?.name ?? "No project"}
             </span>
             <span className="text-text-faint">›</span>
             <span className="text-text-secondary font-medium">

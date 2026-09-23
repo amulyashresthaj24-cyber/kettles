@@ -922,6 +922,13 @@ persist((set, get) => ({
               next = cleared;
             }
           }
+          if (patch.logoPath === null || patch.logoPath === "") {
+            const cleared = { ...next };
+            delete cleared.logoPath;
+            next = cleared;
+          } else if (typeof patch.logoPath === "string") {
+            next = { ...next, logoPath: patch.logoPath };
+          }
           return next;
         }),
       });

@@ -5,6 +5,7 @@ import { Briefcase, CaretDown, CaretLeft, CaretRight, CheckCircle, CurrencyDolla
 import { cn } from "@/lib/utils";
 import type { Client, Project } from "@/lib/types";
 import type { BillableFilter, BilledFilter } from "@/lib/report/data";
+import { ProjectMark } from "@/components/ProjectMark";
 
 export type PeriodMode = "week" | "month" | "year";
 
@@ -117,7 +118,11 @@ export function ReportFilterBar({
         icon={<FolderOpen size={13} />}
         placeholder="Project"
         value={projectId}
-        options={activeProjects.map((p) => ({ value: p.id, label: p.name }))}
+        options={activeProjects.map((p) => ({
+          value: p.id,
+          label: p.name,
+          leading: <ProjectMark project={p} size={14} />,
+        }))}
         allLabel="All projects"
         onSelect={(v) => onChange({ projectId: v })}
       />
@@ -177,7 +182,7 @@ interface FilterDropdownProps {
   icon: React.ReactNode;
   placeholder: string;
   value: string | null;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; leading?: React.ReactNode }[];
   allLabel: string;
   onSelect: (value: string | null) => void;
   /** Custom label to show when a value is selected (defaults to option label). */
@@ -207,10 +212,8 @@ function FilterDropdown({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  const currentLabel =
-    value != null
-      ? selectedLabel ?? options.find((o) => o.value === value)?.label ?? placeholder
-      : placeholder;
+  const selected = value != null ? options.find((o) => o.value === value) : undefined;
+  const currentLabel = value != null ? selectedLabel ?? selected?.label ?? placeholder : placeholder;
 
   return (
     <div className="relative shrink-0" ref={containerRef}>
@@ -223,16 +226,16 @@ function FilterDropdown({
             : "border-border-subtle bg-surface-mid/40 text-text-secondary hover:text-text-primary hover:bg-surface-mid/60"
         )}
       >
-        {icon}
+        {selected?.leading ?? icon}
         <span className="max-w-[140px] truncate">{currentLabel}</span>
         <CaretDown size={11} className={cn("shrink-0 transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-48 max-h-64 overflow-y-auto bg-surface-raised border border-border rounded-lg shadow-elevation-2 z-dropdown py-1">
+        <div className="absolute top-full left-0 mt-1 w-48 max-h-[240px] overflow-y-auto bg-surface-raised border border-border-subtle rounded-lg shadow-elevation-2 z-dropdown p-1 animate-dropdown-in">
           <button
             className={cn(
-              "w-full text-left px-3 py-2 text-[12px] hover:bg-surface-mid transition-colors",
+              "w-full text-left rounded-md px-2.5 py-1.5 text-[12px] hover:bg-surface-mid transition-colors",
               value == null ? "text-accent font-medium" : "text-text-secondary"
             )}
             onClick={() => {
@@ -246,7 +249,7 @@ function FilterDropdown({
             <button
               key={opt.value}
               className={cn(
-                "w-full text-left px-3 py-2 text-[12px] hover:bg-surface-mid transition-colors truncate",
+                "w-full text-left rounded-md px-2.5 py-1.5 text-[12px] hover:bg-surface-mid transition-colors flex items-center gap-2",
                 value === opt.value ? "text-accent font-medium" : "text-text-secondary"
               )}
               onClick={() => {
@@ -254,11 +257,12 @@ function FilterDropdown({
                 setOpen(false);
               }}
             >
-              {opt.label}
+              {opt.leading}
+              <span className="truncate">{opt.label}</span>
             </button>
           ))}
           {options.length === 0 && (
-            <div className="px-3 py-2 text-[12px] text-text-faint">Nothing to filter by yet.</div>
+            <div className="px-2.5 py-1.5 text-[12px] text-text-faint">Nothing to filter by yet.</div>
           )}
         </div>
       )}

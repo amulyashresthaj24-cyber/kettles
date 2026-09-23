@@ -19,11 +19,11 @@ import {
   Target,
   User,
 } from "@/components/ui/icon";
-import type { Client, Project, ProjectStatus, ProjectColor, Session, Task, TaskStatus } from "@/lib/types";
+import type { Client, Project, ProjectStatus, Session, Task, TaskStatus } from "@/lib/types";
 import { useApp } from "@/lib/store-supabase";
 import { budgetBarClass, lifetimeBudgetHealth } from "@/lib/budget";
 import { earningsCents, formatHourlyRate, parseRateInput, resolveHourlyRate } from "@/lib/rates";
-import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
+import { ProjectMark } from "@/components/ProjectMark";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AddTaskModal } from "@/components/AddTaskModal";
@@ -149,7 +149,7 @@ export function ProjectWorkspace({ project, tasks, onBack }: ProjectWorkspacePro
           </button>
 
           <div className="flex min-w-0 items-center gap-md">
-            <span className={cn("h-3 w-3 rounded-full", getColorClass(project.color))} />
+            <ProjectMark project={project} size={16} />
             <div className="min-w-0">
               <h1 className="truncate text-sm font-semibold text-text-primary">{project.name}</h1>
               <p className="truncate text-xs text-text-muted">
@@ -350,7 +350,7 @@ function ProjectOverview({
             <div className="flex items-start justify-between gap-lg border-b border-border-subtle p-xl">
               <div className="min-w-0 space-y-md">
                 <div className="flex flex-wrap items-center gap-sm">
-                  <span className={cn("h-4 w-4 rounded-md", getColorClass(project.color))} />
+                  <ProjectMark project={project} size={28} />
                   <Badge variant={STATUS_BADGE_VARIANT[status]}>{STATUS_LABELS[status]}</Badge>
                   <Badge variant={project.billable ? "success" : "raised"}>
                     {project.billable ? "Billable" : "Internal"}
@@ -851,8 +851,4 @@ function formatMinutes(minutes: number) {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   return hours ? `${hours}h${mins ? ` ${mins}m` : ""}` : `${mins}m`;
-}
-
-function getColorClass(color: string): string {
-  return PROJECT_COLOR_CLASSES[color as ProjectColor] || "bg-slate-400";
 }

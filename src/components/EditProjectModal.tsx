@@ -7,7 +7,11 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { X, CaretDown } from "@/components/ui/icon";
 import { DEFAULT_PROJECT_COLOR, DEFAULT_PROJECT_ICON } from "@/lib/constants";
+import { isOnline } from "@/lib/desktop";
+import { uploadProjectLogo } from "@/lib/project-logo-client";
 import { ProjectIconPicker } from "./ProjectIconPicker";
+import { useProjectLogoUrl } from "./ProjectMark";
+import { useLogoDraft } from "./use-logo-draft";
 import { ProjectBillingSection } from "./ProjectBillingSection";
 import { ClientNameField } from "./ClientSelector";
 import { parseRateInput } from "@/lib/rates";
@@ -57,21 +61,21 @@ function PillSelect<T extends string>({
       >
         {selected?.bg && <span className={cn("w-2 h-2 rounded-full shrink-0", selected.bg)} />}
         {!selected?.bg && <span className="text-text-muted">{icon}</span>}
-        <span>{selected ? selected.label : label}</span>
-        <CaretDown size={11} className="text-text-faint" />
+        <span className="max-w-[140px] truncate">{selected ? selected.label : label}</span>
+        <CaretDown size={11} className={cn("text-text-faint transition-transform duration-fast", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute bottom-full mb-2 left-0 min-w-[160px] bg-surface-raised border border-border rounded-lg shadow-elevation-2 z-dropdown py-1 overflow-hidden">
+        <div className="absolute bottom-full mb-2 left-0 min-w-[180px] max-h-[240px] overflow-y-auto bg-surface-raised border border-border-subtle rounded-lg shadow-elevation-2 z-dropdown p-1 animate-dropdown-in">
           {options.map((o) => (
             <button
               key={o.value}
               type="button"
               onClick={() => { onChange(o.value); setOpen(false); }}
               className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors text-left",
+                "w-full flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] transition-colors text-left",
                 value === o.value
-                  ? "text-text-primary bg-surface-mid"
+                  ? "text-text-primary bg-surface-mid font-medium"
                   : "text-text-secondary hover:bg-surface-mid hover:text-text-primary"
               )}
             >
@@ -113,6 +117,10 @@ export function EditProjectModal({
   const [clientName, setClientName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const logo = useLogoDraft();
+  const savedLogoUrl = useProjectLogoUrl(
+    open && project && !logo.file && !logo.removed ? project.logoPath : null
+  );
   const selectedClient = useMemo(
     () => getProjectClient({ clientId: linkedClientId }, clients),
     [clients, linkedClientId]
@@ -134,8 +142,9 @@ export function EditProjectModal({
       setClientName(getProjectClientName(project, useApp.getState().clients));
       setError(null);
       setIsSubmitting(false);
+      logo.reset();
     }
-  }, [open, project]);
+  }, [open, project, logo.reset]);
 
   const handleSubmit = useCallback(async () => {
     if (!name.trim() || !project) return;
@@ -143,6 +152,11 @@ export function EditProjectModal({
     const parsedRate = parseRateInput(hourlyRate);
     if (!parsedRate.ok) {
       setError(parsedRate.error);
+      return;
+    }
+
+    if ((logo.file || logo.removed) && !isOnline()) {
+      setError("Connect to the internet to change the logo.");
       return;
     }
 
@@ -154,6 +168,12 @@ export function EditProjectModal({
         linkedClientId,
         clientName,
       });
+      let logoPath: string | null | undefined;
+      if (logo.file) {
+        logoPath = await uploadProjectLogo(project.id, logo.file);
+      } else if (logo.removed && project.logoPath) {
+        logoPath = null;
+      }
       await updateProject(project.id, {
         name: name.trim(),
         description: description.trim() || undefined,
@@ -165,6 +185,7 @@ export function EditProjectModal({
         hourlyRate: parsedRate.value,
         billedThrough: parseBilledThrough(billedThrough),
         clientId,
+        ...(logoPath !== undefined ? { logoPath } : {}),
       });
       onClose();
     } catch (err) {
@@ -172,7 +193,7 @@ export function EditProjectModal({
     } finally {
       setIsSubmitting(false);
     }
-  }, [name, project, updateProject, resolveProjectClientLink, onClose, description, color, icon, billable, status, budget, hourlyRate, billedThrough, linkedClientId, clientName]);
+  }, [name, project, updateProject, resolveProjectClientLink, onClose, description, color, icon, billable, status, budget, hourlyRate, billedThrough, linkedClientId, clientName, logo.file, logo.removed]);
 
   // Escape and the focus trap come from useFocusTrap; this only adds the
   // Cmd/Ctrl+Enter submit shortcut.
@@ -221,7 +242,11 @@ export function EditProjectModal({
             <ProjectIconPicker
               icon={icon}
               color={color}
+              logoPreviewUrl={logo.previewUrl ?? savedLogoUrl}
+              logoError={logo.error}
               onChange={(newIcon, newColor) => { setIcon(newIcon); setColor(newColor); }}
+              onLogoFile={logo.pick}
+              onLogoClear={logo.clear}
             />
             <div className="flex flex-1 flex-col gap-2 pt-1">
               <input

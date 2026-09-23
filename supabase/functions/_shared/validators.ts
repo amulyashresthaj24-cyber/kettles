@@ -15,6 +15,39 @@ export function validateRequired(data: Record<string, any>, fields: string[]): s
 /** Max JSON body size for authenticated CRUD edge functions (bytes). */
 export const MAX_JSON_BODY_BYTES = 65_536;
 
+/** Private bucket for project logos. Keep in sync with src/lib/project-logo.ts. */
+export const PROJECT_LOGO_BUCKET = 'project-logos';
+
+const LOGO_PATH =
+  /^([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.(webp|png)$/i;
+
+/** Normalize a client logoPath or return null when it is not owned by userId. */
+export function canonicalLogoPath(value: unknown, userId: string): string | null {
+  if (typeof value !== 'string') return null;
+  const match = LOGO_PATH.exec(value);
+  if (!match) return null;
+  if (match[1].toLowerCase() !== userId.toLowerCase()) return null;
+  return `${match[1].toLowerCase()}/${match[2].toLowerCase()}.${match[3].toLowerCase()}`;
+}
+
+/**
+ * Accept `logoPath` only as a storage path under the caller's folder.
+ * `null` / "" clears the key via mergeEntityData.
+ */
+export function normalizeLogoPath(
+  data: Record<string, any>,
+  userId: string
+): { data: Record<string, any>; error?: string } {
+  if (!Object.prototype.hasOwnProperty.call(data, 'logoPath')) return { data };
+  const value = data.logoPath;
+  if (value === null || value === undefined || value === '') {
+    return { data: { ...data, logoPath: null } };
+  }
+  const normalized = canonicalLogoPath(value, userId);
+  if (!normalized) return { data, error: 'Invalid logoPath' };
+  return { data: { ...data, logoPath: normalized } };
+}
+
 /** Strip internal / FK columns and dangerous prototype keys from client JSONB payloads. */
 export function sanitizeData(data: Record<string, any>): Record<string, any> {
   const {

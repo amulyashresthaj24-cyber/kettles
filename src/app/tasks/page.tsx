@@ -9,6 +9,7 @@ import { TaskArchive } from "@/components/TaskArchive";
 import { AddTaskModal } from "@/components/AddTaskModal";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { ProjectOptionLabel } from "@/components/ProjectMark";
 import { PageLayout, PageHeader, PageToolbar, PageContent } from "@/components/layout";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import type { Task, TaskStatus, Urgency } from "@/lib/types";
@@ -99,14 +100,14 @@ export default function TasksPage() {
               <Select
                 value={selectedProjectId ?? ""}
                 onChange={(e) => setSelectedProject(e.target.value || null)}
-                className="w-auto min-w-[140px]"
+                className="w-auto min-w-[180px]"
                 size="sm"
               >
                 <option value="">All projects</option>
                 <option value={NO_PROJECT}>No project</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name}
+                    <ProjectOptionLabel project={p} />
                   </option>
                 ))}
               </Select>

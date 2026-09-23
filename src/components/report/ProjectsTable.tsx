@@ -8,6 +8,7 @@ import { formatHourlyRate } from "@/lib/rates";
 import { cn } from "@/lib/utils";
 import type { ProjectRollup, ReportTotals } from "@/lib/report/data";
 import { ReportEmptyState } from "./ReportCard";
+import { ProjectMark } from "@/components/ProjectMark";
 
 const GRID = "grid grid-cols-[minmax(0,1fr)_110px_70px_110px_90px_110px_130px] items-center";
 
@@ -91,7 +92,16 @@ export function ProjectsTable({ projects, totals, groupByClient }: ProjectsTable
                         isExpanded ? "rotate-0" : "-rotate-90"
                       )}
                     />
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: proj.color }} />
+                    <ProjectMark
+                      project={{
+                        name: proj.name,
+                        color: proj.color,
+                        icon: proj.icon,
+                        logoPath: proj.logoPath,
+                        logoUrl: proj.logoUrl,
+                      }}
+                      size={16}
+                    />
                     <span className="text-[13px] font-medium text-text-primary truncate">{proj.name}</span>
                     <span className="text-[12px] text-text-faint shrink-0">({proj.tasks.length})</span>
                   </div>

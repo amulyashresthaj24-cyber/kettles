@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageLayout, PageHeader, PageContent } from "@/components/layout";
 import { BudgetAlerts } from "@/components/BudgetAlerts";
+import { ProjectMark } from "@/components/ProjectMark";
 import type { Task, Urgency, ProjectColor } from "@/lib/types";
 import { getProjectColor } from "@/lib/constants";
 import { getWeekRange } from "@/lib/report-dates";
@@ -617,10 +618,7 @@ export default function Dashboard() {
                     <div key={proj.id} className="flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span
-                            className="w-2 h-2 rounded-full shrink-0"
-                            style={{ background: getProjectColor(proj.color).hex }}
-                          />
+                          <ProjectMark project={proj} size={16} />
                           <span className="text-[13px] font-medium text-text-primary">
                             {proj.name}
                           </span>

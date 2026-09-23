@@ -37,14 +37,10 @@ import { getSupabaseClient } from "@/lib/supabase";
 import { isDesktop, clearAppUsage, getAppVersion } from "@/lib/desktop";
 import { announceDesktopUpdate, checkForDesktopUpdate } from "@/lib/updater";
 import { ALARM_SOUNDS, GOOGLE_CALENDAR_ENABLED } from "@/lib/constants";
-import type { Client, Project, ProjectColor } from "@/lib/types";
-import { PROJECT_COLOR_CLASSES } from "@/lib/constants";
+import type { Client, Project } from "@/lib/types";
+import { ProjectMark } from "@/components/ProjectMark";
 
 type SettingsTab = "profile" | "preferences" | "projects" | "clients" | "data" | "pet";
-
-const colorDot = (color: string) => {
-  return PROJECT_COLOR_CLASSES[color as ProjectColor] || "bg-slate-400";
-};
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -917,7 +913,7 @@ function SettingsContent() {
                             className="flex items-center justify-between px-md py-sm hover:bg-surface-mid transition-colors"
                           >
                             <div className="flex items-center gap-3">
-                              <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", colorDot(project.color))} />
+                              <ProjectMark project={project} size={24} />
                               <div className="flex flex-col">
                                 <span className={cn("text-[14px] font-semibold text-text-primary", isArchived && "text-text-muted line-through")}>
                                   {project.name}

@@ -3,12 +3,16 @@
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { formatDuration } from "@/lib/format";
 import { DurationTooltip } from "./chart-theme";
+import { ProjectMark } from "@/components/ProjectMark";
 
 export interface DonutSlice {
   id: string;
   name: string;
   seconds: number;
   color: string;
+  icon?: string;
+  logoPath?: string | null;
+  logoUrl?: string | null;
 }
 
 interface DistributionDonutProps {
@@ -75,10 +79,23 @@ export function DistributionDonut({ data, totalSeconds, maxSlices = 6 }: Distrib
           return (
             <div key={s.id} className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: s.color, opacity: s.id === "_others" ? 0.5 : 1 }}
-                />
+                {s.logoPath || s.logoUrl ? (
+                  <ProjectMark
+                    project={{
+                      name: s.name,
+                      color: s.color,
+                      icon: s.icon,
+                      logoPath: s.logoPath,
+                      logoUrl: s.logoUrl,
+                    }}
+                    size={14}
+                  />
+                ) : (
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: s.color, opacity: s.id === "_others" ? 0.5 : 1 }}
+                  />
+                )}
                 <span className="text-[12px] text-text-secondary truncate">{s.name}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
